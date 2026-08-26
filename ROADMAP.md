@@ -8,7 +8,70 @@ Items are numbered in the order they were found. Tags: **[verified]** confirmed 
 
 ---
 
-## P0 — Correctness blockers (blocks reliable ASO decisions)
+## P0 — Data integration: connect all available signals
+
+The skill currently operates on keyword rank (iTunes Search API) and hypothesis state.
+The full picture requires correlating **all available data sources** — only then can you answer
+"why did conversions drop?" or "which keyword change drove downloads?". Every item below
+represents a data source that is accessible but not yet wired into the skill's auto cycle.
+
+**R-23 [open] ASC App Analytics — impressions, product page views, installs, sessions**
+`asc analytics request --app APP_ID --access-type ONGOING` creates a reusable analytics report.
+Reports include: App Units (installs), Sessions, Active Devices, Crashes, Product Page Views,
+Impressions, Impressions Unique, Proceeds, Paying Users, In-App Purchases — all breakable by
+Territory, Source Type, Device, App Version.
+This is the funnel: Impressions → Product Page Views → Installs → Sessions.
+Without it, keyword rank improvements cannot be correlated to actual download changes.
+Implementation: add `scripts/fetch_analytics.py` that calls `asc analytics download` and
+appends to `metrics/weekly.csv` automatically each `auto` cycle.
+See: `asc analytics --help` for full endpoint map.
+
+**R-24 [open] RevenueCat — subscription revenue, trial conversion, churn**
+RevenueCat MCP server is available (configured in `.kiro/settings/mcp.json`).
+Exposes: MRR, ARR, active subscriptions, new subscribers, churned, trial starts,
+trial conversions, refunds — all filterable by country, product, date range.
+Integration target: `auto` cycle Step 2 pulls RevenueCat overview + country breakdown
+and writes to `metrics/weekly.csv` alongside ASC installs. This makes the full funnel visible:
+Keyword rank → Impressions → Installs → Trial → Paid → Churn.
+Key calls: `get_overview_metrics`, `get_chart_data` (mrr, trials, conversion_to_paying).
+
+**R-25 [open] ASC Sales & Trends reports — paid installs, in-app purchases per country**
+`asc analytics sales --vendor VENDOR_ID --type SALES --subtype SUMMARY --frequency DAILY`
+Returns daily/weekly unit sales and proceeds per country, per SKU. Complements RevenueCat
+(which tracks subscriptions) with one-time purchase and free download counts.
+Blocker: requires vendor number — not yet retrieved (FINDINGS.md §Vendor number search).
+Implementation: add `scripts/fetch_sales.py`.
+
+**R-26 [open] Apple Search Ads — impressions, taps, installs, CPA per keyword**
+`asc ads reports campaigns --org ORG_ID` returns campaign-level metrics.
+`asc ads reports adgroups` and `asc ads reports keywords` give keyword-level: impressions,
+taps, conversions, spend, CPA. This is the paid acquisition funnel complement to organic rank.
+Requires: active campaign for Hush in org 23140040. Once campaign exists, keyword popularity
+scores also unlock (R-10).
+Implementation: `scripts/fetch_ads_report.py` — weekly pull of keyword-level performance.
+
+**R-27 [open] PostHog — in-app behaviour (sessions, feature usage, paywall views)**
+PostHog is live (`phc_mOOeqJCMhLNkeyuzg4bizA0txCCdZnc3eiDnag1CNbj`, us.posthog.com).
+PostHog MCP is available in the session. Currently 0 events being tracked (not wired up in app).
+When wired: tracks which sounds are played, timer usage, settings opens, paywall impressions,
+paywall conversions. Completes the in-app funnel: Install → First Sound Played → Paywall → Buy.
+Implementation: 1) Wire PostHog events in Swift app (separate task). 2) Add `scripts/fetch_posthog.py`
+to pull weekly active users, paywall conversion rate into `metrics/weekly.csv`.
+
+**R-28 [open] Unified weekly metrics schema**
+`metrics/weekly.csv` currently has gaps and inconsistent columns. With all sources above, define
+a canonical schema:
+```
+date, impressions, page_views, installs, sessions, active_devices,
+mrr_usd, new_subscribers, trials_started, trial_conversion_pct,
+top_keyword_rank_us, top_keyword_rank_de, reviews_count, crashes
+```
+Every `auto` cycle Step 2 fills what it can, marks the rest `absent:<reason>`.
+This is the single source of truth for "are we growing?".
+
+---
+
+## P1 — Correctness: existing keyword ranking
 
 **R-10 [open] Apple Ads popularity scores as volume proxy**
 `rank_audit.py` currently uses `total_search_results` as volume proxy (rough ±300% accuracy).
