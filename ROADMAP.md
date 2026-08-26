@@ -52,11 +52,37 @@ Implementation: `scripts/fetch_ads_report.py` — weekly pull of keyword-level p
 
 **R-27 [open] PostHog — in-app behaviour (sessions, feature usage, paywall views)**
 PostHog is live (`phc_mOOeqJCMhLNkeyuzg4bizA0txCCdZnc3eiDnag1CNbj`, us.posthog.com).
-PostHog MCP is available in the session. Currently 0 events being tracked (not wired up in app).
+PostHog MCP is available in the session. Currently 0 events being tracked — SDK is initialized
+(key in AppConfig.xcconfig) but no `PostHog.shared.capture()` calls exist in the Swift code.
 When wired: tracks which sounds are played, timer usage, settings opens, paywall impressions,
 paywall conversions. Completes the in-app funnel: Install → First Sound Played → Paywall → Buy.
-Implementation: 1) Wire PostHog events in Swift app (separate task). 2) Add `scripts/fetch_posthog.py`
-to pull weekly active users, paywall conversion rate into `metrics/weekly.csv`.
+
+**Swift implementation needed** (minimal viable set):
+```swift
+// WhiteNoiseApp.swift — already has PostHog.setup(), add after:
+PostHog.shared.capture("app_opened")
+
+// WhiteNoisesViewModel+Playback.swift — when sound starts:
+PostHog.shared.capture("sound_played", properties: [
+    "sound_name": sound.name,
+    "sound_category": sound.category
+])
+
+// PaywallView or wherever paywall is shown:
+PostHog.shared.capture("paywall_viewed", properties: ["source": "settings|organic|..."])
+PostHog.shared.capture("paywall_tapped", properties: ["plan": "monthly|annual|lifetime"])
+
+// TimerService or wherever timer is set:
+PostHog.shared.capture("timer_set", properties: ["duration_minutes": minutes])
+```
+
+These 5 events answer: Do users actually play sounds? Which ones? Do they see the paywall?
+Do they tap? What plan do they prefer? Without this, conversion optimization is blind.
+Implementation: add calls in Swift app → commit → TestFlight build → verify events appear in
+PostHog (posthog.com/project/222865). Takes ~30 minutes to implement.
+
+Implementation: add `scripts/fetch_posthog.py` to pull weekly active users, paywall conversion
+rate into `metrics/weekly.csv`.
 
 **R-28 [open] Unified weekly metrics schema**
 `metrics/weekly.csv` currently has gaps and inconsistent columns. With all sources above, define
