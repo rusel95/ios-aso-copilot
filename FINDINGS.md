@@ -16,11 +16,23 @@ Each finding is dated and sourced. Findings that drove roadmap items name the it
 - `POST /v5/search/targeting/keywords/suggestions` returns HTTP 404 for Hush `adamId=6449785515`
   because the app is not associated with orgId `23140040`
 
+### UI correction (2026-08-26)
+Apple Ads UI does **not** have a `Settings → Apps → Add App` screen — that step does not exist.
+Apps are available across all orgs on the same Apple Developer account automatically.
+Hush appears in the app chooser within org 23140040 without any manual step.
+**However**: `POST /v5/search/targeting/keywords/suggestions` with `adamId=6449785515` still
+returns HTTP 404 from org 23140040. The UI app picker and the API access are separate concerns.
+Likely reason: Hush has never had a campaign in that org, so the API lacks the campaign context
+it needs to return suggestions. Creating any campaign (even $0 budget, never started) may fix it.
+
 ### What's needed to get real popularity scores for Hush
-1. Go to [ads.apple.com](https://ads.apple.com) → sign in with Hush's Apple ID
-2. Either create a new ASA org for Hush, or add Hush to the existing Compresso org:
-   `Settings → Apps → Add App → search "Hush"` (adamId 6449785515)
-3. Once the app is in the org, configure `asc ads`:
+1. Go to [ads.apple.com](https://ads.apple.com) → org 23140040 (Compresso Ads)
+2. Create a new Search Ads campaign → choose "Hush: White Noise & Sleep Aid" → any ad group
+   → Keywords step. You will see Popularity column (5–100). No need to fund or launch.
+3. Optionally: keep the draft campaign to enable the API endpoint:
+   `POST /v5/search/targeting/keywords/suggestions` with `adamId=6449785515` may work after
+   a campaign shell exists. Test with the curl command below after creating the draft.
+4. Configure `asc ads` if needed:
    ```bash
    asc ads auth login --name "Hush Ads" \
      --client-id "SEARCHADS.xxx" \
