@@ -37,11 +37,24 @@ substantially similar `change`. If one exists, refuse the new hypothesis until:
 Without this check the ledger is a diary nobody rereads, and the same idea comes back every quarter
 wearing a new hypothesis number.
 
-## Step 2 — One variable
+## Step 2 — One variable per market (Market isolation & parallel execution)
 
-In `P3-measure`, `change` names exactly one variable. In `P2-cold`, this discipline is suspended —
-say so and why (FR-014, `SKILL.md` Step 3) — because at low volume the funnel can't isolate one
-variable's effect anyway; rank is the signal instead (Step 5 below).
+**Market isolation principle**: Each App Store storefront (US, DE, JP, UA, FR, KR, BR, ES, etc.) is a completely independent search ecosystem with its own search index, query vocabulary, competitor landscape, and audience.
+
+- **Within one market**: exactly one variable per iteration (e.g. do not change both keywords and screenshots in US simultaneously; isolate the causal variable).
+- **Across different markets**: multiple market-specific hypotheses can and should run concurrently in the same app release (e.g. up to 20–25 parallel hypotheses, exactly 1 per market: H006 for DE, H009 for FR, H010 for JP, H011 for KO, H013 for UA, etc.). Because regional App Stores are disjoint segments, they do not contaminate each other's primary rank or download signals (FR-017).
+- In `P2-cold`, volume is below threshold, so rank across the market's query basket is the primary signal (Step 5 below).
+
+## Step 2.1 — Market Query Basket & Snapshots
+
+A hypothesis for a market is not evaluated on a single keyword in isolation. Updating metadata causes Apple to re-index token combinations across Title, Subtitle, and Keyword fields, shifting the entire search landscape for that country.
+
+- **Query basket**: 20–100 queries per market (proportional to market weight) harvested from Apple autocomplete hints.
+- **Snapshot capture**: Every audit run records a structured JSON snapshot (`marketing/reports/snapshots/rank_snapshot_YYYY-MM-DD.json`) capturing the complete state of all queries in the top-200 for each country (`our_rank`, `total_results`, `volume_proxy`, `difficulty`, `opportunity`, `top_competitors`).
+- **Evaluating market hypotheses**: The verdict is judged by comparing `baseline_snapshot` (at `went_live`) against `verdict_snapshot` (at `went_live + 21 days`):
+  - *Net new ranks*: count of newly visible queries in top-200 (e.g. from 4/30 to 12/30).
+  - *Target cluster movement*: rank shifts for the specific cluster targeted by the hypothesis (e.g. colour-noise terms in DE, rain/sleep terms in KO).
+  - *Market opportunity delta*: overall opportunity score improvement.
 
 ## Step 3 — Measurement window
 

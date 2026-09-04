@@ -807,9 +807,14 @@ def main() -> None:
     report = format_report(args.bundle, results)
 
     if args.output:
-        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.output).write_text(report)
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(report)
         print(f"\nReport → {args.output}")
+        # Save structured machine-readable snapshot JSON alongside markdown report
+        json_path = out_path.with_suffix(".json")
+        json_path.write_text(json.dumps(results, indent=2, ensure_ascii=False))
+        print(f"Snapshot JSON → {json_path}")
     else:
         print("\n" + report)
 

@@ -187,7 +187,7 @@ cycle's work):
    if not)
 4. Judge every hypothesis whose window has closed (`references/aso-loop.md`); write verdict +
    reasoning
-5. Draft the next hypothesis; refuse it if any of the four required parts is missing
+5. Draft the next hypothesis (or batch of market-isolated hypotheses, exactly 1 per market for eligible markets with identified opportunities); refuse any hypothesis if any of the four required parts is missing
 6. Prepare everything preparable up to the fence, exploiting the `plan`/`approve` vs `apply`/`push`
    asymmetry so only the crossing itself waits (FR-022): pull live metadata with `asc metadata
    pull`, draft the change across all four tracked locales, validate character limits offline

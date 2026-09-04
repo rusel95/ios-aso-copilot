@@ -98,8 +98,7 @@ guidance.
   hypothesis cannot be judged; mark it `abandoned` with that reason.
 - No verdict before `went_live + window_days` has elapsed. A window shorter or longer than the
   default is accepted, with the reason recorded in the file.
-- Two hypotheses may both be `live` only if their `primary_signal` targets are disjoint. Otherwise
-  refuse the second and say which one it would contaminate.
+- **Market concurrency rule**: Multiple hypotheses may run concurrently in the same app release if their target markets are disjoint (e.g. H001 in US, H003 in DE, H010 in JP can all be `live` concurrently, up to 1 per market). Two competing keyword hypotheses targeting the same market cannot run concurrently because they would contaminate each other.
 - **Prior-verdict guard**: before drafting or accepting a hypothesis, search `hypotheses/` for a
   settled `no-effect` or `adverse` verdict on the same change. If one exists, refuse until it is
   cited and what has changed since is stated. Without this check the ledger is written but never

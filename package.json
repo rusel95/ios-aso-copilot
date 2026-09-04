@@ -1,8 +1,16 @@
 {
   "name": "ios-marketing-ops",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "App Store marketing operations skill for Claude/Kiro AI agents",
-  "keywords": ["aso", "app-store", "marketing", "claude", "kiro", "ai-agent", "skill"],
+  "keywords": [
+    "aso",
+    "app-store",
+    "marketing",
+    "claude",
+    "kiro",
+    "ai-agent",
+    "skill"
+  ],
   "license": "MIT",
   "author": "Ruslan Popesku",
   "repository": {

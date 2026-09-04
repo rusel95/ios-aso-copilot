@@ -7,6 +7,15 @@ followed here. Changes are pushed to [github.com/rusel95/ios-marketing-ops](http
 
 ---
 
+## v0.3.0 — Multi-market hypothesis concurrency & full JSON snapshot engine — 2026-09-04
+
+- **Market concurrency rule**: Explicitly formalized that multiple market-specific hypotheses (1 per market) can run concurrently in the same app release across up to 25 regional App Store markets (regional App Stores are disjoint ecosystems that do not cross-contaminate).
+- **Market query basket & snapshots**: Hypotheses now evaluate against the full market query basket (20–100 queries) rather than a single isolated keyword.
+- **rank_audit.py JSON snapshots**: Automatically saves structured JSON alongside Markdown reports (`*.json`) capturing full top-200 state, competitor data, and opportunity scores for automated diffing.
+- **diff_snapshots.py**: New comparison tool to compute exact before/after diffs between any two snapshots across all markets.
+
+---
+
 ## v0.2.0 — rank_audit.py + hint expansion + npx installer — 2026-08-26
 
 Closes roadmap items: R-01, R-02, R-03, R-04.
