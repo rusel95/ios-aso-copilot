@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 import time
 import urllib.error
@@ -92,27 +93,27 @@ ALL_MARKETS = list(MARKET_WEIGHT.keys())
 SEED_TERMS: dict[str, list[str]] = {
     "us": ["white noise", "sleep sounds", "brown noise", "rain sounds",
            "nature sounds", "baby sleep", "ambient sounds", "focus sounds"],
-    "gb": ["white noise", "sleep sounds", "rain sounds", "baby sleep"],
-    "de": ["weißes rauschen", "schlafgeräusche", "naturgeräusche", "regengeräusche"],
-    "fr": ["bruit blanc", "sons pour dormir", "sons de pluie", "sons nature"],
+    "gb": ["white noise", "sleep sounds", "brown noise", "rain sounds", "baby sleep"],
+    "de": ["weißes rauschen", "braunes rauschen", "schlafgeräusche", "naturgeräusche", "regengeräusche"],
+    "fr": ["bruit blanc", "bruit brun", "sons pour dormir", "sons de pluie", "sons nature"],
     "jp": ["ホワイトノイズ", "睡眠音楽", "自然音", "雨音"],
     "kr": ["백색소음", "수면 소리", "빗소리", "자연 소리"],
     "cn": ["白噪声", "睡眠音乐", "自然声音", "助眠"],
     "tw": ["白噪音", "睡眠音樂", "自然聲音"],
     "br": ["ruído branco", "sons para dormir", "sons da natureza", "sons da chuva"],
     "ru": ["белый шум", "звуки для сна", "звуки природы", "шум дождя"],
-    "ua": ["білий шум", "звуки для сну", "шум дощу", "звуки природи"],
+    "ua": ["білий шум", "коричневий шум", "звуки для сну", "шум дощу", "звуки природи"],
     "es": ["ruido blanco", "sonidos para dormir", "sonidos de lluvia", "ruido marrón"],
     "mx": ["ruido blanco", "sonidos para dormir", "sonidos relajantes"],
     "it": ["rumore bianco", "suoni per dormire", "suoni natura"],
     "pl": ["biały szum", "dźwięki do snu", "dźwięki natury"],
-    "nl": ["witte ruis", "slaapgeluiden", "natuurgeluiden"],
+    "nl": ["witte ruis", "bruine ruis", "slaapgeluiden", "natuurgeluiden"],
     "se": ["vitt brus", "sovljud", "naturljud"],
     "tr": ["beyaz gürültü", "uyku sesleri", "doğa sesleri"],
     "in": ["white noise", "sleep sounds", "rain sounds", "baby sleep"],
     "sa": ["ضوضاء بيضاء", "أصوات النوم", "أصوات الطبيعة"],
     "il": ["רעש לבן", "צלילים לשינה", "צלילי טבע"],
-    "au": ["white noise", "sleep sounds", "rain sounds", "nature sounds"],
+    "au": ["white noise", "brown noise", "sleep sounds", "rain sounds", "nature sounds"],
     "ca": ["white noise", "sleep sounds", "brown noise", "baby sleep sounds"],
     "sg": ["white noise", "sleep sounds", "nature sounds"],
     "hk": ["白噪音", "睡眠音樂", "自然聲音"],
@@ -469,30 +470,33 @@ def fetch_hints(term: str, country: str) -> list[str]:
         return []
 
 
-def expand_keywords(seeds: list[str], country: str, budget: int) -> list[str]:
+def expand_keywords(seeds: list[str], country: str, budget: int) -> tuple[list[str], dict[str, int]]:
     """
     Expand seed terms using Apple autocomplete hints.
-    Returns deduplicated list of up to `budget` terms, seeds-first.
+    Returns deduplicated list of up to `budget` terms, seeds-first,
+    along with a dictionary mapping term -> hint_rank (1 = highest popularity).
     """
     seen: set[str] = set()
     result: list[str] = []
+    hint_ranks: dict[str, int] = {}
 
-    def add(term: str) -> None:
+    def add(term: str, rank: int) -> None:
         t = term.strip().lower()
         if t and t not in seen:
             seen.add(t)
             result.append(term.strip())
+            hint_ranks[term.strip()] = rank
 
-    # Seeds always included first
+    # Seeds always included first (rank 1 = seed/primary head term)
     for s in seeds:
-        add(s)
+        add(s, 1)
 
     # Level 1: hints for each seed
     level1: list[str] = []
     for seed in seeds:
         hints = fetch_hints(seed, country)
-        for h in hints:
-            add(h)
+        for i, h in enumerate(hints):
+            add(h, i + 1)
             level1.append(h)
         time.sleep(0.2)
 
@@ -501,11 +505,11 @@ def expand_keywords(seeds: list[str], country: str, budget: int) -> list[str]:
         for term in level1[:10]:  # limit level-2 expansion to top 10 hints
             if len(result) >= budget:
                 break
-            for h in fetch_hints(term, country):
-                add(h)
+            for i, h in enumerate(fetch_hints(term, country)):
+                add(h, 10 + i + 1)
             time.sleep(0.2)
 
-    return result[:budget]
+    return result[:budget], hint_ranks
 
 
 def search_itunes(term: str, country: str, limit: int = 200) -> list[dict]:
@@ -520,7 +524,7 @@ def search_itunes(term: str, country: str, limit: int = 200) -> list[dict]:
         return []
 
 
-def audit_keyword(term: str, country: str, bundle_id: str) -> dict:
+def audit_keyword(term: str, country: str, bundle_id: str, hint_rank: int = 20) -> dict:
     results = search_itunes(term, country)
     total = len(results)
 
@@ -531,17 +535,38 @@ def audit_keyword(term: str, country: str, bundle_id: str) -> dict:
             break
 
     competitors = [a for a in results[:10] if a.get("bundleId") != bundle_id][:3]
-    top1 = competitors[0] if competitors else {}
+    top1 = competitors[0] if len(competitors) > 0 else {}
+    top2 = competitors[1] if len(competitors) > 1 else {}
+    top3 = competitors[2] if len(competitors) > 2 else {}
+
+    top3_ratings = [c.get("userRatingCount", 0) for c in competitors]
+    top3_avg_ratings = int(sum(top3_ratings) / max(len(top3_ratings), 1))
+    top3_names = [c.get("trackName", "") for c in competitors]
+
+    term_words = [w for w in re.sub(r'[^\w\s]', '', term.lower()).split() if len(w) > 1]
+    top3_has_title_match = False
+    for name in top3_names:
+        clean_name = re.sub(r'[^\w\s]', '', name.lower())
+        if term.lower() in name.lower() or (term_words and all(w in clean_name for w in term_words)):
+            top3_has_title_match = True
+            break
 
     return {
         "term": term,
         "country": country,
+        "hint_rank": hint_rank,
         "total_results": total,
         "our_rank": our_rank,
         "top1_name": top1.get("trackName", "?")[:30],
         "top1_ratings_total": top1.get("userRatingCount", 0),
         "top1_ratings_current": top1.get("userRatingCountForCurrentVersion", 0),
         "top1_score": top1.get("averageUserRating", 0.0),
+        "top2_name": top2.get("trackName", "?")[:30] if top2 else "—",
+        "top2_ratings_total": top2.get("userRatingCount", 0) if top2 else 0,
+        "top3_name": top3.get("trackName", "?")[:30] if top3 else "—",
+        "top3_ratings_total": top3.get("userRatingCount", 0) if top3 else 0,
+        "top3_avg_ratings": top3_avg_ratings,
+        "top3_has_title_match": top3_has_title_match,
     }
 
 
@@ -549,11 +574,29 @@ def compute_scores(row: dict, country: str) -> dict:
     weight = MARKET_WEIGHT.get(country, 3)
     total  = row["total_results"]
     rank   = row["our_rank"]
-    top1r  = row["top1_ratings_total"]
+    hint_rank = row.get("hint_rank", 20)
+    top3_avg = row.get("top3_avg_ratings", row.get("top1_ratings_total", 0))
+    top3_title_match = row.get("top3_has_title_match", False)
 
-    volume_proxy = min(100, int(math.log10(max(total, 1) + 1) / math.log10(201) * 100))
-    difficulty   = min(100, int(math.log10(max(top1r, 1) + 1) / math.log10(100001) * 100))
+    # 1. Search Popularity (0-100): derived from Apple hint position + search result saturation
+    if hint_rank == 1:       hint_pts = 65
+    elif hint_rank == 2:     hint_pts = 58
+    elif hint_rank == 3:     hint_pts = 52
+    elif hint_rank <= 5:     hint_pts = 45
+    elif hint_rank <= 10:    hint_pts = 38
+    elif hint_rank <= 20:    hint_pts = 26
+    else:                    hint_pts = 15
 
+    sat_pts = min(35, int((total / 200.0) * 35))
+    popularity = min(100, hint_pts + sat_pts)
+
+    # 2. Difficulty (0-100): based on Top-3 competitor review counts (log scale)
+    difficulty = min(100, int(math.log10(max(top3_avg, 1) + 1) / math.log10(100001) * 100))
+
+    # 3. KEI (Keyword Efficiency Index): Popularity^2 / max(Difficulty, 1)
+    kei = round((popularity ** 2) / max(difficulty, 1), 1)
+
+    # 4. Standard Opportunity Score
     if rank is None:        rank_factor = 0.005
     elif rank <= 5:         rank_factor = 1.0
     elif rank <= 10:        rank_factor = 0.85
@@ -564,15 +607,53 @@ def compute_scores(row: dict, country: str) -> dict:
 
     opportunity = (
         weight
-        * (volume_proxy / 10)
+        * (popularity / 10)
         * rank_factor
         * (1 - difficulty / 130)
     )
 
+    # 5. Top-3 Target Opportunity Score (Probability of reaching Top 3)
+    if rank is not None:
+        if rank <= 3:      t3_rank = 1.0
+        elif rank <= 10:   t3_rank = 0.95
+        elif rank <= 30:   t3_rank = 0.85
+        elif rank <= 60:   t3_rank = 0.70
+        elif rank <= 100:  t3_rank = 0.50
+        elif rank <= 150:  t3_rank = 0.35
+        else:              t3_rank = 0.20
+    else:
+        t3_rank = 0.10
+
+    # Vulnerability multiplier: if top 3 apps do not have exact keyword in Title,
+    # putting the keyword in our Title gives a 1.5x algorithmic boost!
+    vuln_multiplier = 1.5 if not top3_title_match else 1.0
+    competition_ease = max(0.1, (100 - difficulty * 0.75) / 100.0)
+    top3_score = round(popularity * t3_rank * vuln_multiplier * competition_ease, 1)
+
+    # Actionable strategy classification
+    if not top3_title_match and rank is not None and rank <= 70:
+        strategy = "🔥 Put in Title (Top 3 have no title match!)"
+    elif not top3_title_match and (rank is None or rank > 70) and difficulty <= 35:
+        strategy = "🌱 Put in Title (uncontested niche with title gap)"
+    elif rank is not None and rank <= 30:
+        strategy = "⚡ Put in Title/Subtitle (immediate striking distance)"
+    elif rank is not None and rank <= 80:
+        strategy = "🎯 Put in Subtitle (push from Top 80 into Top 30)"
+    elif difficulty <= 25:
+        strategy = "💡 Put in Subtitle/Keywords (low competition niche)"
+    elif popularity >= 60:
+        strategy = "🏔️ Long-term volume term (requires review base)"
+    else:
+        strategy = "📝 Add to Keywords field"
+
     return {
-        "volume_proxy": volume_proxy,
+        "volume_proxy": popularity,
+        "popularity": popularity,
         "difficulty": difficulty,
+        "kei": kei,
+        "top3_score": top3_score,
         "opportunity": round(opportunity, 2),
+        "strategy": strategy,
     }
 
 
@@ -604,24 +685,28 @@ def run_audit(
         budget = _query_budget(country)
         flag = FLAGS.get(country, country.upper())
 
+        hint_ranks: dict[str, int] = {}
         if manual_keywords and country in manual_keywords:
             queries = manual_keywords[country][:budget]
+            hint_ranks = {q: 20 for q in queries}
             src = "manual"
         elif expand_hints and country in STOREFRONTS:
             seeds = SEED_TERMS.get(country, [])
             print(f"  {flag} {country.upper():3} expanding hints from {len(seeds)} seeds… ", end="", flush=True)
-            queries = expand_keywords(seeds, country, budget)
+            queries, hint_ranks = expand_keywords(seeds, country, budget)
             src = f"hints({len(queries)})"
         else:
             fallback = FALLBACK_KEYWORDS.get(country, [])
             queries = fallback[:budget]
+            hint_ranks = {q: 20 for q in queries}
             src = f"fallback({len(queries)})"
 
         print(f"  {flag} {country.upper():3} [{src}] {len(queries)} queries…", end=" ", flush=True)
 
         rows = []
         for term in queries:
-            row = audit_keyword(term, country, bundle_id)
+            h_rank = hint_ranks.get(term, 20)
+            row = audit_keyword(term, country, bundle_id, hint_rank=h_rank)
             scores = compute_scores(row, country)
             rows.append({**row, **scores})
             time.sleep(delay)
@@ -647,26 +732,61 @@ def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
         for country, rows in results.items()
     }
 
+    best_overall_rank = min((r["our_rank"] for r in ranked_rows), default=None)
+
     lines += [
-        f"# ASO Rank Audit",
+        f"# ASO Rank Audit & Top-3 Opportunity Roadmap",
         f"**Bundle:** `{bundle_id}`  |  **Date:** {today}",
         f"[live:itunes-search-api@{today}]",
         "",
         "## Global Summary",
         "",
-        f"| | |",
+        f"| Metric | Value |",
         f"|---|---|",
         f"| Markets audited | {len(results)} |",
-        f"| Total queries | {len(all_rows)} |",
+        f"| Total queries evaluated | {len(all_rows)} |",
         f"| Visible in top-200 | {len(ranked_rows)} ({len(ranked_rows)*100//max(len(all_rows),1)}%) |",
-        f"| Markets with any visibility | {sum(1 for rows in results.values() if any(r['our_rank'] for r in rows))} |",
+        f"| Markets with visibility | {sum(1 for rows in results.values() if any(r['our_rank'] for r in rows))} |",
+        f"| Best overall rank | {'#' + str(best_overall_rank) if best_overall_rank else '—'} |",
         "",
-        "### Market Opportunity Ranking",
+    ]
+
+    # TOP 3 BREAKTHROUGH OPPORTUNITIES (SORTED BY TOP-3 SCORE)
+    top3_sorted = sorted(all_rows, key=lambda r: -r.get("top3_score", 0))[:40]
+
+    lines += [
+        "---",
         "",
-        "_Opportunity = market_weight × search_volume × rank_reachability × (1 − difficulty)_",
-        "_Higher = more potential downloads available from improving here_",
+        "## 🏆 Top Opportunities to Reach TOP 3 (Prioritized)",
         "",
-        "| # | Market | Opp Score | Best rank | Visible | Top opportunity keyword |",
+        "_Top-3 Score = Popularity × Proximity (our rank) × Title Vulnerability (1.5x if top 3 lack title match) × Competition Ease_",
+        "_Goal: Find the fastest, highest-probability moves into Top 3 anywhere in the world._",
+        "",
+        "| # | Market | Keyword | Rank | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor (Reviews) | Actionable Strategy |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+
+    for i, r in enumerate(top3_sorted, 1):
+        flag = FLAGS.get(r["country"], r["country"].upper())
+        rank_str = f"#{r['our_rank']}" if r["our_rank"] else "unranked"
+        title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
+        top1_info = f"{r['top1_name'][:20]} ({r['top1_ratings_total']:,})"
+        lines.append(
+            f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` | {rank_str} "
+            f"| {r['popularity']} | {r['difficulty']} | {r['kei']} | **{r['top3_score']}** "
+            f"| {title_gap_str} | {top1_info} | {r.get('strategy', '—')} |"
+        )
+    lines.append("")
+
+    # Market Opportunity Ranking
+    lines += [
+        "---",
+        "",
+        "### Market Opportunity Ranking (Macro Overview)",
+        "",
+        "_Opportunity = market_weight × (popularity / 10) × rank_reachability × (1 − difficulty / 130)_",
+        "",
+        "| # | Market | Opp Score | Best rank | Visible | Best Top-3 Target Keyword |",
         "|---|---|---|---|---|---|",
     ]
 
@@ -676,12 +796,12 @@ def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
         flag = FLAGS.get(country, country.upper())
         best_rank = min((r["our_rank"] for r in rows if r["our_rank"]), default=None)
         n_ranked = sum(1 for r in rows if r["our_rank"])
-        top_opp_row = max(rows, key=lambda r: r["opportunity"])
+        top_t3_row = max(rows, key=lambda r: r.get("top3_score", 0))
         lines.append(
             f"| {i} | {flag} {country.upper()} | **{opp:.0f}** | "
             f"{'#'+str(best_rank) if best_rank else '—'} | "
             f"{n_ranked}/{len(rows)} | "
-            f"`{top_opp_row['term']}` ({top_opp_row['opportunity']:.0f}) |"
+            f"`{top_t3_row['term']}` (T3: {top_t3_row['top3_score']}, #{top_t3_row['our_rank'] or '—'}) |"
         )
     lines.append("")
 
@@ -691,53 +811,55 @@ def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
         rows = results[country]
         flag = FLAGS.get(country, country.upper())
         weight = MARKET_WEIGHT.get(country, 3)
-        ranked = sorted([r for r in rows if r["our_rank"]], key=lambda r: r["our_rank"])
-        unranked = sorted([r for r in rows if not r["our_rank"]], key=lambda r: -r["opportunity"])
+        ranked = sorted([r for r in rows if r["our_rank"]], key=lambda r: -r.get("top3_score", 0))
+        unranked = sorted([r for r in rows if not r["our_rank"]], key=lambda r: -r.get("top3_score", 0))
 
         lines += [
-            f"### {flag} {country.upper()}  ·  Weight {weight}/100  ·  Total opp: {opp:.0f}",
+            f"### {flag} {country.upper()}  ·  Weight {weight}/100  ·  Total Opp: {opp:.0f}",
             "",
         ]
         if ranked:
             lines += [
-                "**Ranked (top-200):**",
-                "| Rank | Keyword | Volume | Difficulty | Opp | Top competitor |",
-                "|---|---|---|---|---|---|",
+                "**Ranked Keywords (ordered by Top-3 Feasibility):**",
+                "| Rank | Keyword | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor | Strategy |",
+                "|---|---|---|---|---|---|---|---|---|",
             ]
             for r in ranked:
+                title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
                 lines.append(
-                    f"| #{r['our_rank']} | `{r['term']}` | {vol_label(r['volume_proxy'])} "
-                    f"| {diff_label(r['difficulty'])} | {r['opportunity']:.0f} "
-                    f"| {r['top1_name']} ({r['top1_ratings_total']:,}) |"
+                    f"| #{r['our_rank']} | `{r['term']}` | {r['popularity']} | {r['difficulty']} "
+                    f"| {r['kei']} | **{r['top3_score']}** | {title_gap_str} "
+                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {r.get('strategy', '—')} |"
                 )
             lines.append("")
 
         if unranked:
             lines += [
-                "**Not ranked — top opportunities (keyword gap):**",
-                "| Keyword | Volume | Difficulty | Opp | Top competitor |",
-                "|---|---|---|---|---|",
+                "**Unranked Opportunities (Keyword Gaps):**",
+                "| Keyword | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor | Strategy |",
+                "|---|---|---|---|---|---|---|---|",
             ]
-            for r in unranked[:8]:
+            for r in unranked[:6]:
+                title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
                 lines.append(
-                    f"| `{r['term']}` | {vol_label(r['volume_proxy'])} "
-                    f"| {diff_label(r['difficulty'])} | {r['opportunity']:.0f} "
-                    f"| {r['top1_name']} ({r['top1_ratings_total']:,}) |"
+                    f"| `{r['term']}` | {r['popularity']} | {r['difficulty']} "
+                    f"| {r['kei']} | **{r['top3_score']}** | {title_gap_str} "
+                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {r.get('strategy', '—')} |"
                 )
             lines.append("")
 
     # Global leaderboard
     lines += [
-        "---", "", "## Global Keyword Opportunity Leaderboard (top 40)", "",
-        "| # | Market | Keyword | Rank | Volume | Difficulty | Opp |",
-        "|---|---|---|---|---|---|---|",
+        "---", "", "## Global Keyword Opportunity Leaderboard (top 40 by Market Opp)", "",
+        "| # | Market | Keyword | Rank | Pop | Diff | KEI | Opp |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for i, r in enumerate(sorted(all_rows, key=lambda r: -r["opportunity"])[:40], 1):
         flag = FLAGS.get(r["country"], r["country"].upper())
         lines.append(
             f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` "
             f"| {'#'+str(r['our_rank']) if r['our_rank'] else 'absent'} "
-            f"| {vol_label(r['volume_proxy'])} | {diff_label(r['difficulty'])} "
+            f"| {r['popularity']} | {r['difficulty']} | {r['kei']} "
             f"| **{r['opportunity']:.0f}** |"
         )
     lines.append("")
