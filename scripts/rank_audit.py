@@ -119,6 +119,34 @@ SEED_TERMS: dict[str, list[str]] = {
     "hk": ["白噪音", "睡眠音樂", "自然聲音"],
 }
 
+BABY_SEED_TERMS: dict[str, list[str]] = {
+    "us": ["baby tracker", "newborn tracker", "baby log", "breastfeeding tracker", "baby feeding", "baby sleep tracker", "diaper tracker", "baby routine"],
+    "gb": ["baby tracker", "newborn tracker", "baby log", "breastfeeding tracker", "nappy tracker", "baby sleep tracker"],
+    "de": ["baby tracker", "baby schlaf", "stillen tracker", "baby füttern", "baby tagebuch", "baby log"],
+    "fr": ["suivi bebe", "bebe tracker", "allaitement tracker", "sommeil bebe", "journal bebe"],
+    "jp": ["授乳記録", "育児記録", "赤ちゃん 睡眠", "ベビートラッカー", "授乳タイマー"],
+    "kr": ["아기 수면", "수유 기록", "육아 일기", "베이비 트래커", "아기 성장"],
+    "cn": ["宝宝记录", "喂奶记录", "母乳喂养", "婴儿睡眠", "宝宝日记"],
+    "tw": ["寶寶記錄", "母乳餵養", "嬰兒睡眠", "寶寶日記", "育兒記錄"],
+    "br": ["amamentação", "sono do bebe", "fraldas bebe", "rotina do bebe", "baby tracker"],
+    "ru": ["трекер малыша", "дневник малыша", "кормление ребенка", "сон ребенка", "грудное вскармливание"],
+    "ua": ["трекер малюка", "щоденник малюка", "годування дитини", "трекер годування", "сон дитини", "малятко", "baby tracker", "baby log"],
+    "es": ["seguimiento bebe", "bebe tracker", "lactancia materna", "sueño bebe", "pañales bebe"],
+    "mx": ["seguimiento bebe", "bebe tracker", "lactancia materna", "sueño bebe", "registro bebe"],
+    "it": ["baby tracker", "allattamento", "sonno neonato", "diario neonato", "crescita neonato"],
+    "pl": ["baby tracker", "karmienie piersią", "sen dziecka", "dziennik dziecka", "rozwój dziecka"],
+    "nl": ["baby tracker", "borstvoeding", "baby slaap", "baby logboek", "baby dagboek"],
+    "se": ["baby tracker", "amma tracker", "sova bebis", "bebis app"],
+    "tr": ["bebek takip", "bebek emzirme", "bebek uyku", "bebek günlüğü"],
+    "in": ["baby tracker", "newborn tracker", "breastfeeding tracker", "baby sleep", "baby log"],
+    "sa": ["متتبع الطفل", "تتبع الرضاعة", "نوم الرضيع", "يوميات الطفل"],
+    "il": ["מעקב תינוק", "מעקב הנקה", "שינת תינוק", "יומן תינוק"],
+    "au": ["baby tracker", "newborn tracker", "baby log", "breastfeeding tracker", "nappy tracker", "baby sleep"],
+    "ca": ["baby tracker", "newborn tracker", "baby log", "breastfeeding tracker", "baby feeding", "baby sleep"],
+    "sg": ["baby tracker", "newborn tracker", "baby log", "breastfeeding tracker"],
+    "hk": ["寶寶記錄", "母乳餵養", "嬰兒睡眠", "baby tracker"],
+}
+
 # Fallback keyword lists when hint expansion fails or is skipped.
 # Deliberately INCOMPLETE — the right path is hint expansion, not manual lists.
 # Sized proportionally to market weight.
@@ -676,6 +704,8 @@ def run_audit(
     markets: list[str],
     expand_hints: bool = True,
     manual_keywords: Optional[dict[str, list[str]]] = None,
+    custom_seeds: Optional[list[str]] = None,
+    niche: str = "whitenoise",
     delay: float = 0.35,
 ) -> dict[str, list[dict]]:
     all_results: dict[str, list[dict]] = {}
@@ -691,7 +721,12 @@ def run_audit(
             hint_ranks = {q: 20 for q in queries}
             src = "manual"
         elif expand_hints and country in STOREFRONTS:
-            seeds = SEED_TERMS.get(country, [])
+            if custom_seeds:
+                seeds = custom_seeds
+            elif niche == "baby":
+                seeds = BABY_SEED_TERMS.get(country, [])
+            else:
+                seeds = SEED_TERMS.get(country, [])
             print(f"  {flag} {country.upper():3} expanding hints from {len(seeds)} seeds… ", end="", flush=True)
             queries, hint_ranks = expand_keywords(seeds, country, budget)
             src = f"hints({len(queries)})"
@@ -896,6 +931,10 @@ def main() -> None:
                    help="Use Apple autocomplete to generate queries (recommended)")
     p.add_argument("--keywords", default=None,
                    help="Manual comma-separated keywords (bypasses hint expansion)")
+    p.add_argument("--seeds", default=None,
+                   help="Custom comma-separated seed terms for hint expansion")
+    p.add_argument("--niche", default="whitenoise", choices=["whitenoise", "baby"],
+                   help="Seed niche profile (whitenoise or baby)")
     p.add_argument("--output",  default=None)
     p.add_argument("--delay",   type=float, default=0.35)
     p.add_argument("--self-check", action="store_true")
@@ -908,7 +947,7 @@ def main() -> None:
     markets = ALL_MARKETS if args.markets == "all" else [m.strip() for m in args.markets.split(",")]
 
     total_q = sum(_query_budget(m) for m in markets)
-    print(f"ASO Rank Audit — {args.bundle}")
+    print(f"ASO Rank Audit — {args.bundle} [Niche: {args.niche}]")
     print(f"Markets: {', '.join(markets)}  |  Budget: ~{total_q} queries")
     if args.expand_from_hints:
         print("  Mode: Apple autocomplete hint expansion (proportional budgets)\n")
@@ -920,10 +959,16 @@ def main() -> None:
         kws = [k.strip() for k in args.keywords.split(",")]
         manual_kw = {m: kws for m in markets}
 
+    seeds_list: Optional[list[str]] = None
+    if args.seeds:
+        seeds_list = [s.strip() for s in args.seeds.split(",") if s.strip()]
+
     results = run_audit(
         args.bundle, markets,
         expand_hints=args.expand_from_hints or (manual_kw is None),
         manual_keywords=manual_kw,
+        custom_seeds=seeds_list,
+        niche=args.niche,
         delay=args.delay,
     )
     report = format_report(args.bundle, results)
