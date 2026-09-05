@@ -618,13 +618,17 @@ def compute_scores(row: dict, country: str) -> dict:
     sat_pts = min(35, int((total / 200.0) * 35))
     popularity = min(100, hint_pts + sat_pts)
 
+    # Absolute volume proxy index (Popularity scaled by Storefront market weight)
+    # E.g. US (weight 100) -> 10.0x, ES/IT (weight 7) -> 0.7x, UA (weight 2) -> 0.2x
+    vol_index = round(popularity * (weight / 10.0), 1)
+
     # 2. Difficulty (0-100): based on Top-3 competitor review counts (log scale)
     difficulty = min(100, int(math.log10(max(top3_avg, 1) + 1) / math.log10(100001) * 100))
 
     # 3. KEI (Keyword Efficiency Index): Popularity^2 / max(Difficulty, 1)
     kei = round((popularity ** 2) / max(difficulty, 1), 1)
 
-    # 4. Standard Opportunity Score
+    # 4. Standard Opportunity Score (weighted by market weight)
     if rank is None:        rank_factor = 0.005
     elif rank <= 5:         rank_factor = 1.0
     elif rank <= 10:        rank_factor = 0.85
@@ -640,7 +644,7 @@ def compute_scores(row: dict, country: str) -> dict:
         * (1 - difficulty / 130)
     )
 
-    # 5. Top-3 Target Opportunity Score (Probability of reaching Top 3)
+    # 5. Top-3 Target Opportunity Score (Probability of reaching Top 3, weighted by market scale)
     if rank is not None:
         if rank <= 3:      t3_rank = 1.0
         elif rank <= 10:   t3_rank = 0.95
@@ -653,12 +657,56 @@ def compute_scores(row: dict, country: str) -> dict:
         t3_rank = 0.10
 
     # Vulnerability multiplier: if top 3 apps do not have exact keyword in Title,
-    # putting the keyword in our Title gives a 1.5x algorithmic boost!
-    vuln_multiplier = 1.5 if not top3_title_match else 1.0
+    # putting the keyword in our Title gives a 1.4x algorithmic boost
+    vuln_multiplier = 1.4 if not top3_title_match else 1.0
     competition_ease = max(0.1, (100 - difficulty * 0.75) / 100.0)
-    top3_score = round(popularity * t3_rank * vuln_multiplier * competition_ease, 1)
+    mkt_scale = math.sqrt(weight / 10.0)
+    top3_score = round(popularity * t3_rank * vuln_multiplier * competition_ease * mkt_scale, 1)
 
-    # Actionable strategy classification
+    # 6. ASA Sweet Spot & Leverage Score
+    # Sweet spot is ranks #4-#15: already indexed, close enough to push into Top 3 with paid installs
+    if rank is None:
+        rank_sweet_spot = 0.05
+    elif 4 <= rank <= 7:
+        rank_sweet_spot = 1.20  # Prime strike zone
+    elif 8 <= rank <= 15:
+        rank_sweet_spot = 1.00  # Strong strike zone
+    elif 1 <= rank <= 3:
+        rank_sweet_spot = 0.35  # Already dominant; organic is free; ASA only for defense
+    elif 16 <= rank <= 30:
+        rank_sweet_spot = 0.70  # Good secondary target
+    elif 31 <= rank <= 60:
+        rank_sweet_spot = 0.40  # Needs ASO title update first
+    else:
+        rank_sweet_spot = 0.15  # Too low for direct ASA push
+
+    # Defense factor based on Top 3 competitor review barrier
+    if top3_avg < 100:      defense_factor = 1.40
+    elif top3_avg < 500:    defense_factor = 1.20
+    elif top3_avg < 2000:   defense_factor = 1.00
+    elif top3_avg < 10000:  defense_factor = 0.70
+    else:                   defense_factor = 0.40
+
+    gap_factor = 1.30 if not top3_title_match else 1.00
+    asa_score = round(popularity * rank_sweet_spot * defense_factor * gap_factor * mkt_scale * 0.4, 1)
+
+    # Actionable tactical recommendation
+    if rank in [1, 2, 3]:
+        asa_action = "🛡️ Brand Defense (Low-bid Exact Match)"
+    elif rank and 4 <= rank <= 15 and top3_avg < 2000:
+        asa_action = "🚀 ASA Strike Zone (High ROI push to grab Top 3!)"
+    elif rank and 4 <= rank <= 15:
+        asa_action = "⚔️ Contest Strike (Competitive Push into Top 3)"
+    elif rank and 16 <= rank <= 30 and not top3_title_match:
+        asa_action = "⚡ Title Gap + ASA (Add to Title, run moderate bid)"
+    elif rank and rank <= 50:
+        asa_action = "🧪 Discovery Match (Test real volume via low-bid CPT)"
+    elif rank and rank > 50:
+        asa_action = "📝 ASO First (Rank too low; update metadata first)"
+    else:
+        asa_action = "🌱 Keyword Gap (Add to keywords field)"
+
+    # Actionable strategy classification for ASO
     if not top3_title_match and rank is not None and rank <= 70:
         strategy = "🔥 Put in Title (Top 3 have no title match!)"
     elif not top3_title_match and (rank is None or rank > 70) and difficulty <= 35:
@@ -677,9 +725,12 @@ def compute_scores(row: dict, country: str) -> dict:
     return {
         "volume_proxy": popularity,
         "popularity": popularity,
+        "vol_index": vol_index,
         "difficulty": difficulty,
         "kei": kei,
         "top3_score": top3_score,
+        "asa_score": asa_score,
+        "asa_action": asa_action,
         "opportunity": round(opportunity, 2),
         "strategy": strategy,
     }
@@ -813,6 +864,33 @@ def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
         )
     lines.append("")
 
+    # ASA STRIKE ZONE LEADERBOARD (SORTED BY ASA SCORE)
+    asa_sorted = sorted(all_rows, key=lambda r: -r.get("asa_score", 0))[:30]
+
+    lines += [
+        "---",
+        "",
+        "## 🎯 ASA Strike Zone & Paid Push Leaderboard (High-ROI Ad Targets)",
+        "",
+        "_ASA Score = Popularity × Sweet-Spot Proximity (peak at rank #4-#15) × Competitor Weakness (<500 reviews) × Title Gap × Market Scale_",
+        "_Goal: Find exact-match and discovery targets where paid downloads have the highest leverage to permanently lift organic rank to Top 3._",
+        "",
+        "| # | Market | Keyword | Rank | Pop | Est Vol | Diff | Top-3 Avg Reviews | ASA Score | Action / Strategy |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+
+    for i, r in enumerate(asa_sorted, 1):
+        flag = FLAGS.get(r["country"], r["country"].upper())
+        rank_str = f"#{r['our_rank']}" if r["our_rank"] else "unranked"
+        top3_avg_rev = r.get("top3_avg_ratings", 0)
+        action_str = r.get("asa_action", r.get("strategy", "—"))
+        lines.append(
+            f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` | {rank_str} "
+            f"| {r['popularity']} | {r.get('vol_index', r['popularity'])} | {r['difficulty']} "
+            f"| {top3_avg_rev:,} | **{r.get('asa_score', 0)}** | {action_str} |"
+        )
+    lines.append("")
+
     # Market Opportunity Ranking
     lines += [
         "---",
@@ -856,29 +934,30 @@ def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
         if ranked:
             lines += [
                 "**Ranked Keywords (ordered by Top-3 Feasibility):**",
-                "| Rank | Keyword | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor | Strategy |",
-                "|---|---|---|---|---|---|---|---|---|",
+                "| Rank | Keyword | Pop | Diff | KEI | Top-3 Score | ASA Score | Title Gap | Top Competitor | Strategy / ASA Action |",
+                "|---|---|---|---|---|---|---|---|---|---|",
             ]
             for r in ranked:
                 title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
+                action_str = r.get("asa_action", r.get("strategy", "—"))
                 lines.append(
                     f"| #{r['our_rank']} | `{r['term']}` | {r['popularity']} | {r['difficulty']} "
-                    f"| {r['kei']} | **{r['top3_score']}** | {title_gap_str} "
-                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {r.get('strategy', '—')} |"
+                    f"| {r['kei']} | **{r['top3_score']}** | {r.get('asa_score', 0)} | {title_gap_str} "
+                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {action_str} |"
                 )
             lines.append("")
 
         if unranked:
             lines += [
                 "**Unranked Opportunities (Keyword Gaps):**",
-                "| Keyword | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor | Strategy |",
-                "|---|---|---|---|---|---|---|---|",
+                "| Keyword | Pop | Diff | KEI | Top-3 Score | ASA Score | Title Gap | Top Competitor | Strategy |",
+                "|---|---|---|---|---|---|---|---|---|",
             ]
             for r in unranked[:6]:
                 title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
                 lines.append(
                     f"| `{r['term']}` | {r['popularity']} | {r['difficulty']} "
-                    f"| {r['kei']} | **{r['top3_score']}** | {title_gap_str} "
+                    f"| {r['kei']} | **{r['top3_score']}** | {r.get('asa_score', 0)} | {title_gap_str} "
                     f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {r.get('strategy', '—')} |"
                 )
             lines.append("")
@@ -918,7 +997,7 @@ def self_check() -> None:
     row = audit_keyword("white noise", "us", "com.nonexistent")
     scores = compute_scores(row, "us")
     assert 0 <= scores["opportunity"]
-    print(f"  ✓ Scoring: vol={scores['volume_proxy']} diff={scores['difficulty']} opp={scores['opportunity']}")
+    print(f"  ✓ Scoring: vol={scores['volume_proxy']} diff={scores['difficulty']} opp={scores['opportunity']} asa={scores.get('asa_score')}")
     print("self-check: PASSED")
 
 
@@ -937,11 +1016,40 @@ def main() -> None:
                    help="Seed niche profile (whitenoise or baby)")
     p.add_argument("--output",  default=None)
     p.add_argument("--delay",   type=float, default=0.35)
+    p.add_argument("--reanalyze", default=None,
+                   help="Path to an existing audit JSON file to recompute scores without querying Apple APIs")
     p.add_argument("--self-check", action="store_true")
     args = p.parse_args()
 
     if args.self_check:
         self_check()
+        return
+
+    if args.reanalyze:
+        json_path = Path(args.reanalyze)
+        if not json_path.exists():
+            print(f"Error: file not found: {args.reanalyze}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Re-analyzing existing audit data from: {json_path}")
+        with open(json_path) as f:
+            results = json.load(f)
+
+        # Re-score all rows across all markets
+        for country, rows in results.items():
+            if not isinstance(rows, list):
+                continue
+            for r in rows:
+                new_scores = compute_scores(r, country)
+                r.update(new_scores)
+
+        out_md_path = Path(args.output) if args.output else json_path.with_suffix(".md")
+        out_json_path = out_md_path.with_suffix(".json")
+
+        report = format_report(args.bundle, results)
+        out_md_path.write_text(report)
+        out_json_path.write_text(json.dumps(results, indent=2, ensure_ascii=False))
+        print(f"Updated report written → {out_md_path}")
+        print(f"Updated JSON written → {out_json_path}")
         return
 
     markets = ALL_MARKETS if args.markets == "all" else [m.strip() for m in args.markets.split(",")]

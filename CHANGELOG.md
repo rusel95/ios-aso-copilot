@@ -7,6 +7,15 @@ followed here. Changes are pushed to [github.com/rusel95/ios-marketing-ops](http
 
 ---
 
+## v0.4.0 — Market scale weighting, ASA Strike Zone, and instant JSON re-analysis — 2026-09-05
+
+- **Storefront Market Scale Weighting**: Differentiates relative local Search Popularity (0–100 or 1–5 dots) from estimated absolute search volume. Prevents small-market traps (e.g., Ukraine where native niche terms have high relative score but tiny absolute volume) by scaling traffic potential across Tier 1, Tier 2, and Tier 3 markets.
+- **ASA Strike Zone & Sweet Spot Scoring**: Dedicated scoring algorithm to identify high-ROI Apple Search Ads opportunities to push organic rank into the Top 3. Heavily rewards ranks #4–#15, weak competitor defense (<500 reviews), and open title gaps. Classifies actions: `🚀 ASA Strike Zone`, `⚡ Title Gap + ASA`, `🧪 Discovery Match`, `🛡️ Brand Defense`, and `📝 ASO First`.
+- **Instant JSON Re-Analysis (`--reanalyze`)**: Enables sub-second recalculation of all scores and tactical recommendations on existing audit JSON files without querying Apple Search APIs.
+- **Multi-Niche Adaptability (`--niche`)**: Built-in support for `baby` and `whitenoise` seed trees across 25 storefronts.
+
+---
+
 ## v0.3.0 — Multi-market hypothesis concurrency & full JSON snapshot engine — 2026-09-04
 
 - **Market concurrency rule**: Explicitly formalized that multiple market-specific hypotheses (1 per market) can run concurrently in the same app release across up to 25 regional App Store markets (regional App Stores are disjoint ecosystems that do not cross-contaminate).

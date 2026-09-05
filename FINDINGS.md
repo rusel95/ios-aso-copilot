@@ -132,3 +132,22 @@ One gap found: `references/apple-ads.md` still contains Compresso's Apple Ads or
 
 ### Drives
 - Roadmap item R-16 (multi-app support tested — partially verified, one gap remaining)
+
+---
+
+## Apple Search Popularity is Relative, Not Absolute — Storefront Scale & ASA Sweet Spot
+
+**Date:** 2026-09-05  
+**Source:** Companion app audit (Baby Log - Malyatko Tracker, id: 6757263634) & live feedback
+
+### Findings
+1. **Search Popularity (1–5 dots in UI / 5–100 index)**:
+   - Apple Search Popularity is a *storefront-relative* metric, not absolute monthly search count.
+   - A score of 70 in Ukraine (UA) may represent 20–50 searches/month, whereas a score of 70 in Spain (ES) or US represents thousands. Raw KEI ranking without storefront market weight falsely inflates micro-markets over tier-1/tier-2 commercial markets.
+2. **ASA to Organic Top 3 Mechanics**:
+   - Downloads from exact-match ASA queries boost query-specific download velocity and conversion rate, signaling App Store relevance and pulling organic rank up into Top 3.
+   - **Sweet Spot (#4–#15)**: Bidding on keywords already ranked #4–#15 with weak competitor defense (<500 reviews) delivers the highest organic rank lift per dollar spent.
+   - Bidding on #1–#3 is redundant (organic is free), while bidding from #50+ without prior ASO metadata optimization is cost-prohibitive.
+
+### Drives
+- Closes R-17 (Market scale weighting) and R-18 (ASA Strike Zone algorithm) in v0.4.0.
