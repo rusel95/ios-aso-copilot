@@ -9,13 +9,13 @@ description: >
   Triggers on: ASO, App Store keywords, App Store Connect status/readiness, Apple Ads / Search Ads,
   marketing hypothesis or iteration, weekly funnel numbers, keyword rank, product page experiment,
   review replies, marketing content backlog, off-store traffic, reddit, threads, twitter, campaign link,
-  channel hypothesis — and the Ukrainian equivalents: маркетинг, ASO, ключові слова, статус релізу,
+  channel hypothesis, ugc, tiktok, reels, shorts, video script — and the Ukrainian equivalents: маркетинг, ASO, ключові слова, статус релізу,
   Apple Ads / реклама, гіпотеза, ітерація, ранжування, відгуки, де я і що далі, що робити далі,
   запусти рекламу, онови позиції, проведи мене по кроках, зроби ітерацію в авто-режимі,
-  зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж.
+  зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж, юджісі, тікток, рілс, сценарій відео.
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # marketing-ops
@@ -220,6 +220,7 @@ ago was given against a world that has since moved (FR-023).
 | Apple Ads: credentials, campaign structure, economics | `references/apple-ads.md` |
 | Product page experiments, CPPs, reviews, content backlog | `references/playbooks.md` |
 | Off-store traffic, Reddit, Threads, Twitter/X, Product Hunt, ASA | `references/channel-playbooks.md` |
+| UGC Short-form Video (30s TikTok, Reels, Shorts), Scripts & Creator Brief | `references/ugc-playbook.md` |
 | Handbook reasoning (cited, never restated — FR-035) | `marketing/HANDBOOK.md` |
 
 Five bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check`.

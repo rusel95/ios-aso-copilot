@@ -175,6 +175,57 @@ Reclaim your space: {app_url}""",
 Замість щомісячної підписки просто перетисніть 4K відео в галереї.
 14 GB відео перетворюються на 1.8 GB без помітної втрати якості на екрані. Все стискається локально на телефоні без жодних серверів: {app_url}"""
         }
+    elif channel_type == "ugc_video":
+        return {
+            "en": f"""[0:00 - 0:03] HOOK:
+Visual: Shocked face or close up of iPhone Storage red bar (126/128 GB).
+Audio: "Stop deleting your favorite photos every time your iPhone says storage full."
+Caption: DON'T DELETE PHOTOS 🛑
+
+[0:03 - 0:08] PAIN:
+Visual: Quick scroll through Photos settings showing 80GB of videos.
+Audio: "Apple wants you to pay $3/mo for iCloud forever, but 90% of your storage is just uncompressed 4K video clips."
+Caption: Apple's $3/mo iCloud Trap 💸
+
+[0:08 - 0:18] SOLUTION:
+Visual: Phone in hand opening Compresso. Month-by-month swipe UI (swipe right keep, left compress).
+Audio: "I found this native app called Compresso. It compresses your 4K camera roll videos right on your phone without uploading anything to the cloud."
+Caption: 100% On-Device Compression 🔒
+
+[0:18 - 0:24] PAYOFF:
+Visual: GB counter melts down: 18.4 GB -> 2.1 GB. Confetti screen: Reclaimed 36.3 GB! Settings bar turns blue/free.
+Audio: "It shrank this 2-minute 4K clip from 1.5 GB down to 180 megabytes, and the quality still looks identical."
+Caption: −36.3 GB FREED ⚡️ (Zero quality loss)
+
+[0:24 - 0:30] CTA:
+Visual: Pointing to bio or showing App Store icon.
+Audio: "It's called Compresso on the App Store. Your first month is completely free to clean up. Link in bio!"
+Caption: Compresso in App Store 📲 (Link in Bio: {app_url})""",
+            "uk": f"""[0:00 - 0:03] ХУК:
+Візуал: Крупний план iPhone з червоною смугою пам'яті (126/128 GB) або поп-апом "Storage Almost Full".
+Озвучка: "Припини видаляти улюблені фото щоразу, коли на iPhone закінчується пам'ять."
+Субтитри: НЕ ВИДАЛЯЙ ФОТО 🛑
+
+[0:03 - 0:08] БІЛЬ:
+Візуал: Сховище iPhone, де відео займають 80+ GB.
+Озвучка: "Apple хоче, щоб ти все життя платив за додатковий iCloud, хоча 90% місця — це просто нестиснуті 4K відео."
+Субтитри: Пастка $3/міс за iCloud 💸
+
+[0:08 - 0:18] РІШЕННЯ:
+Візуал: Телефон у руках, відкривається Compresso. Свайпи по місяцях (вправо — залишити, вліво — стиснути).
+Озвучка: "Я знайшов нативний додаток Compresso. Він стискає 4K відео прямо на процесорі телефону без жодного інтернету чи серверів."
+Субтитри: 100% Локальне стиснення 🔒
+
+[0:18 - 0:24] ДОФАМІН:
+Візуал: Лічильник тане з 18.4 GB до 2.1 GB. Салют конфеті: "Reclaimed 36.3 GB!". Смужка в Налаштуваннях стає вільною.
+Озвучка: "2-хвилинне відео схудло з 1.5 GB до 180 MB, а якість на екрані залишилась ідеальною."
+Субтитри: −36.3 GB ЗВІЛЬНЕНО ⚡️ (Без втрати якості)
+
+[0:24 - 0:30] ЗАКЛИК (CTA):
+Візуал: Показує іконку в App Store або жест "тицяй лінк".
+Озвучка: "Додаток називається Compresso в App Store. Перший місяць безкоштовний для чистки. Лінк у профілі!"
+Субтитри: Compresso в App Store 📲 (Лінк у профілі: {app_url})"""
+        }
     return {}
 
 def main():
@@ -182,8 +233,8 @@ def main():
     parser.add_argument("--app", default="", help="App Store App ID (default: auto-detected from config.md)")
     parser.add_argument("--campaign", default="", help="Campaign identifier (e.g. reddit_storage_fix, threads_icloud_tax)")
     parser.add_argument("--pt", default="", help="Provider Token (optional Apple developer token)")
-    parser.add_argument("--channel", default="reddit", help="Channel tag (e.g. reddit, threads, x, producthunt, asa)")
-    parser.add_argument("--type", default="reddit_reply", choices=["reddit_reply", "reddit_showcase", "threads", "x", "other"], help="Copy template type")
+    parser.add_argument("--channel", default="reddit", help="Channel tag (e.g. reddit, threads, x, producthunt, asa, tiktok, reels)")
+    parser.add_argument("--type", default="reddit_reply", choices=["reddit_reply", "reddit_showcase", "threads", "x", "ugc_video", "other"], help="Copy template type")
     parser.add_argument("--store", default="marketing", help="Path to marketing directory")
     parser.add_argument("--scaffold-hypo", action="store_true", help="Scaffold a new C<NNN> hypothesis file under hypotheses/")
     parser.add_argument("--target", default="", help="Target community / subreddit / account (e.g. r/iphonehelp)")
