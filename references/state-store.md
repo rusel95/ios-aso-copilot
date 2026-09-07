@@ -133,6 +133,7 @@ week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts
   for one pulled by API, `absent:<reason>` when unobtainable). Never invented: an unobtainable figure
   is an empty cell tagged `absent:<reason>` — never a zero, never an estimate.
 - `trial_starts` comes from RevenueCat, not the App Store.
+- **Funnel Visualization & Diagnostics**: Run `python3 $SKILL_DIR/scripts/funnel_visualizer.py --store marketing` to parse `metrics/weekly.csv`, render Unicode conversion bars, compare against category benchmarks (TTR, Page CVR, Overall CVR, Paywall CVR), and diagnose conversion bottlenecks (see `references/funnel-analytics.md`).
 
 ## Rank observation — `metrics/ranks.csv`
 

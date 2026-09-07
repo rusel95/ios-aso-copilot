@@ -151,9 +151,10 @@ Output, in this fixed order, one screen, nothing else (FR-008, contracts/invocat
 1. **Phase**, how it was determined, and the date of the live check
 2. **Open hypotheses** — each with days elapsed / days remaining before it's judgeable (read
    `hypotheses/*.md`; logic in `references/state-store.md`)
-3. **Missing weekly records** — named by week (`metrics/weekly.csv` gaps since going live)
-4. **Queue** — pending approvals, oldest first (`queue.md`)
-5. **The single next action** — exactly one, concrete enough to start without a follow-up question:
+3. **Storefront Conversion Funnel & Health Status** — latest weekly or 30-day conversion metrics (Impressions → Page Views → Downloads → Trials), rendered with visual progress bars, compared against category benchmarks, with immediate bottleneck diagnosis (🔴 CRITICAL LEAK, 🟡 FAIR, 🟢 HEALTHY) using `scripts/funnel_visualizer.py` (see `references/funnel-analytics.md`)
+4. **Missing weekly records** — named by week (`metrics/weekly.csv` gaps since going live)
+5. **Queue** — pending approvals, oldest first (`queue.md`)
+6. **The single next action** — exactly one, concrete enough to start without a follow-up question:
    the command to run, or the URL to open and what to look for there (FR-010, SC-001). "Work on
    ASO" fails this; "open <url>, check whether a Publish button is showing" satisfies it. Priority
    order when more than one thing is eligible: a release-readiness blocker outranks everything: then

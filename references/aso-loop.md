@@ -141,6 +141,16 @@ current.
 
 ---
 
+## Storefront Conversion Funnel Guardrails (TTR & CVR Integration)
+
+While rank movement is the primary signal in cold phases (`P2-cold`), **Storefront Conversion Efficiency** is the essential commercial and algorithmic guardrail. High impressions without conversion hurt the app.
+
+- **The Low-Intent Traffic Trap (`adverse` verdict)**: If adding broad keywords drives a surge in impressions (+100%) but Tap-Through Rate (TTR) plunges below 1.8% or Overall ASO CVR drops by >15%, the verdict is **`adverse`** — Apple's search ranking algorithm penalizes listings with poor conversion rates by gradually degrading rankings across *all* queries.
+- **Run the Funnel Visualizer**: Run `python3 $SKILL_DIR/scripts/funnel_visualizer.py --store $STORE` at every verdict checkpoint.
+- **Triage Leaks**: Refer to `references/funnel-analytics.md` for peer benchmarks and diagnostic root causes (Search Card TTR vs Product Page CVR vs Paywall CVR).
+
+---
+
 ## Keyword selection method (FR-028, FR-029, SC-009)
 
 Every candidate you propose carries three things, always, never just the word: its **relevance**
