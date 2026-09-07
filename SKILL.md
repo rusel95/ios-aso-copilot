@@ -221,8 +221,10 @@ ago was given against a world that has since moved (FR-023).
 | Product page experiments, CPPs, reviews, content backlog | `references/playbooks.md` |
 | Handbook reasoning (cited, never restated — FR-035) | `marketing/HANDBOOK.md` |
 
-Three bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check`.
+Five bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check`.
 
+- `$SKILL_DIR/scripts/funnel_visualizer.py` — Storefront conversion pyramid, bottleneck diagnostics & cash in pocket
+- `$SKILL_DIR/scripts/campaign_link.py` — App Store campaign tracking links generator (`?ct=...`)
 - `$SKILL_DIR/scripts/harvest_keywords.py` — Apple autocomplete hints + competitor discovery
 - `$SKILL_DIR/scripts/economics.py` — LTV / break-even / scaling verdict
 - `$SKILL_DIR/scripts/rank_audit.py` — full keyword rank audit with opportunity scoring
