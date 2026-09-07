@@ -113,6 +113,33 @@ guidance.
 | `adverse` | impressions up, CVR down | roll back — this traffic lowers ranking across *all* queries, not just the new one |
 | `withheld` | window closed but data missing, or a confound dominates | name what's missing; do not guess |
 
+## Channel Hypothesis — `hypotheses/C<NNN>-<channel>-<slug>.md`
+
+One file per external traffic experiment (Reddit, Threads, Twitter/X, Product Hunt, ASA). `<NNN>` is monotonic (`C001`, `C002`...) and never reused. Governed by `references/channel-playbooks.md`.
+
+| Field | Type | Rule |
+|---|---|---|
+| `id` | `C001`… | monotonic, prefixed with `C` to distinguish from ASO `H` hypotheses |
+| `channel` | `reddit` / `threads` / `x` / `producthunt` / `asa` | external marketing vector |
+| `type` | `contextual_reply` / `dev_showcase` / `post` / `ad` | execution format |
+| `status` | `draft` / `queued` / `live` / `judged` / `abandoned` | operational state |
+| `target_community` | string (e.g. `r/iphonehelp`, `r/iosapps`) | destination community or ad group |
+| `campaign_token` | string (e.g. `reddit_storage_fix`) | alphanumeric token passed in `?ct=...` |
+| `tracked_link` | URL | full App Store URL with `ct` and optional `pt` |
+| `prediction` | text + numbers | expected clicks and installs within window (default 7–14 days) |
+| `kill_criterion` | text + numbers | removal/ban, or < N clicks in window |
+| `copy_template` | text / markdown | exact native copy (English & Ukrainian) prepared for posting |
+| `went_live` | date | day the post/comment/ad was actually published |
+| `window_days` | integer | default 7 days for social comments, 14 days for ads/showcases |
+| `verdict` | `worked` / `no-effect` / `adverse` / `withheld` | outcome judged via ASC Campaign Analytics |
+
+**Attribution Ledger — `campaigns.csv`**: Every generated campaign link is appended to `marketing/campaigns.csv` via `scripts/campaign_link.py`. Results are cross-referenced in App Store Connect (App Analytics → Sources → Campaigns).
+
+**Anti-Collision & Deduplication Guard**:
+Before creating or proposing a new channel experiment, `campaign_link.py` and the skill check all existing `C*.md` files. If a community already has an active `queued` or `live` hypothesis (or if `r/iosapps` is under its 30-day cooldown), the skill refuses to generate a duplicate proposal and cites the existing hypothesis.
+
+
+
 ## Weekly record — `metrics/weekly.csv`
 
 Append-only, one row per `(week_start, segment)`.

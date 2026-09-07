@@ -8,13 +8,14 @@ description: >
   next" — never starts from zero.
   Triggers on: ASO, App Store keywords, App Store Connect status/readiness, Apple Ads / Search Ads,
   marketing hypothesis or iteration, weekly funnel numbers, keyword rank, product page experiment,
-  review replies, marketing content backlog — and the Ukrainian equivalents: маркетинг, ASO,
-  ключові слова, статус релізу, Apple Ads / реклама, гіпотеза, ітерація, ранжування, відгуки,
-  де я і що далі, що робити далі, запусти рекламу, онови позиції, проведи мене по кроках, зроби
-  ітерацію в авто-режимі.
+  review replies, marketing content backlog, off-store traffic, reddit, threads, twitter, campaign link,
+  channel hypothesis — and the Ukrainian equivalents: маркетинг, ASO, ключові слова, статус релізу,
+  Apple Ads / реклама, гіпотеза, ітерація, ранжування, відгуки, де я і що далі, що робити далі,
+  запусти рекламу, онови позиції, проведи мене по кроках, зроби ітерацію в авто-режимі,
+  зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж.
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # marketing-ops
@@ -149,8 +150,7 @@ missing-store case above: here the store exists, only its identity doesn't yet.
 Output, in this fixed order, one screen, nothing else (FR-008, contracts/invocation.md):
 
 1. **Phase**, how it was determined, and the date of the live check
-2. **Open hypotheses** — each with days elapsed / days remaining before it's judgeable (read
-   `hypotheses/*.md`; logic in `references/state-store.md`)
+2. **Open hypotheses** — both ASO (`H001...`) and Channel Hypotheses (`C001...`) with target community, token, and days elapsed / remaining (read `hypotheses/*.md` or run `scripts/campaign_link.py --list`). **Anti-collision guard**: inspect all queued/live channel hypotheses before proposing any new campaign to prevent duplicates and respect platform cooldowns (e.g. 30 days for r/iosapps).
 3. **Storefront Conversion Funnel & Health Status** — latest weekly or 30-day conversion metrics (Impressions → Page Views → Downloads → Trials), rendered with visual progress bars, compared against category benchmarks, with immediate bottleneck diagnosis (🔴 CRITICAL LEAK, 🟡 FAIR, 🟢 HEALTHY) using `scripts/funnel_visualizer.py` (see `references/funnel-analytics.md`)
 4. **Missing weekly records** — named by week (`metrics/weekly.csv` gaps since going live)
 5. **Queue** — pending approvals, oldest first (`queue.md`)
@@ -219,6 +219,7 @@ ago was given against a world that has since moved (FR-023).
 | The ASO iteration loop, verdicts, keyword selection | `references/aso-loop.md` |
 | Apple Ads: credentials, campaign structure, economics | `references/apple-ads.md` |
 | Product page experiments, CPPs, reviews, content backlog | `references/playbooks.md` |
+| Off-store traffic, Reddit, Threads, Twitter/X, Product Hunt, ASA | `references/channel-playbooks.md` |
 | Handbook reasoning (cited, never restated — FR-035) | `marketing/HANDBOOK.md` |
 
 Five bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check`.
