@@ -147,6 +147,34 @@ BABY_SEED_TERMS: dict[str, list[str]] = {
     "hk": ["寶寶記錄", "母乳餵養", "嬰兒睡眠", "baby tracker"],
 }
 
+COMPRESS_SEED_TERMS: dict[str, list[str]] = {
+    "us": ["compresso", "compress video", "compress photo", "shrink video", "shrink photo", "video compressor", "photo compressor", "free up storage", "reduce video size", "clean storage", "storage cleaner"],
+    "gb": ["compresso", "compress video", "compress photo", "shrink video", "shrink photo", "video compressor", "photo compressor", "free up storage", "storage cleaner"],
+    "ca": ["compresso", "compress video", "compress photo", "shrink video", "video compressor", "photo compressor", "reduce video size", "storage cleaner"],
+    "au": ["compresso", "compress video", "compress photo", "shrink video", "video compressor", "photo compressor", "free up storage", "storage cleaner"],
+    "de": ["compresso", "video komprimieren", "foto komprimieren", "video verkleinern", "fotos verkleinern", "speicherplatz bereinigen", "video kompressor", "speicher voll"],
+    "fr": ["compresso", "compresser video", "compresser photo", "reduire taille video", "liberer espace", "nettoyer stockage", "compresseur video"],
+    "es": ["compresso", "comprimir video", "comprimir fotos", "reducir tamaño video", "compresor de video", "liberar espacio", "limpiar almacenamiento", "reducir fotos"],
+    "mx": ["compresso", "comprimir video", "comprimir fotos", "reducir tamaño video", "compresor de video", "liberar espacio", "limpiar almacenamiento"],
+    "it": ["compresso", "comprimere video", "comprimere foto", "ridurre dimensioni video", "liberare spazio", "pulizia memoria", "ridurre foto"],
+    "pl": ["compresso", "kompresja wideo", "zmniejszanie rozmiaru wideo", "kompresja zdjęć", "czyszczenie pamięci", "zwolnij miejsce", "zmniejsz zdjęcie"],
+    "nl": ["compresso", "video comprimeren", "foto comprimeren", "video verkleinen", "opslagruimte vrijmaken", "foto verkleinen", "opslag vol"],
+    "ua": ["compresso", "стиснути відео", "стиснення фото", "зменшити розмір відео", "очистити пам'ять", "звільнити місце", "стиснути фото", "очищення пам'яті"],
+    "ru": ["compresso", "сжать видео", "сжатие фото", "уменьшить размер видео", "очистить память", "сжатие видео", "освободить место"],
+    "br": ["compresso", "comprimir video", "comprimir fotos", "reduzir tamanho video", "liberar espaco", "limpar armazenamento", "compactar video"],
+    "tr": ["compresso", "video sıkıştırma", "fotoğraf sıkıştırma", "video boyut küçültme", "hafıza temizleme", "yer açма"],
+    "jp": ["compresso", "動画 圧縮", "写真 圧縮", "容量 削減", "動画 サイズ 縮小", "ストレージ 整理", "画像 圧縮"],
+    "kr": ["compresso", "동영상 압축", "사진 압축", "용량 줄이기", "동영상 용량", "저장공간 정리"],
+    "cn": ["compresso", "视频压缩", "照片压缩", "清理内存", "缩小视频", "释放空间", "压缩图片"],
+    "tw": ["compresso", "影片壓縮", "照片壓縮", "清理記憶體", "縮小影片", "釋放空間", "壓縮圖片"],
+    "hk": ["compresso", "影片壓縮", "照片壓縮", "清理空間", "縮小影片", "釋放空間"],
+    "se": ["compresso", "komprimera video", "förminska video", "rensa minne", "spara utrymme"],
+    "in": ["compresso", "compress video", "compress photo", "video compressor", "reduce video size", "clear storage"],
+    "sa": ["compresso", "ضغط الفيديو", "ضغط الصور", "تقليل حجم الفيديو", "تنظيف الذاكرة", "تفريغ مساحة"],
+    "il": ["compresso", "דחיסת וידاو", "דחיסת תמונות", "פינוי מקום", "ניקוי זיכרון"],
+    "sg": ["compresso", "compress video", "compress photo", "shrink video", "video compressor", "storage cleaner"],
+}
+
 # Fallback keyword lists when hint expansion fails or is skipped.
 # Deliberately INCOMPLETE — the right path is hint expansion, not manual lists.
 # Sized proportionally to market weight.
@@ -776,6 +804,8 @@ def run_audit(
                 seeds = custom_seeds
             elif niche == "baby":
                 seeds = BABY_SEED_TERMS.get(country, [])
+            elif niche in ["compress", "media"]:
+                seeds = COMPRESS_SEED_TERMS.get(country, [])
             else:
                 seeds = SEED_TERMS.get(country, [])
             print(f"  {flag} {country.upper():3} expanding hints from {len(seeds)} seeds… ", end="", flush=True)
@@ -1012,8 +1042,8 @@ def main() -> None:
                    help="Manual comma-separated keywords (bypasses hint expansion)")
     p.add_argument("--seeds", default=None,
                    help="Custom comma-separated seed terms for hint expansion")
-    p.add_argument("--niche", default="whitenoise", choices=["whitenoise", "baby"],
-                   help="Seed niche profile (whitenoise or baby)")
+    p.add_argument("--niche", default="whitenoise", choices=["whitenoise", "baby", "compress", "media"],
+                   help="Seed niche profile (whitenoise, baby, compress, media)")
     p.add_argument("--output",  default=None)
     p.add_argument("--delay",   type=float, default=0.35)
     p.add_argument("--reanalyze", default=None,

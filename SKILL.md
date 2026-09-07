@@ -187,7 +187,7 @@ cycle's work):
    if not)
 4. Judge every hypothesis whose window has closed (`references/aso-loop.md`); write verdict +
    reasoning
-5. Draft the next hypothesis (or batch of market-isolated hypotheses, exactly 1 per market for eligible markets with identified opportunities); refuse any hypothesis if any of the four required parts is missing
+5. Draft the next hypothesis (or batch of market-isolated hypotheses, exactly 1 per market for eligible markets with identified opportunities). **Active-experiment collision guard**: audit existing hypotheses in `STATE.md`; if a market already has an active hypothesis whose 21-day window is in flight (`status: live` or `status: staged`), refuse new metadata mutations for that market and save them as future proposals in the Ideas Backlog (`marketing/ROADMAP.md` / `status: idea`). Only draft/stage for markets with no active experiment running; refuse any hypothesis if any of the four required parts is missing
 6. Prepare everything preparable up to the fence, exploiting the `plan`/`approve` vs `apply`/`push`
    asymmetry so only the crossing itself waits (FR-022): pull live metadata with `asc metadata
    pull`, draft the change across all four tracked locales, validate character limits offline

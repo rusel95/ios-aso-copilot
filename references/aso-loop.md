@@ -37,6 +37,17 @@ substantially similar `change`. If one exists, refuse the new hypothesis until:
 Without this check the ledger is a diary nobody rereads, and the same idea comes back every quarter
 wearing a new hypothesis number.
 
+**Active-experiment collision guard (1 active hypothesis per market at a time)**:
+Before drafting, staging, or applying any metadata change for a market:
+1. Audit all existing hypotheses in `marketing/hypotheses/*.md` that have `status: live` or `status: staged`.
+2. Map each running hypothesis to its targeted market/locale (e.g., DE, FR, US, JP, etc.).
+3. If the target market ALREADY has an active hypothesis whose 21-day measurement window is currently in flight:
+   - **REFUSE to stage or apply a new hypothesis for that market.**
+   - Do NOT modify metadata for that market — doing so contaminates the experiment and invalidates the 21-day observation window (FR-017).
+   - Instead, save the proposed change as a future idea in the **Ideas Backlog** (`status: idea` or `marketing/ROADMAP.md` / `marketing/queue.md`) with a `blocked_by: Hxxx` reference.
+   - It may only be scheduled once the active hypothesis reaches its 21-day window and receives a formal empirical verdict (`worked` / `no-effect` / `adverse`).
+4. Only markets with **no active hypothesis in flight** are eligible to receive metadata updates in the next release.
+
 ## Step 2 — One variable per market (Market isolation & parallel execution)
 
 **Market isolation principle**: Each App Store storefront (US, DE, JP, UA, FR, KR, BR, ES, etc.) is a completely independent search ecosystem with its own search index, query vocabulary, competitor landscape, and audience.
