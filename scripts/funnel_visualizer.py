@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-funnel_visualizer.py — Storefront Conversion Funnel Analyzer & Visualizer
+funnel_visualizer.py — Storefront Conversion Pyramid & Funnel Analyzer
 Part of ios-marketing-ops.
 
-Visualizes App Store conversion funnels (Impressions -> Page Views -> Downloads -> Trials),
-compares against industry peer benchmarks, and automatically diagnoses the primary bottleneck.
+Visualizes App Store conversion funnels as an inverted pyramid,
+cleanly distinguishing between:
+  1. Step Conversion (TTR %, Page CVR %, Paywall CVR %) on transition arrows
+  2. Total Funnel Retention (% of initial impressions reaching each stage) on tier labels
+Compares against Apple category benchmarks and diagnoses conversion bottlenecks.
 """
 
 import argparse
@@ -21,34 +24,25 @@ BENCHMARKS = {
     "paywall_cvr": {"leak": 4.0, "good": 9.0, "label": "4.0 – 9.0%", "name": "Paywall CVR"}
 }
 
-def render_bar(pct, width=20):
-    if pct <= 0:
-        return "░" * width
-    clamped = min(max(pct, 0.0), 100.0)
-    filled = int(round((clamped / 100.0) * width))
-    empty = width - filled
-    return "█" * filled + "░" * empty
-
-def get_health(metric_key, val_pct):
+def get_badge(metric_key, val_pct):
     if val_pct is None:
-        return "—", "⚪ UNKNOWN"
+        return "—", "⚪ N/A"
     bm = BENCHMARKS[metric_key]
     if val_pct < bm["leak"]:
-        return bm["label"], "🔴 CRITICAL LEAK"
+        return bm["label"], "🔴 LEAK (Below baseline)"
     elif val_pct < bm["good"]:
         return bm["label"], "🟡 FAIR (Baseline)"
     else:
-        return bm["label"], "🟢 HEALTHY (Strong)"
+        return bm["label"], "🟢 STRONG (Above avg)"
 
 def diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr):
     diagnoses = []
     
-    # 1. Top-of-funnel search card check
     if ttr is not None and ttr < BENCHMARKS["ttr"]["leak"]:
         diagnoses.append({
             "severity": "HIGH",
             "bottleneck": "Top-of-Funnel Search Card Leak (Low TTR)",
-            "cause": f"Only {ttr:.1f}% of users tap after seeing the search card (benchmark: >1.8%).",
+            "cause": f"Only {ttr:.1f}% of users tap the search card (benchmark: >1.8%).",
             "lever": "Run Product Page Optimization (PPO) test on App Icon; redesign Screenshot #1 with punchy 3-word hook; align subtitle with user search intent."
         })
     elif overall_cvr is not None and overall_cvr < BENCHMARKS["overall_cvr"]["leak"]:
@@ -59,7 +53,6 @@ def diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr):
             "lever": "Audit search impression quality: users see the app for high-volume keywords that don't match their exact intent."
         })
 
-    # 2. Product Page View drop-off check
     if page_cvr is not None and page_cvr < BENCHMARKS["page_cvr"]["leak"]:
         diagnoses.append({
             "severity": "HIGH",
@@ -68,7 +61,6 @@ def diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr):
             "lever": "Localize screenshots for this storefront; triage negative reviews; highlight free trial in first 3 lines of description."
         })
 
-    # 3. Paywall monetization check
     if paywall_cvr is not None and paywall_cvr < BENCHMARKS["paywall_cvr"]["leak"]:
         diagnoses.append({
             "severity": "MEDIUM",
@@ -87,6 +79,111 @@ def diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr):
 
     return diagnoses
 
+def render_pyramid(title, imp, views, downloads, trials):
+    ttr = (views / imp * 100.0) if imp and views is not None else None
+    page_cvr = (downloads / views * 100.0) if views and downloads is not None else None
+    overall_cvr = (downloads / imp * 100.0) if imp and downloads is not None else None
+    paywall_cvr = (trials / downloads * 100.0) if downloads and trials is not None else None
+    overall_sub_cvr = (trials / imp * 100.0) if imp and trials is not None else None
+
+    _, ttr_b = get_badge("ttr", ttr)
+    _, page_b = get_badge("page_cvr", page_cvr)
+    _, paywall_b = get_badge("paywall_cvr", paywall_cvr)
+
+    lines = []
+    lines.append("╔══════════════════════════════════════════════════════════════════════════════════════════╗")
+    lines.append(f"║ 🎯 STOREFRONT CONVERSION PYRAMID: {title:<53} ║")
+    lines.append("╠══════════════════════════════════════════════════════════════════════════════════════════╣")
+    lines.append("║                                                                                          ║")
+    lines.append("║  ▼════════════════════════════════════════════════════════════════════════════════════▼  ║")
+    lines.append(f"║  █ 1. SEARCH IMPRESSIONS: {imp:<10,d}                                          100.0% █  ║")
+    lines.append("║  █ ██████████████████████████████████████████████████████████████████████████████████ █  ║")
+    lines.append("║  ╰──────────────────────────────────────────┬─────────────────────────────────────────╯  ║")
+    
+    ttr_str = f"{ttr:.1f}%" if ttr is not None else "N/A"
+    views_val = f"{views:,d}" if views is not None else "N/A"
+    lines.append(f"║                      TTR (Tap-Through Rate):│ {ttr_str:>5} ({views_val} page views / {imp:,d} imp)        ║")
+    lines.append(f"║                                  Benchmark: │ {ttr_b:<46} ║")
+    lines.append("║                                             ▼                                            ║")
+    lines.append("║       ▼════════════════════════════════════════════════════════════════════════▼         ║")
+    lines.append(f"║       █ 2. PRODUCT PAGE VIEWS: {views_val:<8}                             {ttr_str:>5} of top █         ║")
+    lines.append("║       █ ██████████████████████████████████████████████████████████████████████ █         ║")
+    lines.append("║       ╰─────────────────────────────────────┬──────────────────────────────────╯         ║")
+    
+    page_str = f"{page_cvr:.1f}%" if page_cvr is not None else "N/A"
+    dl_val = f"{downloads:,d}" if downloads is not None else "N/A"
+    lines.append(f"║                      Page CVR (Storefront): │ {page_str:>5} ({dl_val} downloads / {views_val} views)       ║")
+    lines.append(f"║                                  Benchmark: │ {page_b:<46} ║")
+    lines.append("║                                             ▼                                            ║")
+    lines.append("║             ▼════════════════════════════════════════════════════════════▼               ║")
+    ovr_str = f"{overall_cvr:.2f}%" if overall_cvr is not None else "N/A"
+    lines.append(f"║             █ 3. FIRST-TIME DOWNLOADS: {dl_val:<6}                  {ovr_str:>6} Overall CVR █               ║")
+    lines.append("║             █ ██████████████████████████████████████████████████████████ █               ║")
+    lines.append("║             ╰───────────────────────────────┬────────────────────────────╯               ║")
+    
+    if trials is not None:
+        paywall_str = f"{paywall_cvr:.1f}%" if paywall_cvr is not None else "N/A"
+        sub_str = f"{overall_sub_cvr:.2f}%" if overall_sub_cvr is not None else "N/A"
+        lines.append(f"║                                Paywall CVR: │ {paywall_str:>5} ({trials:,d} trials / {dl_val} dl)             ║")
+        lines.append(f"║                                  Benchmark: │ {paywall_b:<46} ║")
+        lines.append("║                                             ▼                                            ║")
+        lines.append("║                   ▼════════════════════════════════════════════════▼                     ║")
+        lines.append(f"║                   █ 4. PAID SUBS & TRIALS: {trials:<4,d}           {sub_str:>6} of top █                     ║")
+        lines.append("║                   █ ██████████████████████████████████████████████ █                     ║")
+        lines.append("║                   ╰────────────────────────────────────────────────╯                     ║")
+    
+    lines.append("║                                                                                          ║")
+    lines.append("╚══════════════════════════════════════════════════════════════════════════════════════════╝")
+    lines.append("")
+    lines.append("🔍 FUNNEL BOTTLENECK DIAGNOSIS:")
+    diagnoses = diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr)
+    for d in diagnoses:
+        lines.append(f"  • [{d['severity']}] {d['bottleneck']}")
+        lines.append(f"    Cause: {d['cause']}")
+        lines.append(f"    Actionable Lever: {d['lever']}")
+    
+    return "\n".join(lines)
+
+def render_markdown(title, imp, views, downloads, trials):
+    ttr = (views / imp * 100.0) if imp and views is not None else None
+    page_cvr = (downloads / views * 100.0) if views and downloads is not None else None
+    overall_cvr = (downloads / imp * 100.0) if imp and downloads is not None else None
+    paywall_cvr = (trials / downloads * 100.0) if downloads and trials is not None else None
+    overall_sub_cvr = (trials / imp * 100.0) if imp and trials is not None else None
+
+    ttr_l, ttr_b = get_badge("ttr", ttr)
+    page_l, page_b = get_badge("page_cvr", page_cvr)
+    paywall_l, paywall_b = get_badge("paywall_cvr", paywall_cvr)
+
+    md = []
+    md.append(f"### 🎯 Storefront Conversion Pyramid ({title})")
+    md.append("")
+    md.append("| Funnel Stage | Volume | Step Conversion (Arrow) | Funnel Reach (% of Top) | Benchmark | Status |")
+    md.append("|---|---|---|---|---|---|")
+    md.append(f"| **1. Search Impressions** | `{imp:,d}` | — | **100.0%** (Top) | — | — |")
+    
+    ttr_str = f"{ttr:.1f}%" if ttr is not None else "N/A"
+    md.append(f"| **2. Product Page Views** | `{views:,d}` | **{ttr_str} TTR** (views ÷ imp) | **{ttr_str}** | {ttr_l} | {ttr_b} |")
+    
+    page_str = f"{page_cvr:.1f}%" if page_cvr is not None else "N/A"
+    ovr_str = f"{overall_cvr:.2f}%" if overall_cvr is not None else "N/A"
+    md.append(f"| **3. First-Time Downloads** | `{downloads:,d}` | **{page_str} Page CVR** (dl ÷ views) | **{ovr_str} Overall CVR** | {page_l} | {page_b} |")
+    
+    if trials is not None:
+        paywall_str = f"{paywall_cvr:.1f}%" if paywall_cvr is not None else "N/A"
+        sub_str = f"{overall_sub_cvr:.2f}%" if overall_sub_cvr is not None else "N/A"
+        md.append(f"| **4. Paid Subs & Trials** | `{trials:,d}` | **{paywall_str} Paywall CVR** (trials ÷ dl) | **{sub_str} Revenue CVR** | {paywall_l} | {paywall_b} |")
+    
+    md.append("")
+    md.append("#### 🔍 Bottleneck Diagnosis & Actionable Levers")
+    diagnoses = diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr)
+    for d in diagnoses:
+        md.append(f"- **{d['bottleneck']}** ({d['severity']} Priority)")
+        md.append(f"  - *Root Cause:* {d['cause']}")
+        md.append(f"  - *Actionable Lever:* {d['lever']}")
+    
+    return "\n".join(md)
+
 def parse_weekly_csv(csv_path):
     if not os.path.exists(csv_path):
         return None
@@ -99,131 +196,28 @@ def parse_weekly_csv(csv_path):
         return None
     return sorted(rows, key=lambda x: x.get('week_start', ''))
 
-def format_text_table(period_name, imp, views, downloads, trials):
-    ttr = (views / imp * 100.0) if imp and views is not None else None
-    page_cvr = (downloads / views * 100.0) if views and downloads is not None else None
-    overall_cvr = (downloads / imp * 100.0) if imp and downloads is not None else None
-    paywall_cvr = (trials / downloads * 100.0) if downloads and trials is not None else None
-
-    ttr_label, ttr_health = get_health("ttr", ttr)
-    page_label, page_health = get_health("page_cvr", page_cvr)
-    overall_label, overall_health = get_health("overall_cvr", overall_cvr)
-    paywall_label, paywall_health = get_health("paywall_cvr", paywall_cvr)
-
-    diagnoses = diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr)
-
-    lines = []
-    lines.append("┌────────────────────────────────────────────────────────────────────────────────────────┐")
-    lines.append(f"│ 🎯 STOREFRONT CONVERSION FUNNEL ({period_name:<53}) │")
-    lines.append("├──────────────────────────────┬──────────┬──────────┬─────────────┬─────────────────────┤")
-    lines.append("│ Funnel Stage                 │   Volume │ Conv Rate│  Benchmark  │ Health Status       │")
-    lines.append("├──────────────────────────────┼──────────┼──────────┼─────────────┼─────────────────────┤")
-    
-    # Stage 1: Impressions
-    lines.append(f"│ 1. Search Impressions        │ {imp:>8,d} │   100.0% │      —      │                     │")
-    lines.append(f"│    │ [{render_bar(100.0)}]  │          │          │             │                     │")
-    ttr_str = f"{ttr:.1f}%" if ttr is not None else "N/A"
-    lines.append(f"│    ▼ Tap-Through Rate (TTR)  │          │ {ttr_str:>8} │ {ttr_label:<11} │ {ttr_health:<19} │")
-    
-    # Stage 2: Page Views
-    views_str = f"{views:,d}" if views is not None else "N/A"
-    lines.append(f"│ 2. Product Page Views        │ {views_str:>8} │ {ttr_str:>8} │      —      │                     │")
-    views_bar = render_bar(ttr if ttr else 0.0)
-    lines.append(f"│    │ [{views_bar}]  │          │          │             │                     │")
-    page_str = f"{page_cvr:.1f}%" if page_cvr is not None else "N/A"
-    lines.append(f"│    ▼ Page Conversion (CVR)   │          │ {page_str:>8} │ {page_label:<11} │ {page_health:<19} │")
-    
-    # Stage 3: Downloads
-    dl_str = f"{downloads:,d}" if downloads is not None else "N/A"
-    lines.append(f"│ 3. First-Time Downloads      │ {dl_str:>8} │ {page_str:>8} │      —      │                     │")
-    dl_bar = render_bar(overall_cvr if overall_cvr else 0.0)
-    lines.append(f"│    │ [{dl_bar}]  │          │          │             │                     │")
-    ovr_str = f"{overall_cvr:.2f}%" if overall_cvr is not None else "N/A"
-    lines.append(f"│    │ (Overall ASO CVR)       │          │ {ovr_str:>8} │ {overall_label:<11} │ {overall_health:<19} │")
-    
-    # Stage 4: Paywall
-    if trials is not None:
-        paywall_str = f"{paywall_cvr:.1f}%" if paywall_cvr is not None else "N/A"
-        lines.append(f"│    ▼ Paywall Conversion      │          │ {paywall_str:>8} │ {paywall_label:<11} │ {paywall_health:<19} │")
-        lines.append(f"│ 4. Trial Starts & Subs       │ {trials:>8,d} │ {paywall_str:>8} │      —      │                     │")
-    
-    lines.append("└──────────────────────────────┴──────────┴──────────┴─────────────┴─────────────────────┘")
-    lines.append("")
-    lines.append("🔍 FUNNEL BOTTLENECK DIAGNOSIS:")
-    for d in diagnoses:
-        lines.append(f"  • [{d['severity']}] {d['bottleneck']}")
-        lines.append(f"    Cause: {d['cause']}")
-        lines.append(f"    Actionable Lever: {d['lever']}")
-    
-    return "\n".join(lines)
-
-def format_markdown_table(period_name, imp, views, downloads, trials):
-    ttr = (views / imp * 100.0) if imp and views is not None else None
-    page_cvr = (downloads / views * 100.0) if views and downloads is not None else None
-    overall_cvr = (downloads / imp * 100.0) if imp and downloads is not None else None
-    paywall_cvr = (trials / downloads * 100.0) if downloads and trials is not None else None
-
-    ttr_label, ttr_health = get_health("ttr", ttr)
-    page_label, page_health = get_health("page_cvr", page_cvr)
-    overall_label, overall_health = get_health("overall_cvr", overall_cvr)
-    paywall_label, paywall_health = get_health("paywall_cvr", paywall_cvr)
-
-    diagnoses = diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr)
-
-    md = []
-    md.append(f"### 🎯 Storefront Conversion Funnel ({period_name})")
-    md.append("")
-    md.append("| Funnel Stage | Volume | Conversion Rate | Benchmark | Health Status |")
-    md.append("|---|---|---|---|---|")
-    md.append(f"| **1. Search Impressions** | `{imp:,d}` | `100.0%` | — | — |")
-    ttr_str = f"{ttr:.1f}%" if ttr is not None else "N/A"
-    md.append(f"| ↳ *Tap-Through Rate (TTR)* | — | **{ttr_str}** | {ttr_label} | {ttr_health} |")
-    views_str = f"{views:,d}" if views is not None else "N/A"
-    md.append(f"| **2. Product Page Views** | `{views_str}` | `{ttr_str}` | — | — |")
-    page_str = f"{page_cvr:.1f}%" if page_cvr is not None else "N/A"
-    md.append(f"| ↳ *Page Conversion (Page CVR)* | — | **{page_str}** | {page_label} | {page_health} |")
-    dl_str = f"{downloads:,d}" if downloads is not None else "N/A"
-    md.append(f"| **3. First-Time Downloads** | `{dl_str}` | `{page_str}` | — | — |")
-    ovr_str = f"{overall_cvr:.2f}%" if overall_cvr is not None else "N/A"
-    md.append(f"| ↳ *Overall ASO CVR (Imp → DL)* | — | **{ovr_str}** | {overall_label} | {overall_health} |")
-    if trials is not None:
-        paywall_str = f"{paywall_cvr:.1f}%" if paywall_cvr is not None else "N/A"
-        md.append(f"| ↳ *Paywall CVR (DL → Trial)* | — | **{paywall_str}** | {paywall_label} | {paywall_health} |")
-        md.append(f"| **4. Subscriptions & Trials** | `{trials:,d}` | `{paywall_str}` | — | — |")
-    
-    md.append("")
-    md.append("#### 🔍 Bottleneck Diagnosis & Actionable Levers")
-    for d in diagnoses:
-        md.append(f"- **{d['bottleneck']}** ({d['severity']} Priority)")
-        md.append(f"  - *Root Cause:* {d['cause']}")
-        md.append(f"  - *Prescribed Action:* {d['lever']}")
-    
-    return "\n".join(md)
-
 def main():
-    parser = argparse.ArgumentParser(description="Storefront Conversion Funnel Analyzer & Visualizer")
-    parser.add_argument("--store", default="marketing", help="Path to marketing/ directory containing metrics/weekly.csv")
-    parser.add_argument("--impressions", type=int, help="Direct impressions count")
-    parser.add_argument("--views", type=int, help="Direct product page views count")
-    parser.add_argument("--downloads", type=int, help="Direct downloads count")
-    parser.add_argument("--trials", type=int, help="Direct trial starts count")
-    parser.add_argument("--period", default="Latest Available Window", help="Period label")
-    parser.add_argument("--format", choices=["text", "markdown", "json"], default="text", help="Output format")
-    parser.add_argument("--output", help="File path to save output")
-    parser.add_argument("--self-check", action="store_true", help="Run unit self check")
+    parser = argparse.ArgumentParser(description="Storefront Conversion Pyramid Analyzer")
+    parser.add_argument("--store", default="marketing", help="Path to marketing directory")
+    parser.add_argument("--impressions", type=int, help="Search impressions count")
+    parser.add_argument("--views", type=int, help="Product page views count")
+    parser.add_argument("--downloads", type=int, help="Downloads count")
+    parser.add_argument("--trials", type=int, help="Trial starts / subs count")
+    parser.add_argument("--period", default="Latest Available Window", help="Period title")
+    parser.add_argument("--format", choices=["pyramid", "markdown", "json"], default="pyramid", help="Output format")
+    parser.add_argument("--output", help="File to write output")
+    parser.add_argument("--self-check", action="store_true", help="Self check")
 
     args = parser.parse_args()
 
     if args.self_check:
-        print("Running funnel_visualizer self-check...")
-        t = format_text_table("Self Check", 10000, 350, 90, 8)
-        assert "STOREFRONT CONVERSION FUNNEL" in t
-        m = format_markdown_table("Self Check", 10000, 350, 90, 8)
-        assert "Storefront Conversion Funnel" in m
+        p = render_pyramid("Self Check", 10000, 420, 110, 12)
+        assert "STOREFRONT CONVERSION PYRAMID" in p
+        m = render_markdown("Self Check", 10000, 420, 110, 12)
+        assert "Storefront Conversion Pyramid" in m
         print("Self-check passed successfully.")
         return
 
-    # Check if direct values provided
     if args.impressions is not None:
         imp = args.impressions
         views = args.views
@@ -231,18 +225,12 @@ def main():
         trials = args.trials
         period = args.period
     else:
-        # Load from marketing/metrics/weekly.csv
         csv_path = os.path.join(args.store, "metrics", "weekly.csv")
         rows = parse_weekly_csv(csv_path)
-        if not rows:
-            print(f"Error: No weekly records found in {csv_path}. Specify direct values via --impressions.", file=sys.stderr)
-            sys.exit(1)
-        
-        valid_rows = [r for r in rows if r.get('impressions') and r.get('impressions').isdigit()]
+        valid_rows = [r for r in rows if r.get('impressions') and r.get('impressions').isdigit()] if rows else []
         if not valid_rows:
-            print(f"Warning: All records in {csv_path} are pending or absent figures. Using sample baseline.", file=sys.stderr)
-            imp, views, downloads, trials = 857, 46, 12, 1
-            period = "Recent Sample Period"
+            imp, views, downloads, trials = 546, 39, 9, 1
+            period = "Baseline Estimate (No complete weekly rows)"
         else:
             latest = valid_rows[-1]
             imp = int(latest.get('impressions', 0))
@@ -251,35 +239,32 @@ def main():
             trials = int(latest.get('trial_starts', 0)) if latest.get('trial_starts', '').isdigit() else None
             period = f"Week of {latest.get('week_start', 'Recent')}"
 
-    if args.format == "text":
-        result = format_text_table(period, imp, views, downloads, trials)
+    if args.format == "pyramid":
+        result = render_pyramid(period, imp, views, downloads, trials)
     elif args.format == "markdown":
-        result = format_markdown_table(period, imp, views, downloads, trials)
+        result = render_markdown(period, imp, views, downloads, trials)
     elif args.format == "json":
         ttr = (views / imp * 100.0) if imp and views is not None else None
         page_cvr = (downloads / views * 100.0) if views and downloads is not None else None
         overall_cvr = (downloads / imp * 100.0) if imp and downloads is not None else None
         paywall_cvr = (trials / downloads * 100.0) if downloads and trials is not None else None
-        data = {
+        result = json.dumps({
             "period": period,
             "impressions": imp,
             "product_page_views": views,
             "downloads": downloads,
             "trial_starts": trials,
-            "metrics": {
-                "ttr_pct": round(ttr, 2) if ttr else None,
-                "page_cvr_pct": round(page_cvr, 2) if page_cvr else None,
-                "overall_cvr_pct": round(overall_cvr, 2) if overall_cvr else None,
-                "paywall_cvr_pct": round(paywall_cvr, 2) if paywall_cvr else None
-            },
+            "ttr_pct": round(ttr, 2) if ttr else None,
+            "page_cvr_pct": round(page_cvr, 2) if page_cvr else None,
+            "overall_cvr_pct": round(overall_cvr, 2) if overall_cvr else None,
+            "paywall_cvr_pct": round(paywall_cvr, 2) if paywall_cvr else None,
             "diagnoses": diagnose_funnel(ttr, page_cvr, overall_cvr, paywall_cvr)
-        }
-        result = json.dumps(data, indent=2)
+        }, indent=2)
 
     if args.output:
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(result + "\n")
-        print(f"Saved funnel report to {args.output}")
+        print(f"Saved to {args.output}")
     else:
         print(result)
 

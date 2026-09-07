@@ -95,30 +95,42 @@ When evaluating weekly metrics or hypothesis outcomes, evaluate these rules in o
 
 ---
 
-## 4. Visual Funnel Rendering Specification
+## 4. Visual Funnel & Pyramid Specification
 
-In CLI outputs, markdown reports, and skill summaries, render the conversion funnel using this structured format:
+To avoid confusing **Step Conversion Rate** (e.g. 23% Page CVR) with **Total Funnel Reach** (e.g. 1.65% of impressions downloading), render conversion metrics using the **Inverted Conversion Pyramid**:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🎯 STOREFRONT CONVERSION FUNNEL (Period: [Week / 30-Day])                             │
-├──────────────────────────────┬──────────┬──────────┬─────────────┬─────────────────────┤
-│ Funnel Stage                 │   Volume │ Conv Rate│  Benchmark  │ Health Status       │
-├──────────────────────────────┼──────────┼──────────┼─────────────┼─────────────────────┤
-│ 1. Search Impressions        │   12,450 │   100.0% │      —      │                     │
-│    │ [████████████████████]  │          │          │             │                     │
-│    ▼ Tap-Through Rate (TTR)  │          │     3.3% │  1.8 – 4.2% │ 🟡 FAIR             │
-│ 2. Product Page Views        │      410 │     3.3% │      —      │                     │
-│    │ [███░░░░░░░░░░░░░░░░░]  │          │          │             │                     │
-│    ▼ Page Conversion (CVR)   │          │    28.0% │ 18.0 – 32.0%│ 🟢 HEALTHY          │
-│ 3. First-Time Downloads      │      115 │    28.0% │      —      │                     │
-│    │ [█░░░░░░░░░░░░░░░░░░░]  │          │          │             │                     │
-│    │ (Overall ASO CVR: 0.9%) │          │     0.9% │  1.2 – 3.0% │ 🔴 LEAK (Top-Funnel)│
-│    ▼ Paywall Conversion      │          │     9.6% │  4.0 – 9.0% │ 🟢 HEALTHY          │
-│ 4. Trial Starts & Subs       │       11 │     9.6% │      —      │                     │
-└──────────────────────────────┴──────────┴──────────┴─────────────┴─────────────────────┘
-
-🔍 FUNNEL BOTTLENECK DIAGNOSIS:
-  • Primary Bottleneck: Top-of-Funnel Leak (Overall CVR 0.9% < 1.2% baseline).
-  • Recommended Lever: A/B test App Icon and first 3 screenshots via App Store PPO.
+╔══════════════════════════════════════════════════════════════════════════════════════════╗
+║ 🎯 STOREFRONT CONVERSION PYRAMID: Week of 2026-08-17 (Hush Organic Baseline)            ║
+╠══════════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                          ║
+║  ▼════════════════════════════════════════════════════════════════════════════════════▼  ║
+║  █ 1. SEARCH IMPRESSIONS: 546                                                 100.0% █  ║
+║  █ ██████████████████████████████████████████████████████████████████████████████████ █  ║
+║  ╰──────────────────────────────────────────┬─────────────────────────────────────────╯  ║
+║                      TTR (Tap-Through Rate):│  7.1% (39 page views / 546 imp)        ║
+║                                  Benchmark: │ 🟢 STRONG (Above avg)                           ║
+║                                             ▼                                            ║
+║       ▼════════════════════════════════════════════════════════════════════════▼         ║
+║       █ 2. PRODUCT PAGE VIEWS: 39                                    7.1% of top █         ║
+║       █ ██████████████████████████████████████████████████████████████████████ █         ║
+║       ╰─────────────────────────────────────┬──────────────────────────────────╯         ║
+║                      Page CVR (Storefront): │ 23.1% (9 downloads / 39 views)       ║
+║                                  Benchmark: │ 🟡 FAIR (Baseline)                              ║
+║                                             ▼                                            ║
+║             ▼════════════════════════════════════════════════════════════▼               ║
+║             █ 3. FIRST-TIME DOWNLOADS: 9                        1.65% Overall CVR █               ║
+║             █ ██████████████████████████████████████████████████████████ █               ║
+║             ╰───────────────────────────────┬────────────────────────────╯               ║
+║                                Paywall CVR: │ 11.1% (1 trials / 9 dl)             ║
+║                                  Benchmark: │ 🟢 STRONG (Above avg)                           ║
+║                                             ▼                                            ║
+║                   ▼════════════════════════════════════════════════▼                     ║
+║                   █ 4. PAID SUBS & TRIALS: 1               0.18% of top █                     ║
+║                   █ ██████████████████████████████████████████████ █                     ║
+║                   ╰────────────────────────────────────────────────╯                     ║
+║                                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
+
+
