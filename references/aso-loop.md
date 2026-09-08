@@ -43,6 +43,45 @@ Search can include paid ads; browse is context, not a randomized control. No ASC
 organic downloads by exact keyword. Consider launch volatility, version/price changes, acquisition mix,
 seasonality evidenced for this app, and competitor changes. Do not invent January/September peaks.
 
+## Close the window before opening another
+
+`scripts/ledger.py report` computes the state of every hypothesis from its own frontmatter, with no
+judgement of its own. Its states, and what each one obliges:
+
+| State | Condition | Obligation this run |
+|---|---|---|
+| judged | `verdict` set | nothing; it is closed |
+| due | `went_live` + `window_days` <= today, no verdict | judge it, or record the specific missing evidence |
+| open | inside the window | leave it; an early peek is not a verdict |
+| not shipped | `went_live` empty | resolve the discrepancy: is it really unshipped, or shipped and mislabelled |
+
+`went_live` is the date the change was publicly visible, never the submission date. Backfill it from
+shipping evidence — the version that carried the change, and its release date — as a dated amendment
+that leaves the original prediction and kill criterion untouched.
+
+A `not shipped` row whose status says `queued` is the failure mode this pass exists to catch: a
+change that shipped months ago and was never judged because the ledger still called it pending. Check
+the shipped metadata package and the live listing, not `STATE.md`.
+
+Rollback is a decision with a cost, not a reflex. An `adverse` verdict states the exact fields to
+revert and the version that would carry them; a missing data point is not grounds to revert public
+metadata, and neither is one bad week inside the window.
+
+## Order the next actions by money, not by impressions
+
+Rank of a keyword and value of a keyword are different quantities. Section C multiplies the
+storefront's **net proceeds per paying subscriber** — the real Apple price record, `metrics/markets.csv`,
+pulled with `asc subscriptions pricing prices list`, never estimated — by the headroom left in the
+current position band. Two consequences worth stating plainly, because they invert the intuitive order:
+
+- A high rank in a cheap storefront can be worth less than a mediocre rank in an expensive one.
+  Apple equalizes on proceeds, so the spread between storefronts is large and not guessable.
+- A storefront with no price record is ranked nowhere, never at zero — an unknown input must not
+  quietly sort a market to the bottom.
+
+The band weights are a declared ordering assumption printed with the output, not a measured tap
+share, and the section prints no currency total. It answers "what first", never "how much".
+
 ## Judge honestly
 
 | Outcome | Evidence required |

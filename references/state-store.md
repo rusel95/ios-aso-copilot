@@ -156,8 +156,8 @@ week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts
 Append-only, one row per `(date, market, keyword)`.
 
 ```csv
-date,market,keyword,group,position,popularity,difficulty,source
-2026-09-08,us,compress videos,target,,58,,astro
+date,market,keyword,group,position,popularity,difficulty,source,depth,status
+2026-09-08,us,compress videos,target,,58,,astro,200,beyond-depth
 ```
 
 - `market` — `us` / `gb` / `de` / `ua` for the weekly set; other locales are fine for a monthly pass.
@@ -166,9 +166,32 @@ date,market,keyword,group,position,popularity,difficulty,source
   keyword that was not checked at all is simply an absent row, not an empty-position row — the two
   are not the same thing and must not be conflated.
 - Preserve source/method/depth/status, exact query, timestamp and app identity in the linked raw snapshot. A failed request is unknown. Historical rows missing these fields cannot support paired rank verdicts.
+- `depth` / `status` — the queried depth and the request outcome, the two fields that make a pair
+  comparable. `status` is `ok` (found, `position` set), `beyond-depth` (queried, absent within
+  `depth`, `position` blank) or `error` (request failed, nothing observed). Two `beyond-depth`
+  observations are not a zero delta; `ok` -> `beyond-depth` and back are events in their own right.
+  `scripts/ledger.py ingest` writes these and refuses any position deeper than the result list its
+  query returned, which is what a value carried over from an older snapshot looks like.
 - Append on the skill's own cadence, not the tracker's retention window. History accumulates locally
   independent of how long the provider keeps it — provider retention only bounds how much can be
   back-filled on first use, never how long an experiment may run.
+
+## Storefront economics — `metrics/markets.csv`
+
+One row per territory, refreshed when prices change, never estimated.
+
+```csv
+territory,storefront,currency,customer_price,proceeds_local,fx_to_usd,proceeds_usd,source
+DEU,de,EUR,35.99,25.71,0.860364,29.88,live:asc subscriptions pricing prices list@2026-09-08
+```
+
+- `proceeds_local` is Apple's own proceeds figure from the price record, not price minus a guessed
+  commission. Pull it with `asc subscriptions pricing prices list --subscription-id ID --include
+  territory,subscriptionPricePoint --paginate`.
+- `fx_to_usd` carries its own date and source in `source`; it is the only estimated field, and a
+  blank one leaves `proceeds_usd` blank rather than inventing a conversion.
+- `storefront` is the alpha-2 code that joins to `ranks.csv`; a blank one means that territory
+  cannot be ranked against the others yet.
 
 ## Decision — `decisions.md`
 

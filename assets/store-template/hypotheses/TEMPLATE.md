@@ -1,5 +1,6 @@
 ---
 id:                       # H<NNN>, monotonic, never reused — even if this hypothesis is abandoned
+markets:                  # comma-separated storefront codes this change is exposed in (us,gb) — the ledger pairs rank observations to a hypothesis through this field, so an empty one means it can never be judged
 status:                   # draft / queued / live / judged / abandoned
 phase_at_start:           # the Phase value (e.g. P2-cold) when this went live — fixes which rigor applied, so a verdict written later is still readable
 change:                   # WHAT is changing. One variable only if phase_at_start is P3-measure.

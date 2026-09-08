@@ -39,6 +39,41 @@ is requested or available; discover its actual MCP tools before choosing a fallb
 - Keep one global skill installation. Project links may point to it; do not copy skill directories.
   Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 
+## Open every run with the ledger, before proposing anything
+
+The first command of any invocation — `status`, `manual` or `auto` — is:
+
+```bash
+python3 "$SKILL_DIR/scripts/ledger.py" --store "$STORE" report
+```
+
+Three sections in a fixed order: what is already live and what happened to it, what moved, what to
+do next. **Do not draft a new hypothesis before section A is on screen.** Proposing while live
+experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts;
+the ledger exists to make that state visible instead of comfortable.
+
+- **A · Hypothesis ledger.** Every hypothesis carries a state: `judged` / `due` / `open` /
+  `not shipped`. `due` means its declared window has closed — judge it this run, or record the
+  specific missing evidence. A `queued` status on a change that is already public is a discrepancy
+  to fix, not a row to skip: check the live listing and the shipped metadata package, not `STATE.md`.
+  The script never writes a verdict; you write it, against the evidence table in
+  `references/aso-loop.md`. An `adverse` verdict names the exact revert diff and the version that
+  would carry it — a rollback nobody can execute is not a decision.
+- **B · Progress and regress per key.** Every tracked key, paired first-to-latest. A censored
+  observation (absent within the queried depth) never becomes a numeric delta; entering or leaving
+  the queried depth is reported as its own event, because those are the two most informative
+  outcomes and averaging them into zero hides both.
+- **C · What to do next.** Ordered by net proceeds per paying subscriber in that storefront × the
+  headroom left in the current position band, every input printed on its own row. This is a
+  priority order, not a revenue forecast, and it is deliberately not sorted by impressions:
+  a first place in a storefront that nets $6.37 a subscriber is worth less than a fifth place in
+  one that nets $29.88. Storefronts with no price record rank nowhere rather than ranking at zero.
+
+The ledger's inputs are `$STORE/metrics/ranks.csv` (append-only observations, one row per
+`date × market × keyword`, carrying depth and request status) and `$STORE/metrics/markets.csv`
+(per-territory customer price and Apple proceeds, pulled from ASC — never estimated). Refresh the
+first with `rank_audit.py` and `ledger.py ingest`; refresh the second when prices change.
+
 ## Respect the requested scope
 
 | Request | Behavior |
@@ -122,6 +157,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | Claim sources and uncertainty | `references/provenance.md` |
 | RespectASO tools and data boundaries | `references/respectaso.md` |
 | Formats and append rules | `references/state-store.md` |
+| Closing a window, rollback, priority order | `references/aso-loop.md` |
 | ASC commands and external actions | `references/commands.md` |
 | Keyword selection and experiment verdicts | `references/aso-loop.md` |
 | Metrics and denominators | `references/funnel-analytics.md` |
@@ -136,6 +172,9 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 
 All use the Python standard library and provide `--self-check`. Run only what the task needs.
 
+- `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
+  refuses any position deeper than the result list that query returned — a value carried over from an
+  older snapshot is not an observation.
 - `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
 - `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
   Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
