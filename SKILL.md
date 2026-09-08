@@ -81,7 +81,11 @@ clothes, and it is the one part that must be argued.
 The ledger's inputs are `$STORE/metrics/ranks.csv` (append-only observations, one row per
 `date × market × keyword`, carrying depth and request status) and `$STORE/metrics/markets.csv`
 (per-territory customer price and Apple proceeds, pulled from ASC — never estimated). Refresh the
-first with `rank_audit.py` and `ledger.py ingest`; refresh the second when prices change.
+first with one command — `ledger.py refresh --bundle <id>`, which re-queries the basket `ranks.csv`
+already holds and ingests the result; add `--failed-only` to pick up what a rate limit ate. Apple
+documents the Search API at roughly 20 calls a minute and 429s above it, so the default 3s between
+queries is not a knob to turn down: at 1s more than half the queries came back as failures. Refresh
+`markets.csv` when prices change.
 
 ## Respect the requested scope
 
@@ -185,6 +189,9 @@ All use the Python standard library and provide `--self-check`. Run only what th
   refuses any position deeper than the result list that query returned — a value carried over from an
   older snapshot is not an observation.
 - `ledger.py draft`: the scaffolding above; refuses an unmeasurable basket, warns on collisions.
+- `ledger.py refresh`: re-queries the tracked basket per storefront and ingests it; `--failed-only`
+  retries what a rate limit ate. Every command reports the store rows it could not use, not just
+  `report`.
 - `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
 - `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
   Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.

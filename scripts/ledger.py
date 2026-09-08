@@ -72,14 +72,25 @@ def read_ranks(store: Path):
         rows = list(csv.DictReader(fh))
     for i, r in enumerate(rows, 2):
         raw = (r.get("position") or "").strip()
-        if raw and not raw.lstrip("-").isdigit() and raw.lower() not in ("absent", "not found", "none", "-"):
-            problem(f"metrics/ranks.csv:{i}", f"position {raw!r} is neither a number nor a known "
-                                              f"word for absent; read as not observed")
+        # Stores written before `status` existed use a word in this column ("absent", "not found")
+        # to mean the same thing, and a hand-edited file can hold anything at all. Read what is
+        # readable, flag what is not, and never let an unreadable value become a position.
+        r["position"] = None
+        if raw:
+            try:
+                value = int(raw)
+            except ValueError:
+                value = None
+            if value is None:
+                if raw.lower() not in ("absent", "not found", "none", "-"):
+                    problem(f"metrics/ranks.csv:{i}", f"position {raw!r} is neither a number nor a "
+                                                      f"known word for absent; read as not observed")
+            elif value < 1:
+                problem(f"metrics/ranks.csv:{i}", f"position {raw!r} is not a rank; read as not observed")
+            else:
+                r["position"] = value
         if not (r.get("market") or "").strip() or not (r.get("keyword") or "").strip():
             problem(f"metrics/ranks.csv:{i}", "row has no market or no keyword; it can never be paired")
-        # Stores written before `status` existed use a word in this column ("absent", "not found")
-        # to mean the same thing. Read it, do not crash on it, and do not read it as a number.
-        r["position"] = int(raw) if raw.lstrip("-").isdigit() else None
         if not (r.get("status") or "").strip():
             r["status"] = "ok" if r["position"] is not None else ("beyond-depth" if raw else "unknown")
         r["depth"] = (r.get("depth") or "").strip()
@@ -110,6 +121,10 @@ def read_markets(store: Path):
             except ValueError:
                 problem(f"metrics/markets.csv:{i}", f"{code} proceeds_usd {usd!r} is not a number")
     return out
+
+
+def hyp_markets(h):
+    return [m.strip().lower() for m in (h.get("markets") or "").split(",") if m.strip()]
 
 
 def read_brand_tokens(store: Path):
@@ -216,8 +231,10 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
         if not target.stat().st_size:
             writer.writerow(RANK_HEADER)
         for market, term, pos, status in rows:
-            if (date, market, term, source, status, pos if status == "ok" else None) in existing:
+            key = (date, market, term, source, status, pos if status == "ok" else None)
+            if key in existing:
                 continue
+            existing.add(key)          # a snapshot that lists a query twice writes it once
             writer.writerow([date, market, term, group, pos if pos is not None else "",
                              "", "", source, depth or "", status])
             new += 1
@@ -243,7 +260,14 @@ def series(rows):
 
 
 def movement(first, last):
-    """Return (label, delta) — a censored pair never becomes a numeric delta."""
+    """Return (label, delta) — a censored pair never becomes a numeric delta.
+
+    A key seen once is not "flat": comparing a row with itself yields delta 0, which reads as
+    "measured twice, did not move" when the truth is "measured once". That is the same substitution
+    of absence-of-evidence for evidence-of-absence the rest of this file exists to refuse.
+    """
+    if first["date"] == last["date"]:
+        return "only one observation date", None
     if first["provider"] != last["provider"]:
         return f"incomparable provider ({first['provider']} vs {last['provider']})", None
     if not (first["legacy"] or last["legacy"]) and first["depth"] != last["depth"]:
@@ -269,7 +293,7 @@ def section_a(hyps, pairs, markets):
     counts = {"judged": 0, "due": 0, "open": 0, "not-shipped": 0}
     for h in hyps:
         live, verdict = parse_date(h.get("went_live")), (h.get("verdict") or "").strip()
-        mkts = [m.strip().lower() for m in (h.get("markets") or "").split(",") if m.strip()]
+        mkts = hyp_markets(h)
         if verdict:
             state, action, counts["judged"] = f"judged: {verdict}", "closed", counts["judged"] + 1
         elif not live:
@@ -353,8 +377,7 @@ def section_c(pairs, markets, hyps, limit, brand):
           "measured tap share. No currency total is implied: this ranks WHAT FIRST, it does not "
           "forecast revenue. A key whose last observation was a failed request is absent here — an "
           "outage is not an opportunity._\n")
-    covered = {m.strip().lower() for h in hyps if not (h.get("verdict") or "").strip()
-               for m in (h.get("markets") or "").split(",") if m.strip()}
+    covered = {m for h in hyps if not (h.get("verdict") or "").strip() for m in hyp_markets(h)}
     scored, unpriced, brand_skipped = [], 0, 0
     for (market, keyword), obs in pairs.items():
         if any(token in keyword.lower() for token in brand):
@@ -388,16 +411,20 @@ def section_c(pairs, markets, hyps, limit, brand):
     return scored
 
 
-def print_problems():
-    if not PROBLEMS:
-        print("\n_Every store file parsed cleanly._")
+def print_problems(stream=sys.stdout):
+    """Every command prints this, not just `report` — a command that finds a broken row and says
+    nothing is the silent failure this whole section exists to prevent."""
+    seen = list(dict.fromkeys(PROBLEMS))       # a refresh reads the store several times per run
+    if not seen:
+        if stream is sys.stdout:
+            print("\n_Every store file parsed cleanly._")
         return
-    print(f"\n## ⚠ {len(PROBLEMS)} inputs this run could not use\n")
-    print("| Where | What went wrong |\n|---|---|")
-    for where, why in PROBLEMS:
-        print(f"| `{where}` | {why} |")
-    print("\nThese are not counted anywhere below. Fix them or the ledger is answering a question "
-          "about a smaller store than you have.")
+    print(f"\n## ⚠ {len(seen)} inputs this run could not use\n", file=stream)
+    print("| Where | What went wrong |\n|---|---|", file=stream)
+    for where, why in seen:
+        print(f"| `{where}` | {why} |", file=stream)
+    print("\nThese are not counted anywhere. Fix them or the ledger is answering a question "
+          "about a smaller store than you have.", file=stream)
 
 
 def report(store: Path, limit: int):
@@ -454,13 +481,12 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
               f"cannot be ranked against others by value.", file=sys.stderr)
 
     # 2. Collisions: same storefront in flight, and same query claimed by another hypothesis.
-    inflight = [h for h in hyps if not (h.get("verdict") or "").strip()
-                and market in [m.strip().lower() for m in (h.get("markets") or "").split(",")]]
+    inflight = [h for h in hyps if not (h.get("verdict") or "").strip() and market in hyp_markets(h)]
     claimed = {q: h["id"] for h in hyps for q in
                [x.strip().lower() for x in (h.get("queries") or "").split(";") if x.strip()]
                if q in queries}
-    judged = [(h["id"], h.get("verdict")) for h in hyps if (h.get("verdict") or "").strip()
-              and market in [m.strip().lower() for m in (h.get("markets") or "").split(",")]]
+    judged = [(h["id"], h.get("verdict")) for h in hyps
+              if (h.get("verdict") or "").strip() and market in hyp_markets(h)]
 
     ids = [int(re.sub(r"\D", "", h.get("id") or "0") or 0) for h in hyps]
     hid = f"H{max(ids + [0]) + 1:03d}"
@@ -511,7 +537,7 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
 
 # ---------------------------------------------------------------- refresh
 def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
-            out_dir: Path, passes: int = 1):
+            out_dir: Path):
     """Re-query the basket the store already tracks, then ingest it. One command, so that the
     weekly cadence a 21-day window depends on actually happens.
 
@@ -519,33 +545,11 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     how a query silently leaves the basket and a window closes on a different set than it opened on.
 
     Apple documents the Search API at "approximately 20 calls per minute", and over it returns 429
-    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0
-
-# Every input this run could not use. A store file that cannot be parsed must never be skipped
-# quietly: a dropped hypothesis reads exactly like a hypothesis that does not exist, and a ledger
-# that hides its own blind spots is worse than no ledger.
-PROBLEMS: list = []
-
-
-def problem(where: str, why: str):
-    PROBLEMS.append((where, why))s. Measured here
+    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0s. Measured here
     on 2026-09-08: 6 workers at 0.1s lost 478 of 649 queries; one worker at 1.0s still lost 135 of
-    261. The word "approximately" is why `--passes` exists: a burst can 429 at a legal rate.
+    261. Apple says "approximately", so a legal rate can still 429 in a burst: run the command again
+    with --failed-only to pick up what it lost.
     """
-    total = 0
-    for attempt in range(max(1, passes)):
-        if attempt:
-            print(f"pass {attempt + 1}: retrying what failed…", flush=True)
-        got = _refresh_once(store, bundle, markets_filter, failed_only or attempt > 0, delay, out_dir,
-                            suffix=f"_p{attempt + 1}" if attempt else "")
-        total += got or 0
-        if not got:
-            break
-    return total
-
-
-def _refresh_once(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
-                  out_dir: Path, suffix: str = ""):
     import subprocess
     rows = read_ranks(store)
     if not rows:
@@ -582,8 +586,10 @@ def _refresh_once(store: Path, bundle: str, markets_filter, failed_only: bool, d
             merged.setdefault(country, []).extend(entries)
             ok += sum(e.get("query_status") == "ok" for e in entries)
             err += sum(e.get("query_status") == "error" for e in entries)
-    snapshot = out_dir / f"snapshot_{TODAY}{suffix}.json"
+    snapshot = out_dir / f"snapshot_{TODAY}.json"
     snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
+    for market in basket:                      # the per-market files are inputs to the merge above
+        (out_dir / f"{market}.json").unlink(missing_ok=True)
     print(f"{ok} observed · {err} failed → {snapshot}")
     if err and not ok:
         sys.exit(f"every query failed — Apple returns 429 above ~20 calls/minute, so --delay must "
@@ -617,10 +623,34 @@ def self_check():
         ]), encoding="utf-8")
         ingest(store, snap2, "2026-09-08", "itunes-search-api", 200, "target")
         assert ingest(store, snap2, "2026-09-08", "itunes-search-api", 200, "target") == 0, "must dedupe"
+        aside = store / "aside"                # its own store: fixtures must not perturb the rest
+        (aside / "metrics").mkdir(parents=True)
+        twice = aside / "twice.json"
+        twice.write_text(json.dumps([
+            {"country_code": "de", "term": "dup", "our_rank": None, "total_results": 200},
+            {"country_code": "de", "term": "dup", "our_rank": None, "total_results": 200},
+        ]), encoding="utf-8")
+        assert ingest(aside, twice, "2026-09-08", "itunes-search-api", 200, "target") == 1, \
+            "a snapshot listing one query twice must write one row"
         pairs = series(read_ranks(store))
         assert movement(*[pairs[("de", "fotos komprimieren")][i] for i in (0, -1)]) == ("improved", 32)
         label, delta = movement(*[pairs[("de", "video komprimieren")][i] for i in (0, -1)])
         assert delta is None and label.startswith("ENTERED"), "censored → number is not a delta"
+        single = series(read_ranks(store))[("de", "fotos komprimieren")][:1]
+        assert movement(single[0], single[0]) == ("only one observation date", None), \
+            "one observation is not a flat pair"
+        bad = store / "metrics" / "bad.csv"
+        bad.write_text("date,market,keyword,group,position,popularity,difficulty,source,depth,status\n"
+                       "2026-09-01,de,x,target,--5,,,itunes-search-api,200,ok\n"
+                       "2026-09-02,de,y,target,-5,,,itunes-search-api,200,ok\n", encoding="utf-8")
+        keep_ranks = (store / "metrics" / "ranks.csv").read_text(encoding="utf-8")
+        (store / "metrics" / "ranks.csv").write_text(bad.read_text(encoding="utf-8"), encoding="utf-8")
+        PROBLEMS.clear()
+        rows = read_ranks(store)               # must not raise on a hand-edited position
+        assert all(r["position"] is None for r in rows), "a non-rank must not band as top3"
+        assert len(PROBLEMS) == 2, PROBLEMS     # one unreadable value, one non-rank
+        PROBLEMS.clear()
+        (store / "metrics" / "ranks.csv").write_text(keep_ranks, encoding="utf-8")
         legacy = store / "metrics" / "legacy.csv"
         legacy.write_text("date,market,keyword,group,position,popularity,difficulty,source\n"
             "2026-08-23,de,weisses rauschen,target,43,,,itunes-search-api@2026-08-23 limit=200 baseline\n"
@@ -666,7 +696,8 @@ def self_check():
                 raise AssertionError(f"must refuse a basket it cannot measure: {bad}")
             except SystemExit as exc:
                 assert "no successful observation" in str(exc), exc
-    print("\nOK: stale positions, failed requests, dedupe, censored pairs, legacy free-text provenance,\n    window states, proceeds-weighted order")
+    print("\nOK: stale positions, failed requests, dedupe, one-observation keys, unreadable positions,\n"
+          "    censored pairs, legacy free-text provenance, window states, proceeds-weighted order")
 
 
 def main():
@@ -687,8 +718,6 @@ def main():
     p.add_argument("--bundle")
     p.add_argument("--markets")
     p.add_argument("--failed-only", action="store_true")
-    p.add_argument("--passes", type=int, default=3,
-                   help="retry passes over whatever still failed (default 3)")
     p.add_argument("--out-dir", type=Path)
     p.add_argument("--self-check", action="store_true")
     args = p.parse_args()
@@ -696,21 +725,28 @@ def main():
         return self_check()
     if not args.store or not args.store.exists():
         p.error("--store must point at the app repo's marketing/ directory")
+    PROBLEMS.clear()
     if args.command == "ingest":
         if not args.snapshot:
             p.error("ingest needs a snapshot JSON path")
-        return ingest(args.store, Path(args.snapshot), args.date, args.source, args.depth, args.group)
+        done = ingest(args.store, Path(args.snapshot), args.date, args.source, args.depth, args.group)
+        print_problems(sys.stderr)
+        return done
     if args.command == "refresh":
         if not args.bundle:
             p.error("refresh needs --bundle (the app's exact bundle id)")
-        return refresh(args.store, args.bundle,
+        done = refresh(args.store, args.bundle,
                        [m.strip().lower() for m in (args.markets or "").split(",") if m.strip()],
                        args.failed_only, DEFAULT_DELAY if args.delay is None else args.delay,
-                       args.out_dir or args.store / "reports" / "snapshots", args.passes)
+                       args.out_dir or args.store / "reports" / "snapshots")
+        print_problems(sys.stderr)
+        return done
     if args.command == "draft":
         if not args.market:
             p.error("draft needs --market and --queries")
-        return draft(args.store, args.market, args.queries.split(";"), args.window, args.out)
+        done = draft(args.store, args.market, args.queries.split(";"), args.window, args.out)
+        print_problems(sys.stderr)
+        return done
     report(args.store, args.limit)
 
 
