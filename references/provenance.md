@@ -78,3 +78,14 @@ it. If it's a judgment call, don't.
 
 A rule enforced at this one waist cannot be forgotten at some other site. Every other reference file
 in this skill assumes you apply this one without being told again per-figure.
+
+## ASO joins and transport
+
+MCP is a transport, not the origin of a score. Preserve exact query, country, observation date,
+provider, method, selected popularity source and fallback detail. Translation is not a join key.
+A successful MCP envelope may contain an error: inspect its content before treating it as data.
+A generated report date never replaces the dates of its underlying observations.
+
+RSS written-review samples and cumulative ratings are different observations. Their absence cannot
+be converted into download velocity, query searches or competitor ad spend. Identity must match
+App ID/bundle, never a fuzzy app-name substring.

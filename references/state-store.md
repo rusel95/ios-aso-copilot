@@ -53,18 +53,10 @@ Not stored as an entity — **computed fresh on every run**, then cached into `S
 only. `SKILL.md` owns the detection logic. When the cache disagrees with a live check, the live check
 wins and the disagreement is shown, never silently repaired.
 
-| Value | Detected by | Rigor |
-|---|---|---|
-| `P0-prelaunch` | version editable **and** `asc validate` reports blocking findings | none — fix blockers |
-| `P1-review` | version state `WAITING_FOR_REVIEW` or `IN_REVIEW` | none — prepare only, never measure |
-| `P2-cold` | live **and** last full week's downloads < 100 | rank movement only |
-| `P3-measure` | live **and** last full week's downloads ≥ 100 | full: one variable, declared windows |
-
-`P2-cold` additionally carries a `honeymoon` flag for the first three weeks after the app first went
-live. Honeymoon weeks are recorded like any other week but are never eligible as a comparison
-baseline. Transitions are normally one-way (`P0→P1→P2→P3`) but are not assumed to be: a rejected
-review returns `P1→P0`, a traffic collapse returns `P3→P2`. Detection is stateless every run, so a
-reversal needs no special-casing.
+Track live version, candidate version/review status, and measurement readiness separately.
+An update in review does not make the live app unmeasurable. Missing weekly data means volume is
+unknown. P2/P3 are planning labels; 100 downloads/week and three launch weeks are not significance
+or baseline-validity tests. See SKILL.md for current detection.
 
 ## Hypothesis — `hypotheses/H<NNN>-<slug>.md`
 
@@ -76,13 +68,13 @@ guidance.
 | Field | Type | Rule |
 |---|---|---|
 | `id` | `H001`… | monotonic, never reused |
-| `status` | `draft` / `queued` / `live` / `judged` / `abandoned` | |
+| `status` | `idea` / `draft` / `queued` / `staged` / `live` / `judged` / `abandoned` | |
 | `phase_at_start` | a Phase value | which rigor applied — fixes how an old verdict should be read |
 | `change` | text | **what** is changing — one variable only when `phase_at_start` is `P3-measure` |
 | `mechanism` | text | **why** it should work — the causal story |
 | `prediction` | text + number | the expected effect **and** by when |
 | `kill_criterion` | text + number | what counts as failure |
-| `kill_criterion_written` | date | **must precede `went_live`** — validate this, don't assume it |
+| `kill_criterion_written` | date | must precede exposure; use timestamps if both are on one date |
 | `went_live` | date or empty | the day the change reached the **live store**, not the day it was submitted |
 | `window_days` | integer | declared per hypothesis, default 21 for a keyword change; shorter for fast feedback, longer for a slow mechanism; never bounded by a data provider's retention |
 | `primary_signal` | `rank` / `funnel` | `rank` if `phase_at_start` is `P2-cold`, `funnel` if `P3-measure` |
@@ -92,13 +84,11 @@ guidance.
 **Validation, enforced at entry, not at verdict time:**
 
 - `change`, `mechanism`, `prediction`, `kill_criterion` must all be present. Refuse a hypothesis
-  missing any of them, name which is missing, and **do not fill it in** — a kill criterion written by
-  the party judging the experiment is not a kill criterion.
-- `kill_criterion_written < went_live`. If the criterion was written after the change went live, the
-  hypothesis cannot be judged; mark it `abandoned` with that reason.
+  missing any of them, name which is missing, and draft prospectively when requested; never backdate a criterion after seeing outcomes.
+- A criterion must be recorded before exposure. A retrospective correction is a dated amendment, not a preregistration. Keep the historical record and mark evaluation observational or withheld.
 - No verdict before `went_live + window_days` has elapsed. A window shorter or longer than the
   default is accepted, with the reason recorded in the file.
-- **Market concurrency rule**: Multiple hypotheses may run concurrently in the same app release if their target markets are disjoint (e.g. H001 in US, H003 in DE, H010 in JP can all be `live` concurrently, up to 1 per market). Two competing keyword hypotheses targeting the same market cannot run concurrently because they would contaminate each other.
+- **Exposure rule**: inspect all hypothesis files and live metadata, including queued items. Map locales to storefronts and shared release changes before claiming independence. Record partial deployment and confounds.
 - **Prior-verdict guard**: before drafting or accepting a hypothesis, search `hypotheses/` for a
   settled `no-effect` or `adverse` verdict on the same change. If one exists, refuse until it is
   cited and what has changed since is stated. Without this check the ledger is written but never
@@ -109,8 +99,8 @@ guidance.
 | Verdict | Condition | Action |
 |---|---|---|
 | `worked` | primary signal moved as predicted, CVR not down | keep; draft the next hypothesis |
-| `no-effect` | nothing moved beyond the kill criterion | roll back; record why the mechanism was wrong |
-| `adverse` | impressions up, CVR down | roll back — this traffic lowers ranking across *all* queries, not just the new one |
+| `no-effect` | sufficient precision rules out the useful effect | record evidence; sparse data is not proof that the mechanism was wrong |
+| `adverse` | credible harm to a declared outcome or guardrail | evaluate a justified rollback; no assumed all-query ranking penalty |
 | `withheld` | window closed but data missing, or a confound dominates | name what's missing; do not guess |
 
 ## Channel Hypothesis — `hypotheses/C<NNN>-<channel>-<slug>.md`
@@ -122,7 +112,7 @@ One file per external traffic experiment (Reddit, Threads, Twitter/X, Product Hu
 | `id` | `C001`… | monotonic, prefixed with `C` to distinguish from ASO `H` hypotheses |
 | `channel` | `reddit` / `threads` / `x` / `producthunt` / `asa` | external marketing vector |
 | `type` | `contextual_reply` / `dev_showcase` / `post` / `ad` | execution format |
-| `status` | `draft` / `queued` / `live` / `judged` / `abandoned` | operational state |
+| `status` | `idea` / `draft` / `queued` / `staged` / `live` / `judged` / `abandoned` | operational state |
 | `target_community` | string (e.g. `r/iphonehelp`, `r/iosapps`) | destination community or ad group |
 | `campaign_token` | string (e.g. `reddit_storage_fix`) | alphanumeric token passed in `?ct=...` |
 | `tracked_link` | URL | full App Store URL with `ct` and optional `pt` |
@@ -142,7 +132,7 @@ Before creating or proposing a new channel experiment, `campaign_link.py` and th
 
 ## Weekly record — `metrics/weekly.csv`
 
-Append-only, one row per `(week_start, segment)`.
+Append-only. A logical observation is keyed by period, segment, market and metric definition. Corrections retain the old row and explicitly name the superseded record; until duplicate selection is implemented, the visualizer rejects ambiguous rows.
 
 ```csv
 week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts,source,recorded,note
@@ -150,17 +140,16 @@ week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts
 ```
 
 - `week_start` — Monday, ISO date. Weeks are whole; never record a partial week.
-- `impressions` — how many times the app was **shown** in a search results list or browse feed,
-  whether or not anyone tapped it. `cvr_pct` — **conversion rate**: downloads ÷ product page views,
-  as a percentage. Both come straight from App Store Connect analytics; neither is inferred.
-- `segment` — **`search` or `browse`, required.** Reject a row with no segment **at entry**, not at
-  verdict time: only `search` tests a keyword change, and `browse` is the control that stops another
-  source's growth being credited to it.
+- Record whether impressions and views are total or unique, and downloads first-time or total.
+  Preserve the source's `cvr_pct`; ASC conversion is total downloads plus pre-orders divided by
+  unique-device impressions, with Apple's pre-order counting rules. Downloads/views is not page CVR.
+- `segment` and territory filters must be explicit. Search may include Apple Ads; browse is context.
+  If adding an optional `market` column, preserve historical blanks as unknown, not global totals.
 - `source` — a provenance tag (`user:@<date>` for a figure read off the web UI, `live:<command>@<date>`
   for one pulled by API, `absent:<reason>` when unobtainable). Never invented: an unobtainable figure
   is an empty cell tagged `absent:<reason>` — never a zero, never an estimate.
-- `trial_starts` comes from RevenueCat, not the App Store.
-- **Funnel Visualization & Diagnostics**: Run `python3 $SKILL_DIR/scripts/funnel_visualizer.py --store marketing` to parse `metrics/weekly.csv`, render Unicode conversion bars, compare against category benchmarks (TTR, Page CVR, Overall CVR, Paywall CVR), and diagnose conversion bottlenecks (see `references/funnel-analytics.md`).
+- Trial starts may come from a subscription provider or eligible ASC subscription reports; record the source and definition. They are not paid users. An optional `paid_subscribers` field must be separately observed.
+- **Metrics display**: use `funnel_visualizer.py` with explicit filters; no fabricated values, fixed benchmarks, sequential funnel or inferred cash. See `references/funnel-analytics.md`.
 
 ## Rank observation — `metrics/ranks.csv`
 
@@ -173,10 +162,10 @@ date,market,keyword,group,position,popularity,difficulty,source
 
 - `market` — `us` / `gb` / `de` / `ua` for the weekly set; other locales are fine for a monthly pass.
 - `group` — `own` / `title` / `target` / `competitor`, matching `marketing/keywords/`.
-- `position` — an **empty cell means "not ranked within tracked depth,"** a real observation. A
+- `position` — a blank is ambiguous without request status and depth. Only a successful query can establish not observed within the tracked depth. A
   keyword that was not checked at all is simply an absent row, not an empty-position row — the two
   are not the same thing and must not be conflated.
-- `source` — `live:astro@<date>`, or `user:@<date>` for the UA hand-check.
+- Preserve source/method/depth/status, exact query, timestamp and app identity in the linked raw snapshot. A failed request is unknown. Historical rows missing these fields cannot support paired rank verdicts.
 - Append on the skill's own cadence, not the tracker's retention window. History accumulates locally
   independent of how long the provider keeps it — provider retention only bounds how much can be
   back-filled on first use, never how long an experiment may run.

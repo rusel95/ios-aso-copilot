@@ -13,8 +13,7 @@ posts under Ruslan's name, changes account settings. That is not enough to bind 
 the word "publishes" tells you that `asc reviews respond` does it. So the fence is the literal list
 below, and this list is the authority, not the category description.
 
-**Deny by default.** A command not on the allow list is fenced, whatever it appears to do. Adding a
-capability means adding it here, deliberately.
+Apply the user's existing authorization across turns. Unlisted read-only or reversible local commands can proceed after checking their help; do not invent a permission gate. For external mutations outside the authorized scope, prepare the concrete artifact before asking.
 
 **Version note.** This list was transcribed against `asc` 3.1.1 (`specs/013-marketing-ops-skill/contracts/approval-fence.md`, 2026-08-19) and spot-checked against the installed `asc --version` before this file was written — still 3.1.1. If a future run sees a different version, diff this list against that version's `--help` output before trusting it: a major bump can rename or restructure a write subcommand, and a renamed command missing from this list is invisible to the deny rule, not denied by it.
 
@@ -22,7 +21,7 @@ In `auto` mode, hitting a fenced command does **not** abort the cycle (FR-021): 
 `marketing/queue.md` with its exact command, its plain-language effect, and its preconditions, and
 continue.
 
-### Fenced — never run without approval given in the current session
+### External actions require authorization within the user's requested scope
 
 | Command | Why it is fenced |
 |---|---|
@@ -57,7 +56,7 @@ approval or not; it drafts and Ruslan executes.
 
 | Command | Note |
 |---|---|
-| `asc validate` (all forms) | the authority on release readiness |
+| `asc validate` (all forms) | candidate validation; read live/candidate version states first |
 | `asc metadata pull` | writes only to a local directory |
 | `asc metadata plan` | **local** — computes the diff, writes a review artifact |
 | `asc metadata approve` | **local** — marks a local plan approved; does not touch Apple |
@@ -97,7 +96,7 @@ Format and the precondition re-check rule: `references/state-store.md` → *Queu
 asc validate --app $APP_ID --version $VERSION --platform IOS --output table
 ```
 
-This is the **authoritative** source for release readiness — never a hand-maintained checklist, and
+Interpret this against the actual version state from `asc versions list`. A live version failing an editability check is not a prelaunch blocker. This is a CLI validation source for candidate readiness — never a hand-maintained checklist, and
 never `STATE.md` when it disagrees (FR-032, live beats stored). Each finding carries three fields
 that matter:
 
@@ -200,3 +199,7 @@ allow list above; nothing it does leaves your machine or costs money beyond the 
 
 `asc ads reports search-terms` and `asc ads reports keywords` — both read-only, both blocked today
 only by missing credentials (`references/apple-ads.md`), not by anything else.
+
+## RespectASO
+
+Read `references/respectaso.md` for the installed MCP tool groups. Access/status and non-saving queries are reads; settings changes, saved data, background AI usage and session cancellation have distinct effects. Parse embedded errors even when MCP `isError` is false.

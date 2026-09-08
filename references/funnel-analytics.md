@@ -1,217 +1,37 @@
-# Storefront Conversion Funnel & Analytics Engine
+# Marketing metrics without invented funnels
 
-Marketing in the App Store is fundamentally a multi-stage conversion funnel. While keyword rankings (ASO) drive top-of-funnel **Impressions**, the commercial and organic success of an app is determined by **how effectively impressions convert into product page views, downloads, and paying subscribers**.
+Use `scripts/funnel_visualizer.py --store "$STORE" --segment search --market us`. The script
+renders only recorded values; missing metrics stay absent. `--format json` preserves null versus zero.
+An ambiguous week/segment selection is an error, not permission to take the last CSV row or add
+unique-device counts. `--price` cannot establish revenue and is rejected; use the economics script
+for a labelled scenario.
 
-This document defines conversion benchmarks, leak diagnostic algorithms, territory-level triage rules, and visual reporting specifications for `ios-marketing-ops`.
+## Definitions before ratios
 
----
+Record period, timezone, storefront, source type, version/product where available, metric unit,
+report identifier, data freshness and completeness. ASC impressions include page views. Users may
+download directly from search; all downloads divided by page views is not page-view conversion.
+ASC conversion uses total downloads and pre-orders divided by unique-device impressions, with
+pre-order counting rules. Prefer the reported rate; do not recompute it from ambiguous legacy columns.
 
-## 1. The 4-Stage Storefront Conversion Funnel
+Storefront observations and in-app events are different populations. Same-week trial starts are not
+necessarily from same-week downloads. Trial starts are not payments. Paying users are not transaction
+counts, revenue is not proceeds, and estimated proceeds are not a bank deposit. Use mature cohorts
+for trial-to-paid conversion and reconciliation with financial reports for realized payments.
 
-```
-[ Stage 1: Search Impressions ]
-         │
-         │  Tap-Through Rate (TTR / CTR) = Page Views / Impressions
-         ▼
-[ Stage 2: Product Page Views ]
-         │
-         │  Page Conversion Rate (Page CVR) = Downloads / Page Views
-         ▼
-[ Stage 3: First-Time Downloads ]
-         │
-         │  Paywall Conversion Rate (Paywall CVR) = Trial Starts / First Opens
-         ▼
-[ Stage 4: Subscriptions & Trials ]
-```
+ASC Search can include Apple Ads. Keep paid query reporting separate. Campaign links can help with
+external attribution, subject to Apple's reporting eligibility and privacy limits; they do not expose
+organic installs by keyword. Browse is descriptive context, not an automatic causal control.
 
-### Key Metrics Definition
-| Metric | Calculation | What it measures |
-|---|---|---|
-| **TTR (Tap-Through Rate)** | `product_page_views / impressions` | Search card appeal: Icon, Title, Subtitle, Rating, First 3 screenshots. |
-| **Page CVR** | `downloads / product_page_views` | Full page persuasion: Screenshots 4-10, Description, App Preview video, Reviews. |
-| **Direct Download Rate** | `direct_downloads / impressions` | Users who tap "Get" directly in search results without opening the product page. |
-| **Overall ASO CVR** | `total_downloads / impressions` | End-to-end storefront conversion efficiency. |
-| **Paywall CVR** | `trial_starts / first_opens` | In-app monetization efficiency: Paywall UX, pricing, trial terms, localized copy. |
+## Diagnosis
 
----
+There are no universal hardcoded TTR, page-CVR or paywall-CVR cutoffs in this skill. Read an eligible
+Apple peer benchmark with its cohort, date and metric definition; compare like populations. A low
+ratio may reflect traffic mix, missing events or device/language differences before creative quality.
+Inspect the counts and uncertainty before recommending an icon or paywall change. With missing data,
+report `not_assessed`; never `healthy`.
 
-## 2. Category Benchmarks (Health & Fitness, Utilities, Audio)
-
-Derived from Apple App Store Peer Group Benchmarks and industry conversion standards:
-
-| Metric | 🔴 Critical / Major Leak | 🟡 Baseline / Fair | 🟢 Healthy / Top Quartile | Primary Root Cause if Low |
-|---|---|---|---|---|
-| **TTR (Tap Rate)** | `< 1.8%` | `1.8% – 4.2%` | `> 4.2%` (top 10%: `> 6.5%`) | Weak icon contrast; cluttered first 3 screenshots; title/subtitle doesn't match search intent. |
-| **Page CVR** | `< 18.0%` | `18.0% – 32.0%` | `> 32.0%` (top 10%: `> 42.0%`) | Untranslated screenshots; low local rating or 0 reviews; app size > 200MB; confusing description. |
-| **Overall ASO CVR** | `< 1.2%` | `1.2% – 3.0%` | `> 3.0%` (top 10%: `> 4.5%`) | Combined search-card and product-page failure. |
-| **Paywall CVR** | `< 4.0%` | `4.0% – 9.0%` | `> 9.0%` (top 10%: `> 14.0%`) | Untranslated paywall strings; aggressive hard paywall; pricing misaligned with local purchasing power (PPP). |
-
----
-
-## 3. Automated Diagnostic Rules & Actionable Levers
-
-When evaluating weekly metrics or hypothesis outcomes, evaluate these rules in order to identify the **Single Biggest Conversion Bottleneck**:
-
-### Rule 1: Top-of-Funnel Search Card Leak (`TTR < 1.8%`)
-- **Diagnosis**: 🔴 High visibility, low curiosity. Users see the app in search results but skip it.
-- **Root Causes**:
-  1. The app icon looks generic or lacks contrast against dark/light mode search backgrounds.
-  2. The first 3 screenshots fail to convey the core value proposition in < 2 seconds.
-  3. Star rating is below 4.2 or shows 0 reviews in that storefront.
-- **Actionable Lever**:
-  - Launch an App Store Product Page Optimization (PPO) test on App Icon.
-  - Redesign Screenshot #1 with a large, legible 3-word hook (e.g. *"Fall Asleep Fast"* / *"Засинай миттєво"*).
-  - Check keyword intent: are impressions coming from broad, misaligned queries?
-
-### Rule 2: Product Page Drop-off (`Page CVR < 18.0%`)
-- **Diagnosis**: 🔴 High curiosity, low commitment. Users open the full page but bounce.
-- **Root Causes**:
-  1. English screenshots shown in a non-English storefront (e.g. English UI in Germany, Norway, Japan).
-  2. The review section contains negative, unaddressed reviews on the top fold.
-  3. Description is a wall of text without clear feature bullets.
-- **Actionable Lever**:
-  - Localize screenshot captions and UI framing for that specific storefront.
-  - Reply to negative reviews via App Store Connect.
-  - Punch up the first 3 lines of the description before the "More" cutoff.
-
-### Rule 3: Territory / Storefront Isolation Mismatch
-- **Diagnosis**: 🔴 High impressions in a country (> 200/mo) but 0 downloads.
-- **Root Causes**:
-  1. Country uses English fallback for metadata or screenshots.
-  2. Prohibitive US-dollar pricing without PPP adjustments.
-- **Actionable Lever**:
-  - Localize storefront metadata and screenshots.
-  - Implement localized PPP pricing via `asc-ppp-pricing`.
-
-### Rule 4: Monetization Paywall Leak (`Paywall CVR < 4.0%`)
-- **Diagnosis**: 🔴 Good organic acquisition, broken revenue bridge. Users install but bounce at paywall.
-- **Root Causes**:
-  1. Untranslated paywall strings (e.g. English "7-day free trial" in a localized build).
-  2. Missing free trial or unclear cancellation terms.
-  3. Missing monthly equivalent anchor (e.g. not showing "zsh.83/mo equivalent" next to Annual).
-- **Actionable Lever**:
-  - Audit `Localizable.xcstrings` for missing keys across all supported languages.
-  - Highlight "7-day free trial" and clear trial cancellation policy.
-
----
-
-## 4. Visual Funnel & Pyramid Specification
-
-To avoid confusing **Step Conversion Rate** (e.g. 23% Page CVR) with **Total Funnel Reach** (e.g. 1.65% of impressions downloading), render conversion metrics using the **Inverted Conversion Pyramid**:
-
-```text
-╔══════════════════════════════════════════════════════════════════════════════════════════╗
-║ 🎯 STOREFRONT CONVERSION PYRAMID: Week of 2026-08-17 (Hush Organic Baseline)            ║
-╠══════════════════════════════════════════════════════════════════════════════════════════╣
-║                                                                                          ║
-║  ▼════════════════════════════════════════════════════════════════════════════════════▼  ║
-║  █ 1. SEARCH IMPRESSIONS: 546                                                 100.0% █  ║
-║  █ ██████████████████████████████████████████████████████████████████████████████████ █  ║
-║  ╰──────────────────────────────────────────┬─────────────────────────────────────────╯  ║
-║                      TTR (Tap-Through Rate):│  7.1% (39 page views / 546 imp)        ║
-║                                  Benchmark: │ 🟢 STRONG (Above avg)                           ║
-║                                             ▼                                            ║
-║       ▼════════════════════════════════════════════════════════════════════════▼         ║
-║       █ 2. PRODUCT PAGE VIEWS: 39                                    7.1% of top █         ║
-║       █ ██████████████████████████████████████████████████████████████████████ █         ║
-║       ╰─────────────────────────────────────┬──────────────────────────────────╯         ║
-║                      Page CVR (Storefront): │ 23.1% (9 downloads / 39 views)       ║
-║                                  Benchmark: │ 🟡 FAIR (Baseline)                              ║
-║                                             ▼                                            ║
-║             ▼════════════════════════════════════════════════════════════▼               ║
-║             █ 3. FIRST-TIME DOWNLOADS: 9                        1.65% Overall CVR █               ║
-║             █ ██████████████████████████████████████████████████████████ █               ║
-║             ╰───────────────────────────────┬────────────────────────────╯               ║
-║                                Paywall CVR: │ 11.1% (1 trials / 9 dl)             ║
-║                                  Benchmark: │ 🟢 STRONG (Above avg)                           ║
-║                                             ▼                                            ║
-║                   ▼════════════════════════════════════════════════▼                     ║
-║                   █ 4. PAID SUBS & TRIALS: 1               0.18% of top █                     ║
-║                   █ ██████████████████████████████████████████████ █                     ║
-║                   ╰────────────────────────────────────────────────╯                     ║
-║                                                                                          ║
-╚══════════════════════════════════════════════════════════════════════════════════════════╝
-```
-
-
-
-
----
-
-## 6. The End-to-End "Attention-to-Pocket-Cash" Pipeline
-
-Commercial marketing must bridge the entire journey from **initial attention** to **actual cash deposited into your bank account**.
-
-```
-[ Tier 1: ATTENTION (Impressions) ]
-    │  App Store Search, Browse, App Referrers, Web Referrers, Campaign Links
-    ▼  TTR (1.8% – 4.2%)
-[ Tier 2: STOREFRONT (Page Views) ]
-    │  Product Page Views + Direct Search Card Get Taps
-    ▼  Page CVR (18% – 32%)
-[ Tier 3: INSTALLS (Downloads) ]
-    │  First-time Downloads & Re-downloads
-    ▼  Activation Rate (~80% – 90%)
-[ Tier 4: PRODUCT ACTIVATION ]
-    │  First Open & Core Action (Play sound, create mix)
-    ▼  Paywall Exposure Rate (~50% – 70%)
-[ Tier 5: PAYWALL VIEWS ]
-    │  User sees subscription pricing & free trial offer
-    ▼  Trial Start Rate (~8% – 15%)
-[ Tier 6: FREE TRIAL STARTS (7-Day Trial) ]
-    │  7-day evaluation window
-    ▼  Trial-to-Paid CVR (~38% – 45%)
-[ Tier 7: PAID CONVERSIONS ]
-    │  Annual ($9.99), Monthly ($2.99), Lifetime ($17.99)
-    ▼
-[ Tier 8: GROSS REVENUE ]
-    │  Total dollars collected by Apple
-    ▼
-[ Tier 9: NET CASH IN POCKET ]
-    │  = Gross Revenue 
-    │    - Apple Commission (15% Small Business Program)
-    │    - Withholding VAT / Sales Taxes (~10% - 20% territory avg)
-    │    - Refunds & Chargebacks (~1% - 3%)
-    │  ≈ 70% – 75% of Gross Revenue landed in bank
-```
-
----
-
-## 7. Link & Campaign Tracking (Attribution by Channel)
-
-To know **exactly which link or channel brought traffic and revenue**, Apple App Store provides native **Campaign Tokens (`ct`)**:
-
-### 1. Apple Campaign Links (`?ct=...`)
-Any link shared on external channels (Reddit, TikTok, Twitter/X, Telegram, YouTube, Newsletters) can carry a campaign identifier:
-```text
-https://apps.apple.com/app/id6449785515?ct=reddit_sleep_tips&pt=120286828
-```
-- `id`: App Store App ID (`6449785515` for Hush)
-- `ct`: **Campaign Token** (up to 40 alphanumeric characters, e.g. `reddit_post`, `tiktok_bio`, `newsletter_sep`)
-- `pt`: **Provider Token** (optional Apple developer account token)
-
-### 2. Apple App Analytics Attribution
-App Store Connect automatically groups all traffic into 5 distinct buckets in **Analytics → Sources**:
-1. **App Store Search**: Organic keyword searches (no link).
-2. **App Store Browse**: Category listings, Today tab, similar apps.
-3. **App Referrers**: Taps from specific apps (e.g. Telegram, Instagram, TikTok, Reddit app).
-4. **Web Referrers**: Clicks from Safari, blogs, search engines, web reviews.
-5. **Campaigns**: Specific `?ct=...` links you created. Shows impressions, page views, downloads, AND **total sales generated by that exact campaign**!
-
----
-
-## 8. RevenueCat Integration: Automated Cash & In-App Metrics
-
-RevenueCat bridges the gap between App Store downloads and real-time revenue accounting:
-
-### What RevenueCat tracks that App Store Analytics cannot:
-1. **Real-time MRR & ARR**: Active recurring revenue.
-2. **Trial Conversion Cohorts**: Percentage of users who actually convert to paid after the 7-day trial.
-3. **Net vs Gross Revenue**: RevenueCat automatically subtracts Apple's 15% Small Business fee and country-specific taxes to show real realized revenue.
-4. **Refunds & Churn**: Real-time cancellations and dispute rates.
-
-### Connecting RevenueCat to `ios-marketing-ops`:
-- **Client SDK Key (`appl_...`)**: Already in `AppConfig.xcconfig`. Used only by the iOS app to handle transactions.
-- **Reporting Secret API Key (`sk_...` / v2 API Key)**: Required for the CLI/script to pull live MRR and conversion cohorts automatically:
-  - Generate in **RevenueCat Dashboard → Project Settings → API Keys → Secret Keys**.
-  - Set via environment variable: `export REVENUECAT_SECRET_KEY="sk_..."` or store in `$STORE/config.md`.
+Sources checked 2026-09-08:
+- https://developer.apple.com/help/app-store-connect-analytics/reference/metrics-definitions/
+- https://developer.apple.com/help/app-store-connect-analytics/benchmarks/peer-group-benchmarks/
+- https://developer.apple.com/help/app-store-connect-analytics/acquisition/acquisition/

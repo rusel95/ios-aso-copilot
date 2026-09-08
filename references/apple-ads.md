@@ -1,5 +1,8 @@
 # Apple Ads — setup, structure, economics
 
+Historical app/account figures below are examples, not current configuration. Resolve identity, price, proceeds, trial duration, attribution window and account access from the current app. All calculator outputs are scenarios; they do not justify scaling without mature cohort economics and a bounded loss budget. Paid installs have no guaranteed permanent organic-rank effect.
+
+
 **This playbook opens at account creation, not campaign setup.** Apple Ads is a separate account at
 ads.apple.com — not App Store Connect. Credentials are now live
 (`live:asc ads auth status@2026-08-19` → profile "Compresso Ads", validation ok; `live:asc ads

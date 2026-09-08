@@ -10,26 +10,20 @@ Never name, subtitle, keywords or description — those have no A/B mechanism at
 calling itself an A/B test of keywords is actually a weaker before/after comparison, because
 everything else in the world also changed between "before" and "after".
 
-**Precondition — refuse below the traffic threshold.** Apple computes significance itself and flags
-a variant *Performing Better* at ~90% confidence, over up to 90 days (realistically 1–2 weeks at
-real volume). Below `VOLUME_THRESHOLD` (100 downloads/week, `SKILL.md` Step 3 — the same constant
-everywhere else in this skill), reaching that confidence takes **months**, not weeks. If asked to
-start a PPO test below threshold: refuse, state that at current weekly volume the test would take on
-the order of months rather than the 1–2 weeks it takes at target volume, and name the alternative —
-keep recording weekly figures and revisit once volume clears the threshold (US6 acceptance scenario
-1).
+**Feasibility first.** Use Apple's duration estimate, baseline, desired effect and traffic allocation.
+A universal downloads/week cutoff cannot determine whether a particular test will be conclusive.
+If volume is sparse, prepare one strong contrast and keep the outcome inconclusive until evidence
+supports a decision. See https://developer.apple.com/app-store/product-page-optimization/.
 
-**Test priority order**, most-to-least leverage — always start at the top of this list, not
-wherever seems interesting:
+**Candidate test order**, to adapt to the evidence and app:
 
-1. **First screenshot** — the single biggest lever; most visitors never scroll further
+1. **First screenshot** — test whether the benefit is understandable
 2. **Icon** — influences search results before anyone even opens the page
 3. Screenshot order
 4. **Preview video** — present or absent
 5. Remaining screenshots
 
-For Compresso specifically, the first screenshot should show **a number** — "−12.4 GB", large,
-before/after — not app interface. People scan for the result, not the UI.
+For Compresso specifically, the first screenshot should show **a substantiated result** with the actual UI; any savings number must come from a reproducible example, not a universal promise.
 
 Up to 3 treatments against the original at once. Once a variant wins, it becomes the new original
 and the next test runs against it — treat this as a ladder, not a one-shot test.
@@ -58,10 +52,9 @@ exactly the kind of action this skill never takes on its own). Replying matters 
 reply is public, future visitors read it, and the original author often revises their rating after a
 good one.
 
-**Freshness beats total count.** The rating algorithm weights recent reviews more than old ones — 50
-reviews from the last month outweigh 500 from three years ago. This means: prompt continuously, not
-once at launch, and don't treat a strong all-time average as safe if recent reviews are thin or
-trending down.
+Recent review language can reveal current product issues. Apple does not publish a numeric
+exchange rate between old and new reviews or a formula converting them into search rank. Do not
+infer ad spend or download momentum from written-review counts.
 
 **The ask itself**: native `SKStoreReviewController` only — never a custom review-prompt UI. Ask
 **immediately after a win**, which for this app is unambiguous and already built: the confetti
@@ -93,7 +86,7 @@ buys a warmer user (`references/apple-ads.md`).
 - The melting GB counter (the number that drops as compression runs — format 1, oddly satisfying)
 - The swipe gesture itself (the core interaction — format 1, fast cuts of swipe-to-keep/delete)
 
-**Tracking, honestly**: each content item is tracked as shipped or not-shipped, with where it was
+**Tracking, honestly**: use a campaign URL/CPP where supported, recording attribution limits; views alone cannot be converted to installs. Each content item is tracked as shipped or not-shipped, with where it was
 published and when. **Do not claim attribution a content item can't have** — there is no measurable
 link between "this TikTok got N views" and "this many downloads came from it" (the same
 no-attribution rule as keywords, `references/provenance.md`); track output (shipped, where, when),

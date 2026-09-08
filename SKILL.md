@@ -18,298 +18,131 @@ metadata:
   version: 1.3.0
 ---
 
-# marketing-ops
+# iOS marketing operations
 
-Marketing for an app store runs on a cycle measured in weeks; this session's context does not. This
-skill's job is continuity: read what past iterations recorded, answer **what is the single next
-action**, and never re-propose something already tried. It changes nothing by default.
+Keep the app's marketing work continuous: inspect the existing evidence, reconcile what is actually
+live, improve the next decision, and record changes. A report is not evidence that marketing worked.
+Read `references/provenance.md` before factual claims. Use `references/respectaso.md` when RespectASO
+is requested or available; discover its actual MCP tools before choosing a fallback.
 
-**Identity is per-repo; content is not, yet.** `MAIN_CHECKOUT`/`STORE` and the app id/version
-(Step 1) all resolve live from whichever repo the session is in and from that repo's own
-`$STORE/config.md` — nothing here hardcodes Compresso's identity. What each reference file *does*
-still assume is Compresso's own numbers, honestly labeled as such where they appear: prices,
-tracked locales, competitors, Apple Ads org, `marketing/HANDBOOK.md`'s reasoning. Point this skill
-at a second app — symlink it into `~/.claude/skills/` (Step 1's `SKILL_DIR` note already anticipates
-this) or into that repo's own `.claude/skills/` — and it reads and writes *that* repo's own
-`marketing/` correctly; it will just report an uninitialized store, or thin/absent ASO content,
-until that repo grows its own `config.md`/`HANDBOOK.md`/keyword lists. That per-app content is
-unfinished work, not a wiring bug.
+## Resolve the app and the single state store
 
-**Standing refusal rule** (FR-043, applies everywhere below): whenever you decline to act — refuse a
-hypothesis, withhold a verdict, stop at the fence — say what would have to be true for you to act.
-"Not yet" without a condition is not a refusal, it's a dead end.
+- `SKILL_DIR` is the real directory containing this skill (resolve symlinks).
+- From the app repo run `git worktree list --porcelain`. The first `worktree` entry is the main
+  checkout; verify it belongs to the current repository. Do not infer this from missing branch brackets.
+- `STORE` is that checkout's `marketing/`, shared by all its worktrees. Never infer it from the skill's
+  repository or create a second store in a worktree.
+- Read `config.md` for the exact App ID and working version. Read `STATE.md`, `queue.md`, hypotheses,
+  recent decisions, metrics and the relevant handbook sections. State is a cache, not a data source.
+- Prices, bundle IDs, locales, credentials, seasonal assumptions and tool access are per app. Never
+  carry them from a previous project. Missing identity means report that gap before app-specific API calls.
+- Keep one global skill installation. Project links may point to it; do not copy skill directories.
+  Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 
-**Standing provenance rule**: every figure, status, position or date you say out loud carries a
-source tag. Read `references/provenance.md` before emitting your first claim in any run — it is not
-optional polish, it is the mechanism every honesty requirement in this skill routes through.
+## Respect the requested scope
 
-## Step 1 — Resolve the store, always to the main checkout of the app repo
-
-```text
-SKILL_DIR     = the directory this SKILL.md file itself lives in (Claude Code reports it as
-                "Base directory for this skill" when this file loads — use that value; do not
-                hardcode a path here, it must resolve correctly whether this skill is installed
-                per-project or symlinked into ~/.claude/skills/ for use across repos)
-MAIN_CHECKOUT = `git rev-parse --show-toplevel` from the session's working directory — the root of
-                whichever app repo you're actually in. For a worktree this returns the worktree's
-                own path, which is wrong here (see below); resolve to the worktree's *main* checkout
-                instead — `git worktree list` run from inside the worktree shows it, marked without
-                a branch name in brackets, or read `.git` (a file, not a dir, in a worktree) for the
-                `gitdir:` line and strip back to the shared `.git`'s parent.
-STORE         = $MAIN_CHECKOUT/marketing/
-APP_ID        = read from `$STORE/config.md`'s `**App ID**:` line — this repo's own App Store
-                Connect app id. Never hardcoded in this skill.
-VERSION       = read from `$STORE/config.md`'s `**Version**:` line — the version currently being
-                worked on. Static unlike `STATE.md`: Step 8 of `auto` mode never rewrites
-                `config.md`, so bump this by hand when a new version starts (same moment
-                `MARKETING_VERSION` gets bumped in the Xcode project).
-```
-
-Missing `config.md`, or either field still the seeded template's placeholder → refuse and name
-`$STORE/config.md` as the fix, same zero-guess rule as the uninitialized-store case below: never
-invent an app id, never validate against a guessed version.
-
-As of this writing this skill has run for real against one app, Compresso — every reference file's
-worked examples, current numbers, and Apple Ads setup are still its own. A second repo now gets a
-correctly-located **and correctly-identified** store (`$STORE` and `$APP_ID`/`$VERSION` all resolve
-live, above); what it does *not* get automatically is that repo's own prices, tracked locales,
-competitor list, or `HANDBOOK.md` reasoning — those live inside that repo's own `marketing/`, once
-someone writes them, same as Compresso's do today.
-
-`SKILL_DIR` matters for the same reason `STORE` does: every script and template path below is given
-relative to it, never as a bare `scripts/...` or `assets/...` — those don't resolve unless the
-session's cwd happens to already be inside this skill's own folder, which it usually isn't.
-
-Never `$PWD/marketing/` as a shortcut for the `git rev-parse` above, and never a path relative to
-this session otherwise. This project runs many concurrent git worktrees (`.claude/worktrees/*`); a
-session started in any of them must still read and write the *one* store at the main checkout's
-`marketing/`, never a copy under the worktree. Do not "simplify" this to a bare relative path — that
-silently forks the store into one copy per worktree, which is the exact failure FR-001 exists to
-rule out. If `$STORE` doesn't exist yet, that is a fact to report (uninitialized store), never a
-reason to create it outside `manual`/`auto` mode — see Step 3.
-
-## Step 2 — Detect mode
-
-| Said | Mode |
+| Request | Behavior |
 |---|---|
-| nothing, or "де я", "що далі", "статус", "status" | `status` (default — cheapest wrong guess is the one that changes nothing) |
-| "manual", "по кроках", "веди мене", "проведи мене по кроках" | `manual` |
-| "auto", "сам", "автоматично", "зроби ітерацію в авто-режимі" | `auto` |
+| Status or review only | Read-only; do not initialize or mutate the store |
+| Review and fix docs or skill | Complete the authorized local changes and validate them |
+| Manual or guided iteration | Explain choices at the decision points the user wants to control |
+| Auto iteration | Complete one cycle below; record unavailable inputs and continue independent work |
 
-Full guarantees per mode: `specs/013-marketing-ops-skill/contracts/invocation.md` (design record) —
-the operative version is Step 4 below.
+The user's authorization persists across turns. Do not require magic words such as `auto` for an
+explicit editing request. Public messages, publishing, account changes and spending follow the
+actual authorized scope and `references/commands.md`; prepare a concrete diff first. Do not ask
+again for permission already given. If an action cannot proceed, name the specific missing condition.
 
-## Step 3 — Detect phase, live, every run
+## Reconcile release status separately from measurement readiness
 
-**Never read the phase from `STATE.md` as authority** — it is a cache, corrected when it disagrees.
+Read `asc versions list --app "$APP_ID" --platform IOS` before interpreting `asc validate`.
+Track the **live version** and **working/review version** separately. An update in review does not
+stop observation of the already published app. `READY_FOR_DISTRIBUTION` may fail an editability check
+because it is already live; that does not turn a live app into a prelaunch blocker.
 
-```bash
-asc validate --app $APP_ID --version $VERSION --platform IOS --output table
-```
+Use P0-prelaunch when no version is live, P1-review for the candidate's review status, and P2-cold or
+P3-measure only with available measurement evidence. If metrics are absent, say `live; volume unknown`.
+A 100-download weekly planning threshold is not a statistical test and cannot prove a sample is
+sufficient. Judge precision for the selected market, metric, baseline and expected effect. Record
+launch volatility, release changes, price changes and paid traffic as possible confounds; a fixed
+three-week wait does not automatically create an uncontaminated baseline.
 
-| Phase | Detected by | Rigor |
-|---|---|---|
-| `P0-prelaunch` | version editable **and** `asc validate` reports blocking findings | none — fix blockers |
-| `P1-review` | version state `WAITING_FOR_REVIEW` / `IN_REVIEW` | none — prepare only, never measure |
-| `P2-cold` | live **and** last full week's downloads < `VOLUME_THRESHOLD` | rank movement only |
-| `P3-measure` | live **and** last full week's downloads ≥ `VOLUME_THRESHOLD` | full: one variable, declared windows |
+If a refresh fails, state which observation is cached, its age, and the error. Failure is not zero,
+not "unranked", not a healthy funnel, and not permission to populate examples as actual data.
 
-`VOLUME_THRESHOLD = 100 downloads/week` — **the one named constant** both the phase boundary above
-and the low-volume verdict rule in `references/aso-loop.md` (FR-026) read from. Below it, weekly
-movement is indistinguishable from noise; do not let the two rules drift to different numbers.
+## Status output
 
-`P2-cold` additionally carries `honeymoon = true` for the first three weeks after the app's first
-live day. Honeymoon weeks are recorded normally but are **never** a valid comparison baseline
-(FR-013) — if asked for one during honeymoon, refuse and state when a real baseline arrives (three
-weeks after first going live).
+Give a compact account of live/candidate versions, open ASO and channel hypotheses, observed metrics
+with units and dates, gaps in the ledger, pending actions, and one useful next step. Use
+`scripts/funnel_visualizer.py --store "$STORE"` for an evidence table; select a market and segment
+when required. Do not infer page conversion, paid subscribers, source shares or bank payouts from
+unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 
-Phase transitions are not assumed one-way: detect fresh every run, so `P1→P0` (rejected review) or
-`P3→P2` (traffic collapse) need no special-casing.
+## One execution cycle
 
-**If the network is unreachable**: answer from `STATE.md` instead of failing, name which parts
-couldn't be refreshed, and mark the cached phase stale with its age rather than presenting it as
-freshly checked (FR-009, FR-041).
+1. Verify identity and live/candidate versions. Reconcile stale state within the authorized edit scope.
+2. Fetch the weekly data that is accessible. Save source exports, complete periods, units, filters,
+   timezone and recording time. Missing fields stay blank with a reason. Never invent a baseline.
+3. Refresh a fixed query basket. Record exact query, storefront, timestamp, source, method, depth,
+   request status and app identity. Keep new discovery queries separate from paired comparisons.
+4. Review hypotheses whose declared windows have closed. Use `references/aso-loop.md`. Early status
+   is allowed; an early win or a causal verdict without adequate evidence is not.
+5. Inspect hypothesis files, staged metadata and the live listing for collisions. Include queued
+   changes that may already have shipped. Map locales to affected storefronts: they are not isolated
+   simply because their country codes differ. Preserve the original prediction and add dated amendments.
+6. Prepare the next justified change. Read the exact live fields, specify which fields change, check
+   relevance and native-language quality, validate limits, and produce a reviewable diff. Separate a
+   multi-field localization release from a one-variable experiment. Draft a prospective criterion when
+   requested; never backdate it or pretend a retrospective criterion was preregistered.
+7. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
+   prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
+8. Update state, decisions and references consistently; report done, missing evidence and next action.
 
-## Step 4 — Dispatch by mode
+## Evidence rules that affect decisions
 
-### `status` — orientation. Read-only. No exceptions.
+- RespectASO `popularity` can mix Apple data and an internal fallback. Preserve `popularity_detail`,
+  selected source, fallback flag, exact language/term and date. Scores do not transfer across translations.
+- iTunes API order is discovery evidence. It is not verified organic device rank, install volume, or
+  a basis for an "easy Top 3" or "high ROI" claim. The bundled rank script no longer fabricates these scores.
+- Sparse written reviews, RSS recency, app age and lifetime ratings cannot establish query demand,
+  download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
+- Brand terms, competitor brands and relevant generic terms belong to different research groups.
+  Rank for our own name does not prove generic demand or brand awareness.
+- Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
+  exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
+- Product claims must match shipped behavior. Reject keywords implying unsupported features. Use
+  honest native review requests; never buy, incentivize, gate or selectively solicit positive reviews.
+- A 21-day window is a scheduling default. An inconclusive result can remain inconclusive after it.
+  Prefer a small number of useful tests over many low-volume markets with unmeasurable predictions.
 
-**Zero writes of any kind, including no store initialization.** Asking a question must never create
-the thing being asked about (FR-009) — if `$STORE` doesn't exist, say so and name
-initialization (which happens only in `manual`/`auto`) as the next action, and stop there. The
-failure mode here is specifically the helpful instinct: seeding a missing store "so there's
-something to show" is itself an unrequested write. If you notice yourself about to run the `cp -n`
-seed step while answering a `status` question, that is the bug, not a shortcut.
-
-**If `$STORE` exists but `config.md` is missing or still templated**: item 1 below is the named
-refusal ("app identity unresolved — fill in `$STORE/config.md`"), not a phase — phase cannot be
-computed without `$APP_ID`/`$VERSION` (Step 1). Items 2–4 still print from whatever the store
-already has; item 5 (the single next action) is filling in `config.md`. Narrower than the
-missing-store case above: here the store exists, only its identity doesn't yet.
-
-Output, in this fixed order, one screen, nothing else (FR-008, contracts/invocation.md):
-
-1. **Phase**, how it was determined, and the date of the live check
-2. **Open hypotheses** — both ASO (`H001...`) and Channel Hypotheses (`C001...`) with target community, token, and days elapsed / remaining (read `hypotheses/*.md` or run `scripts/campaign_link.py --list`). **Anti-collision guard**: inspect all queued/live channel hypotheses before proposing any new campaign to prevent duplicates and respect platform cooldowns (e.g. 30 days for r/iosapps).
-3. **Storefront Conversion Funnel & Health Status** — latest weekly or 30-day conversion metrics (Impressions → Page Views → Downloads → Trials), rendered with visual progress bars, compared against category benchmarks, with immediate bottleneck diagnosis (🔴 CRITICAL LEAK, 🟡 FAIR, 🟢 HEALTHY) using `scripts/funnel_visualizer.py` (see `references/funnel-analytics.md`)
-4. **Missing weekly records** — named by week (`metrics/weekly.csv` gaps since going live)
-5. **Queue** — pending approvals, oldest first (`queue.md`)
-6. **The single next action** — exactly one, concrete enough to start without a follow-up question:
-   the command to run, or the URL to open and what to look for there (FR-010, SC-001). "Work on
-   ASO" fails this; "open <url>, check whether a Publish button is showing" satisfies it. Priority
-   order when more than one thing is eligible: a release-readiness blocker outranks everything: then
-   a hypothesis whose window just closed (a verdict is waiting to be written); then an overdue
-   weekly recording; then drafting the next hypothesis; then queue cleanup. Pick the highest-priority
-   item with something concrete to do right now and name only that one.
-
-Run twice in a row against an unchanged store → byte-identical output, byte-identical store
-(SC-010). If that's not true, something upstream wrote when it shouldn't have — that's the bug to
-find, not a flaky test to retry past.
-
-Release-readiness detail (severity/blocking/remediation parsing, actor classification, the
-awaiting-review case): `references/commands.md`.
-
-### `manual` — guided execution
-
-Runs the same cycle as `auto` below but **stops at every decision point**. Each stop presents
-numbered options with the consequence of each, and **always** includes a defer option (FR-019).
-Deferring continues the cycle rather than ending it — "not now" is a first-class answer, not a
-failure.
-
-### `auto` — unattended cycle
-
-Eight steps, in order, each completing or recording a named blocker before the next starts (this
-*is* the completion condition, FR-024 — the cycle does not loop, wait, or reach into the next
-cycle's work):
-
-1. Determine phase live; correct `STATE.md` if it disagreed, and surface the disagreement (FR-032)
-2. Record any weekly figures obtainable now; mark the rest `absent:<reason>`, never a zero
-3. Refresh rank observations if the tracker is reachable (`references/commands.md` degradation path
-   if not)
-4. Judge every hypothesis whose window has closed (`references/aso-loop.md`); write verdict +
-   reasoning
-5. Draft the next hypothesis (or batch of market-isolated hypotheses, exactly 1 per market for eligible markets with identified opportunities). **Active-experiment collision guard**: audit existing hypotheses in `STATE.md`; if a market already has an active hypothesis whose 21-day window is in flight (`status: live` or `status: staged`), refuse new metadata mutations for that market and save them as future proposals in the Ideas Backlog (`marketing/ROADMAP.md` / `status: idea`). Only draft/stage for markets with no active experiment running; refuse any hypothesis if any of the four required parts is missing
-6. Prepare everything preparable up to the fence, exploiting the `plan`/`approve` vs `apply`/`push`
-   asymmetry so only the crossing itself waits (FR-022): pull live metadata with `asc metadata
-   pull`, draft the change across all four tracked locales, validate character limits offline
-   (`asc metadata validate`), compute and read back the exact diff (`asc metadata plan`, then
-   `approve` — both local), and queue only the resulting `apply`
-7. Write `queue.md` entries for whatever the fence stopped; **do not abort the cycle** on a fenced
-   command — queue it and keep going (FR-021)
-8. Rewrite `STATE.md`; print a done / queued / next summary
-
-**The fence itself — literal commands, deny-by-default — lives in `references/commands.md`. Read it
-before every write in `auto` or `manual` mode**, not from memory: a command not on its allow list is
-fenced whatever it appears to do.
-
-**Interruption safety**: each step's write completes before the next step starts, so a run
-interrupted mid-cycle leaves earlier steps durable and later ones simply absent — never a state a
-later `status` run misreads as complete (SC-013).
-
-**Before executing an approved queue entry**, re-verify its preconditions — an approval given weeks
-ago was given against a world that has since moved (FR-023).
-
-## Reference map — read on demand, not all at once
+## Reference map
 
 | Need | Read |
 |---|---|
-| Provenance / citing a claim | `references/provenance.md` — read this one first, always |
-| Store file formats, schemas, append rules | `references/state-store.md` (runtime authority) |
-| Exact `asc` invocations, the approval fence, release-readiness parsing | `references/commands.md` |
-| The ASO iteration loop, verdicts, keyword selection | `references/aso-loop.md` |
-| Apple Ads: credentials, campaign structure, economics | `references/apple-ads.md` |
-| Product page experiments, CPPs, reviews, content backlog | `references/playbooks.md` |
-| Off-store traffic, Reddit, Threads, Twitter/X, Product Hunt, ASA | `references/channel-playbooks.md` |
-| UGC Short-form Video (30s TikTok, Reels, Shorts), Scripts & Creator Brief | `references/ugc-playbook.md` |
-| Handbook reasoning (cited, never restated — FR-035) | `marketing/HANDBOOK.md` |
+| Claim sources and uncertainty | `references/provenance.md` |
+| RespectASO tools and data boundaries | `references/respectaso.md` |
+| Formats and append rules | `references/state-store.md` |
+| ASC commands and external actions | `references/commands.md` |
+| Keyword selection and experiment verdicts | `references/aso-loop.md` |
+| Metrics and denominators | `references/funnel-analytics.md` |
+| Paid acquisition scenarios | `references/apple-ads.md` |
+| PPO, CPP, reviews and content | `references/playbooks.md` |
+| Off-store channels | `references/channel-playbooks.md` |
+| Short video scripts and briefs | `references/ugc-playbook.md` |
+| Per-app teaching and reasoning | `$STORE/HANDBOOK.md` |
+| Missing capabilities and acceptance criteria | `ROADMAP.md` |
 
-Seven bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check` or CLI flags:
+## Bundled scripts
 
-- `$SKILL_DIR/scripts/funnel_visualizer.py` — Storefront conversion pyramid, bottleneck diagnostics & cash in pocket
-- `$SKILL_DIR/scripts/campaign_link.py` — App Store campaign tracking links generator (`?ct=...`)
-- `$SKILL_DIR/scripts/harvest_keywords.py` — Apple autocomplete hints + competitor discovery
-- `$SKILL_DIR/scripts/economics.py` — LTV / break-even / scaling verdict
-- `$SKILL_DIR/scripts/rank_audit.py` — full keyword rank audit with opportunity scoring
-- `$SKILL_DIR/scripts/global_velocity_audit.py` — 600+ query multi-threaded velocity, recency, and vulnerability audit
-- `$SKILL_DIR/scripts/measure_velocity.py` — targeted competitor momentum & review recency measurement
+All use the Python standard library and provide `--self-check`. Run only what the task needs.
 
-### rank_audit.py — when and how to run
+- `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
+- `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
+  Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
+- `diff_snapshots.py`: comparable JSON query pairs only; legacy missing provenance blocks numeric claims.
+- `harvest_keywords.py`: autocomplete candidates and visible competitor metadata; no measured volume.
+- `economics.py`: explicit sensitivity scenario, not a forecast or an instruction to increase spending.
+- `campaign_link.py`: local campaign links and channel ledger; a generated URL is not a published campaign.
 
-**Trigger:** Step 3 of `auto` mode ("refresh rank observations") — run this instead of or in addition
-to `check_ranks.py` whenever a full audit is warranted (new version live, post-hypothesis verdict,
-quarterly review, or user explicitly asks for a rank/opportunity report).
-
-**Keyword generation — the right approach (not manual lists):**
-
-Keyword lists are **generated from Apple's own autocomplete**, not typed from memory:
-
-```bash
-# Step 1: get autocomplete hints for seed terms → these are what users actually type
-python3 $SKILL_DIR/scripts/harvest_keywords.py hints \
-  --storefront us --term "white noise"
-
-# Step 2: run rank_audit with auto-expand mode (harvests hints for each seed, deduplicates)
-python3 $SKILL_DIR/scripts/rank_audit.py \
-  --bundle "$APP_BUNDLE_ID" \
-  --markets us,de,gb \
-  --expand-from-hints \    # uses harvest_keywords.py to auto-expand seed terms
-  --output $STORE/reports/aso_rank_audit_$(date +%Y-%m-%d).md
-```
-
-**Market-proportional query budgets** — bigger markets get more queries:
-
-| Market weight | Queries |
-|---|---|
-| ≥ 50 (US, JP) | 80–100 |
-| 20–49 (DE, GB, FR, KR, IT, ES, CA, AU) | 40–60 |
-| 10–19 (BR, RU, NL, MX, IN, TR, PL, SE) | 25–40 |
-| < 10 (UA, SA, IL, TW, CN) | 15–20 |
-
-**Output interpretation:**
-- `opportunity score` = market_weight × volume_proxy × rank_reachability × (1 − difficulty)
-- Higher = more downloads available if rank improves here
-- Sort by opportunity to set keyword hypothesis priority
-- "colour noise" terms (brown/pink) consistently show low competition across all markets — systematic gap
-
-**Saving results:** append a summary row to `$STORE/metrics/ranks.csv` and save full report to
-`$STORE/reports/aso_rank_audit_YYYY-MM-DD.md`. The `check_ranks.py` script handles the CSV append;
-`rank_audit.py --output` handles the full report.
-
-### global_velocity_audit.py — Competitor Momentum, Recency & Sweet Spot Discovery
-
-**Trigger:** Run before launching any Apple Search Ads campaign, selecting keyword targets, or planning new version title/subtitle metadata.
-
-**Core Theory — Why Review Count Alone Lies:**
-Apple's App Store ranking algorithm does **not** rank simply by cumulative lifetime reviews. It heavily prioritizes:
-1. **Download Velocity (7–30 day momentum)** on that exact query.
-2. **Search-to-Install Conversion Rate (TTR/CVR)** for that query.
-3. **Review Recency & Velocity (30-day rate)** and current-version sentiment.
-
-**Competitor Taxonomy:**
-- 🎯 **Soft Target** (`total_ratings < 50`, `velocity_30d <= 2`): Validated search volume, zero defense. Can be overtaken with 10–15 five-star reviews + modest ASA push.
-- 💤 **Sleeping Giant** (`total_ratings >= 100`, `days_since_last_review > 90` or `velocity_30d == 0`): Massive historical review count, but completely dormant. Ripe for displacement by an app with fresh momentum.
-- 🪦 **Outdated Incumbent** (`days_since_update > 180`): Abandoned or neglected app sitting at #1. Apple's algorithm naturally deprioritizes stale binaries when a fresh alternative gains traction.
-- 🔥 **Active Defender** (`velocity_30d >= 8`, updated recently): Actively running aggressive ASA and pulling daily reviews. **DO NOT ATTACK** on low budgets ($2–$5/day).
-
-**The 15–50 Reviews Sweet Spot:**
-- If Top 1 has **0–4 reviews**: The keyword is often a desert (<100 searches/mo) — ranking #1 brings negligible downloads.
-- If Top 1 has **15–50 reviews**: Proves cumulative downloads of ~1,500–4,000 (~1,000–3,000 searches/month), yet remains 100% beatable without venture-scale ad budgets.
-
-**Usage:**
-```bash
-# Run full global audit across all 600+ harvested queries in 25 markets (~85s with 8 workers):
-python3 $SKILL_DIR/scripts/global_velocity_audit.py \
-  --input $STORE/reports/compresso_global_audit_2026-09-05.json \
-  --output-json $STORE/reports/global_velocity_audit_$(date +%Y-%m-%d).json \
-  --output-md $STORE/reports/global_velocity_audit_$(date +%Y-%m-%d).md
-
-# Targeted check for specific markets:
-python3 $SKILL_DIR/scripts/measure_velocity.py --markets ua,de,pl,nl,us
-```
-
-First run against an uninitialized store: seed it with
-`cp -n -r $SKILL_DIR/assets/store-template/. $STORE` (never overwrites an existing file — safe to
-re-run) — but only inside `manual`/`auto`, never `status` (see Step 4 above). Seeding alone doesn't
-finish the job: `config.md` comes in with `TODO` placeholders, and Step 1 refuses to proceed past
-them — filling in this app's real App Store Connect app id and version is the next thing to do
-after seeding, not an optional follow-up.
+Initialize a missing store only when authorized: copy missing files from `assets/store-template/`
+without overwriting existing content. Fill in the app's identity before running app-specific commands.

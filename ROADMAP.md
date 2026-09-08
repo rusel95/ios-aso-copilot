@@ -1,190 +1,69 @@
-# Roadmap
+# ASO capability roadmap
 
-What is still to do. What has landed is in [`CHANGELOG.md`](CHANGELOG.md).
-An item that closes moves there in the same commit that closes it — gaps in numbers are in the changelog.
+Open work only. Completed changes belong in [CHANGELOG.md](CHANGELOG.md).
+Updated 2026-09-08 after the Compresso audit. A documented playbook is not an implemented integration.
+App IDs, credentials, prices and event names belong in each app's store, not this global roadmap.
+The practical teaching companion for Compresso is its `marketing/HANDBOOK.md`.
 
-Items are numbered in the order they were found. Tags: **[verified]** confirmed by running it.
-**[open]** needs a decision or design before implementation.
+## P0 Make observations trustworthy
 
----
+| ID | Capability still missing | Acceptance criterion | Dependency |
+|---|---|---|---|
+| R-29 | RespectASO business tools verified end to end | Active licensed session; exact app identity; one Apple value, one fallback and one error saved with raw source detail | User's existing license/access; no purchase assumed |
+| R-23 | ASC Analytics import | Reuse existing request; paginate reports; ingest complete periods with source/territory/unit/timezone; reconcile totals to ASC | Account read access |
+| R-28 | Metric schema and corrections | Explicit unique/total units, territory, date window, report ID and corrected-row selection; never sum overlapping unique populations | R-23 |
+| R-30 | Hypothesis exposure reconciliation | Compare staged and live metadata to each hypothesis; persist public start, exact diff, locale exposure and confounds; partial implementation distinguishable | ASC metadata reads |
+| R-13 | Scheduled paired query history | Fixed basket, app identity, method/depth/source/status/timestamp per row; errors and unqueried terms excluded from deltas | Verified tracker method |
+| R-37 | Competitor observation quality | Exact app ID; preserve RSS error, pagination and coverage; written reviews distinct from ratings; no demand/velocity inference from missing feeds | Independent sample verification |
 
-## P0 — Data integration: connect all available signals
+Basic honest metric rendering and removal of fabricated rank/ROI scoring have shipped. These do not
+close R-23/R-28/R-13: they do not create real analytics, a tracker, or an automatic data pipeline.
 
-The skill currently operates on keyword rank (iTunes Search API) and hypothesis state.
-The full picture requires correlating **all available data sources** — only then can you answer
-"why did conversions drop?" or "which keyword change drove downloads?". Every item below
-represents a data source that is accessible but not yet wired into the skill's auto cycle.
+## P1 Make fewer and better tests
 
-**R-23 [open] ASC App Analytics — impressions, product page views, installs, sessions**
-`asc analytics request --app APP_ID --access-type ONGOING` creates a reusable analytics report.
-Reports include: App Units (installs), Sessions, Active Devices, Crashes, Product Page Views,
-Impressions, Impressions Unique, Proceeds, Paying Users, In-App Purchases — all breakable by
-Territory, Source Type, Device, App Version.
-This is the funnel: Impressions → Product Page Views → Installs → Sessions.
-Without it, keyword rank improvements cannot be correlated to actual download changes.
-Implementation: add `scripts/fetch_analytics.py` that calls `asc analytics download` and
-appends to `metrics/weekly.csv` automatically each `auto` cycle.
-See: `asc analytics --help` for full endpoint map.
+| ID | Missing approach | Concrete first deliverable | Done when |
+|---|---|---|---|
+| R-31 | Intent and locale research | Matrix of job, native term, app capability, storefront, served locale and demand evidence | Two priority markets reviewed by a fluent reader; misleading feature terms rejected |
+| R-32 | Experiment design and power | Prospective primary metric, useful effect, allocation, window and guardrails | Sample/duration feasibility calculated per cell; inconclusive is a supported outcome |
+| R-33 | Creative testing with PPO | One real first-screenshot contrast with substantiated savings and actual UI | Validated localized assets, feasible duration, approved test and archived result |
+| R-34 | Intent-specific CPP and deep links | Compression-video page and storage-saving page, with distinct relevant keyword combinations | Public pages verified; iOS 18+ route and older-OS fallback tested; page analytics available |
+| R-10 | Apple query demand source | Apple popularity and/or actual paid-query observations with dates and source details | Missing/censored values preserved; no monthly-volume conversion invented |
+| R-21 | Apple Ads pilot preparation | One-market exact-query research plan with hard total loss cap and stop rule | Approved plan launched, spend/installs/quality read back and reconciled |
+| R-26 | Paid-query reporting | Search-term rather than only bid-keyword reports; attribution windows and new/redownload definitions | Paid acquisition analyzed separately from ASC Search totals |
+| R-35 | Review language and quality loop | Classify real objections; native neutral prompts after a successful user outcome | Product issues feed backlog; replies are drafts until authorized; no incentives or review gating |
 
-**R-24 [open] RevenueCat — subscription revenue, trial conversion, churn**
-RevenueCat MCP server is available (configured in `.kiro/settings/mcp.json`).
-Exposes: MRR, ARR, active subscriptions, new subscribers, churned, trial starts,
-trial conversions, refunds — all filterable by country, product, date range.
-Integration target: `auto` cycle Step 2 pulls RevenueCat overview + country breakdown
-and writes to `metrics/weekly.csv` alongside ASC installs. This makes the full funnel visible:
-Keyword rank → Impressions → Installs → Trial → Paid → Churn.
-Key calls: `get_overview_metrics`, `get_chart_data` (mrr, trials, conversion_to_paying).
+PPO tests creative, not keyword text. CPP comparisons need an allocation strategy before being called
+an A/B test. Do not create many pages merely because Apple supports them. Research budgets buy
+information; scale budgets require mature observed economics.
 
-**R-25 [open] ASC Sales & Trends reports — paid installs, in-app purchases per country**
-`asc analytics sales --vendor VENDOR_ID --type SALES --subtype SUMMARY --frequency DAILY`
-Returns daily/weekly unit sales and proceeds per country, per SKU. Complements RevenueCat
-(which tracks subscriptions) with one-time purchase and free download counts.
-Blocker: requires vendor number — not yet retrieved (FINDINGS.md §Vendor number search).
-Implementation: add `scripts/fetch_sales.py`.
+## P2 Connect acquisition to product value
 
-**R-26 [open] Apple Search Ads — impressions, taps, installs, CPA per keyword**
-`asc ads reports campaigns --org ORG_ID` returns campaign-level metrics.
-`asc ads reports adgroups` and `asc ads reports keywords` give keyword-level: impressions,
-taps, conversions, spend, CPA. This is the paid acquisition funnel complement to organic rank.
-Requires: active campaign for Hush in org 23140040. Once campaign exists, keyword popularity
-scores also unlock (R-10).
-Implementation: `scripts/fetch_ads_report.py` — weekly pull of keyword-level performance.
+| ID | Missing approach | Acceptance criterion |
+|---|---|---|
+| R-27 | In-app activation measurement | App-specific events for first success, time to value, failure and paywall exposure; consent and denominator documented |
+| R-24 | Subscription cohort analysis | Trial starts, completed trials, paid conversion, renewals and refunds segmented by plan/country/acquisition cohort |
+| R-25 | Proceeds reconciliation | Sales, estimated proceeds, refunds and payments kept separate and checked against source reports |
+| R-36 | External content and web discovery | A relevant helpful page/video, campaign token or CPP, and measured qualified visits; no view-to-install attribution invented |
+| R-38 | Lifecycle and seasonal experiments | Real user need/event, eligible Apple surface, localized assets, baseline and stop rule; skip manufactured events |
+| R-39 | Bounded automated marketing runs | Use existing scheduler; saved inputs and partial failures; recheck live state; notify only actionable changes |
 
-**R-27 [open] PostHog — in-app behaviour (sessions, feature usage, paywall views)**
-PostHog is live (`phc_mOOeqJCMhLNkeyuzg4bizA0txCCdZnc3eiDnag1CNbj`, us.posthog.com).
-PostHog MCP is available in the session. Currently 0 events being tracked — SDK is initialized
-(key in AppConfig.xcconfig) but no `PostHog.shared.capture()` calls exist in the Swift code.
-When wired: tracks which sounds are played, timer usage, settings opens, paywall impressions,
-paywall conversions. Completes the in-app funnel: Install → First Sound Played → Paywall → Buy.
+For a compression utility, time to first successful compression and trust can be more informative
+than daily use. Trial duration, plan price and retention assumptions must be refreshed per app.
 
-**Swift implementation needed** (minimal viable set):
-```swift
-// WhiteNoiseApp.swift — already has PostHog.setup(), add after:
-PostHog.shared.capture("app_opened")
+## Lower priority engineering backlog retained
 
-// WhiteNoisesViewModel+Playback.swift — when sound starts:
-PostHog.shared.capture("sound_played", properties: [
-    "sound_name": sound.name,
-    "sound_category": sound.category
-])
+- R-11: calibrate any future search proxy against a suitable reference. Until then label it discovery;
+  retire unsupported claims such as a known “±300%” accuracy range.
+- R-12: rate limits and bounded retries with explicit partial-run/error records; no success-shaped empty data.
+- R-17: wire verified observations into the cycle after R-13/R-29; do not restore forecast leaderboards.
+- R-18/R-19: npm publication or additional packaging only when distribution demand exists.
+- R-20: additional progress UI only if existing per-market progress is insufficient.
+- R-22: review reply drafting; retain author approval for public responses.
 
-// PaywallView or wherever paywall is shown:
-PostHog.shared.capture("paywall_viewed", properties: ["source": "settings|organic|..."])
-PostHog.shared.capture("paywall_tapped", properties: ["plan": "monthly|annual|lifetime"])
+## Operating order for Compresso
 
-// TimerService or wherever timer is set:
-PostHog.shared.capture("timer_set", properties: ["duration_minutes": minutes])
-```
-
-These 5 events answer: Do users actually play sounds? Which ones? Do they see the paywall?
-Do they tap? What plan do they prefer? Without this, conversion optimization is blind.
-Implementation: add calls in Swift app → commit → TestFlight build → verify events appear in
-PostHog (posthog.com/project/222865). Takes ~30 minutes to implement.
-
-Implementation: add `scripts/fetch_posthog.py` to pull weekly active users, paywall conversion
-rate into `metrics/weekly.csv`.
-
-**R-28 [open] Unified weekly metrics schema**
-`metrics/weekly.csv` currently has gaps and inconsistent columns. With all sources above, define
-a canonical schema:
-```
-date, impressions, page_views, installs, sessions, active_devices,
-mrr_usd, new_subscribers, trials_started, trial_conversion_pct,
-top_keyword_rank_us, top_keyword_rank_de, reviews_count, crashes
-```
-Every `auto` cycle Step 2 fills what it can, marks the rest `absent:<reason>`.
-This is the single source of truth for "are we growing?".
-
----
-
-## P1 — Correctness: existing keyword ranking
-
-**R-10 [open] Apple Ads popularity scores as volume proxy**
-`rank_audit.py` currently uses `total_search_results` as volume proxy (rough ±300% accuracy).
-Apple Search Ads API endpoint `POST /v5/search/targeting/keywords/suggestions` returns
-`popularityRange: {min, max}` (5–100 scale) — the only official Apple volume signal.
-Requires: Hush app added to an ASA org, `asc ads` configured for that org.
-Blocks: opportunity scores being meaningful rather than directional.
-See: `FINDINGS.md §ASA` for setup steps.
-
-**R-11 [open] Keyword difficulty uses only top-1 competitor**
-Current formula: `log10(top1_total_ratings)`. Should use top-3 or top-5 weighted average to
-avoid outlier distortion (e.g. one giant app dominating a niche that has weak #2–#5).
-
-**R-12 [open] Rate limiting and retry logic in rank_audit.py**
-iTunes Search API rate limits are undocumented. At 2 req/sec the script sometimes gets empty
-responses (treated as "absent"). Need: exponential backoff on empty response + 429 detection.
-Current workaround: `--delay 0.5` flag.
-
----
-
-## P1 — Capability gaps (materially limits usefulness)
-
-**R-13 [open] Historical rank tracking**
-`rank_audit.py` produces a snapshot. `check_ranks.py` appends to `metrics/ranks.csv` for a
-fixed set of terms. Need: rank_audit to also append its results to ranks.csv in a consistent
-schema, so trends are visible over time.
-
-**R-14 [open] Competitor keyword gap analysis**
-Find keywords where competitor A ranks #1–5 but we are absent. Currently we only check our
-own rank. Requires: searching by competitor bundle ID, not just ours.
-
-**R-15 [open] Metadata character-count validator in auto mode**
-Step 6 of auto drafts metadata changes. ASC title ≤ 30 chars, subtitle ≤ 30, keywords ≤ 100.
-`asc metadata validate` covers this but only after pull. Need offline pre-validation before
-the `plan` step so the agent doesn't draft changes it can't apply.
-
-**R-16 [open] Multi-app support tested**
-Skill claims to work for any app via `config.md`. Tested only on Hush (WhiteNoise).
-MediaCleaner is the next candidate. Needs: one real end-to-end run on a second app to
-confirm `$APP_ID`, `$BUNDLE_ID`, `$STORE` all resolve correctly and no Hush-specific
-assumptions remain in references/*.
-
-**R-17 [open] rank_audit output integrated into auto cycle**
-`auto` mode Step 3 currently calls `check_ranks.py` for a fixed keyword list. Should call
-`rank_audit.py --expand-from-hints` and use the opportunity leaderboard to drive Step 5
-(hypothesis drafting): next hypothesis = highest-opportunity unranked keyword cluster.
-
----
-
-## P2 — Polish and discoverability
-
-**R-18 [open] npm publish**
-`package.json` exists. Publishing to npm enables `npx ios-marketing-ops install` without
-installing from GitHub. Requires: npm account, CI publish workflow.
-
-**R-19 [open] Kiro power packaging**
-Kiro powers can bundle MCP servers + skills. Wrap this skill as a Kiro power so it appears
-in the Kiro power marketplace and can be installed via the Kiro UI (no CLI needed).
-
-**R-20 [open] Progress output for long rank_audit runs**
-Full 25-market audit takes 10–20 minutes. Currently the only progress signal is one line per
-market printed to stdout. Need: a `--progress-file` flag that writes a JSON status file
-every N queries so a watcher script or UI can show live progress without tailing stdout.
-
-**R-21 [open] ASA campaign automation**
-`references/apple-ads.md` documents Apple Ads setup manually. Auto mode could draft a
-campaign structure (Search, Brand defense, Competitor) and queue it for approval. Currently
-fully manual. Requires R-10 (ASA API connectivity) first.
-
-**R-22 [open] Review reply templates**
-`references/playbooks.md` mentions review management. No automation exists yet. Add:
-sentiment classification of new reviews + templated reply drafts queued for human approval.
-
----
-
-## Questions waiting on a decision
-
-**Q-01** Should `rank_audit.py` use `--expand-from-hints` by default (slower but better data),
-or keep fallback keyword lists as the default (faster, predictable runtime)?
-Current default: fallback lists. Hint expansion requires `--expand-from-hints` flag.
-Evidence: hint expansion takes ~2 min/market vs ~30 sec/market for fallback.
-
-**Q-02** Should the skill track 4 markets (US/GB/DE/UA per original design) or all 25 markets
-that `rank_audit.py` now covers? Tracking all 25 in `metrics/ranks.csv` weekly is 500+
-rows/week. May be noise rather than signal at P2-cold volume.
-Current answer: rank_audit runs all 25, `check_ranks.py` tracks the 19 from the original list.
-
-**Q-03** What is the canonical mapping between ASC locale codes and ASA storefront codes?
-Some discrepancies exist (e.g. `no` in ASC vs `143447` storefront for Norway). Not yet
-verified exhaustively.
+First restore the evidence ledger and verify RespectASO access. Then reconcile H001-H021 with actual
+release exposure and native-language quality. Select one or two high-relevance market/intent cells.
+Use creative or paid-query research only with an explicit measurable question. Expand locales and
+spend after those observations justify it. Every item above has a deliverable; none is an automatic
+instruction to buy software, publish assets or spend money.
