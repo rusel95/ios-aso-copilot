@@ -362,6 +362,87 @@ def report(store: Path, limit: int):
     section_c(pairs, markets, hyps, limit, read_brand_tokens(store))
 
 
+# ---------------------------------------------------------------- draft
+def draft(store: Path, market: str, queries: list, window: int, out: Path | None):
+    """Scaffold a hypothesis that is measurable BEFORE it is written.
+
+    The deterministic half only: id, storefront, basket, the baseline each query actually has, the
+    dates the window opens and closes, a kill criterion carrying real numbers, and every collision
+    with work already in flight. The argument — change and mechanism — is not scaffolding and is
+    left blank on purpose; a generated mechanism is a guess wearing a hypothesis's clothes.
+    """
+    pairs, markets, hyps = series(read_ranks(store)), read_markets(store), read_hypotheses(store)
+    market = market.lower()
+    queries = [q.strip().lower() for q in queries if q.strip()]
+    if not queries:
+        sys.exit("--queries is required: an experiment with no basket cannot be judged")
+
+    # 1. Refuse first, scaffold second. This is the failure this store already has nine of.
+    unmeasurable = [q for q in queries if (market, q) not in pairs]
+    if unmeasurable:
+        sys.exit(f"Refusing to draft: {market} has no observation for {unmeasurable}. Add these to "
+                 f"the tracked basket and ingest a snapshot first, or the window closes on nothing. "
+                 f"({len(pairs)} keys tracked, {sum(1 for m, _ in pairs if m == market)} in {market})")
+    if market not in markets:
+        print(f"WARNING: {market} has no proceeds_usd in metrics/markets.csv — this hypothesis "
+              f"cannot be ranked against others by value.", file=sys.stderr)
+
+    # 2. Collisions: same storefront in flight, and same query claimed by another hypothesis.
+    inflight = [h for h in hyps if not (h.get("verdict") or "").strip()
+                and market in [m.strip().lower() for m in (h.get("markets") or "").split(",")]]
+    claimed = {q: h["id"] for h in hyps for q in
+               [x.strip().lower() for x in (h.get("queries") or "").split(";") if x.strip()]
+               if q in queries}
+    judged = [(h["id"], h.get("verdict")) for h in hyps if (h.get("verdict") or "").strip()
+              and market in [m.strip().lower() for m in (h.get("markets") or "").split(",")]]
+
+    ids = [int(re.sub(r"\D", "", h.get("id") or "0") or 0) for h in hyps]
+    hid = f"H{max(ids + [0]) + 1:03d}"
+    opens, closes = TODAY, TODAY + dt.timedelta(days=window)
+
+    lines = [f"---", f"id: {hid}", f"markets: {market}", f"queries: {'; '.join(queries)}",
+             "status: draft", "phase_at_start:                  # P2-cold / P3-measure",
+             "change: >", "  # WHAT changes, field by field, as a reviewable diff of the live text",
+             "mechanism: >", "  # WHY that should move these queries. The causal story, not the hope.",
+             "prediction: >", "  # A number and a date, per query. Baselines are listed below."]
+    for q in queries:
+        obs = pairs[(market, q)][-1]
+        pos = obs["position"] if obs["position"] is not None else f"beyond depth {obs['depth'] or '?'}"
+        lines.append(f"  #   {q}: now {pos} (observed {obs['date']}, {obs['provider']}, "
+                     f"status {obs['status']})")
+    worst = "; ".join(
+        f"{q} not better than {pairs[(market, q)][-1]['position']}"
+        if pairs[(market, q)][-1]["position"] is not None else f"{q} still beyond depth"
+        for q in queries)
+    lines += ["kill_criterion: >",
+              f"  On {closes.isoformat()}, measured the same way: {worst}.",
+              f"kill_criterion_written: {opens.isoformat()}",
+              "went_live:                       # the date it is PUBLIC, never the submission date",
+              f"window_days: {window}", "primary_signal: rank", "verdict:", "confounds: []", "---", "",
+              "## Reasoning", "",
+              f"<!-- Baseline on {opens.isoformat()}, from metrics/ranks.csv. Window {opens} → {closes}. -->", ""]
+    if market in markets:
+        lines.append(f"Storefront value: ${markets[market]:.2f} net proceeds per paying subscriber "
+                     f"(`live:asc subscriptions pricing prices list`).")
+    if judged:
+        lines.append("\nAlready judged in this storefront — explain what new evidence changes, or do "
+                     "not repeat it: " + ", ".join(f"{i} ({v})" for i, v in judged) + ".")
+    if inflight:
+        lines.append("\nIn flight in this storefront right now: " + ", ".join(h["id"] for h in inflight)
+                     + ". Two changes to one storefront inside one window cannot be told apart — "
+                     "record this as a confound or wait.")
+    if claimed:
+        lines.append("\nQueries already claimed by another hypothesis: "
+                     + ", ".join(f"{q} → {i}" for q, i in claimed.items())
+                     + ". Sharing a query means neither verdict is attributable.")
+    text = "\n".join(lines) + "\n"
+    if out:
+        out.write_text(text, encoding="utf-8")
+        print(f"drafted {hid} → {out}")
+    else:
+        print(text)
+    return hid
+
 # ---------------------------------------------------------------- self-check
 def self_check():
     import tempfile
@@ -423,12 +504,26 @@ def self_check():
         assert scored[0][2] == "video komprimieren" and scored[-1][2] == "fotos komprimieren", (
             "a #30 with room must outrank a #8 that is nearly top3")
         assert all(s[0] > 0 for s in scored), "score must use real proceeds, never a stored opportunity field"
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            hid = draft(store, "de", ["fotos komprimieren"], 21, None)
+        body = buf.getvalue()
+        assert hid == "H003", hid
+        assert "queries: fotos komprimieren" in body and "kill_criterion_written:" in body
+        assert "not better than 8" in body, "kill criterion must carry the real baseline"
+        assert "In flight in this storefront" in body, "must warn about a concurrent experiment"
+        try:
+            draft(store, "de", ["never queried"], 21, None)
+            raise AssertionError("must refuse a basket it cannot measure")
+        except SystemExit as exc:
+            assert "no observation" in str(exc)
     print("\nOK: stale positions, failed requests, dedupe, censored pairs, legacy free-text provenance,\n    window states, proceeds-weighted order")
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", nargs="?", choices=["report", "ingest"], default="report")
+    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft"], default="report")
     p.add_argument("snapshot", nargs="?")
     p.add_argument("--store", type=Path)
     p.add_argument("--date", default=str(TODAY))
@@ -436,6 +531,10 @@ def main():
     p.add_argument("--depth", type=int)
     p.add_argument("--group", default="target")
     p.add_argument("--limit", type=int, default=25)
+    p.add_argument("--market")
+    p.add_argument("--queries", default="")
+    p.add_argument("--window", type=int, default=21)
+    p.add_argument("--out", type=Path)
     p.add_argument("--self-check", action="store_true")
     args = p.parse_args()
     if args.self_check:
@@ -446,6 +545,10 @@ def main():
         if not args.snapshot:
             p.error("ingest needs a snapshot JSON path")
         return ingest(args.store, Path(args.snapshot), args.date, args.source, args.depth, args.group)
+    if args.command == "draft":
+        if not args.market:
+            p.error("draft needs --market and --queries")
+        return draft(args.store, args.market, args.queries.split(";"), args.window, args.out)
     report(args.store, args.limit)
 
 

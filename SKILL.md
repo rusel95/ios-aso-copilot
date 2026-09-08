@@ -69,6 +69,15 @@ the ledger exists to make that state visible instead of comfortable.
   a first place in a storefront that nets $6.37 a subscriber is worth less than a fifth place in
   one that nets $29.88. Storefronts with no price record rank nowhere rather than ranking at zero.
 
+Drafting the next one is the same command with `draft --market X --queries "a; b"`. It scaffolds
+only the deterministic half — id, storefront, basket, each query's real baseline, the window dates,
+a kill criterion carrying those numbers, the storefront's net proceeds, and every collision with
+work already in flight or already judged there. **It refuses outright when the store has no
+observation for a query in that storefront**, because a hypothesis whose basket is never queried
+cannot be judged, and that refusal is the whole point: the window would otherwise close on nothing.
+`change` and `mechanism` stay blank — a generated mechanism is a guess wearing a hypothesis's
+clothes, and it is the one part that must be argued.
+
 The ledger's inputs are `$STORE/metrics/ranks.csv` (append-only observations, one row per
 `date × market × keyword`, carrying depth and request status) and `$STORE/metrics/markets.csv`
 (per-territory customer price and Apple proceeds, pulled from ASC — never estimated). Refresh the
@@ -175,6 +184,7 @@ All use the Python standard library and provide `--self-check`. Run only what th
 - `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
   refuses any position deeper than the result list that query returned — a value carried over from an
   older snapshot is not an observation.
+- `ledger.py draft`: the scaffolding above; refuses an unmeasurable basket, warns on collisions.
 - `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
 - `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
   Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
