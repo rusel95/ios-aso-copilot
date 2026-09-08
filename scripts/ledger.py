@@ -163,7 +163,11 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
         print(f"REFUSED {len(rejected)} rows: position deeper than the result list that query "
               f"returned (stale value carried across snapshots), e.g. {rejected[:3]}", file=sys.stderr)
     target = store / "metrics" / "ranks.csv"
-    existing = {(r["date"], r["market"], r["keyword"], r["source"]) for r in read_ranks(store)}
+    # Keyed on the observation itself, not just its address: re-ingesting the same file changes
+    # nothing, but a retry that finally succeeds appends a correction on the same date, which is
+    # what the append-only rule asks for (a correction is a new row, never an edited one).
+    existing = {(r["date"], r["market"], r["keyword"], r["source"], r["status"],
+                 r["position"]) for r in read_ranks(store)}
     new = 0
     head = target.read_text(encoding="utf-8").splitlines() if target.exists() else []
     if len(head) == 1 and head[0].split(",") != RANK_HEADER:
@@ -176,7 +180,7 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
         if not target.stat().st_size:
             writer.writerow(RANK_HEADER)
         for market, term, pos, status in rows:
-            if (date, market, term, source) in existing:
+            if (date, market, term, source, status, pos if status == "ok" else None) in existing:
                 continue
             writer.writerow([date, market, term, group, pos if pos is not None else "",
                              "", "", source, depth or "", status])
@@ -187,13 +191,19 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
 
 # ---------------------------------------------------------------- report
 def series(rows):
-    """(market, keyword) -> observations sorted by date."""
+    """(market, keyword) -> observations sorted by date, failed requests dropped.
+
+    A failed request is kept in the CSV as a record of what was attempted, but it is not an
+    observation: leaving it in the series would let one outage block a key's delta forever.
+    """
     out = {}
     for r in rows:
+        if r["status"] == "error":
+            continue
         out.setdefault((r["market"], r["keyword"]), []).append(r)
     for key in out:
         out[key].sort(key=lambda r: r["date"])
-    return out
+    return {k: v for k, v in out.items() if v}
 
 
 def movement(first, last):
@@ -202,8 +212,7 @@ def movement(first, last):
         return f"incomparable provider ({first['provider']} vs {last['provider']})", None
     if not (first["legacy"] or last["legacy"]) and first["depth"] != last["depth"]:
         return f"incomparable depth ({first['depth']} vs {last['depth']})", None
-    if "error" in (first.get("status"), last.get("status")):
-        return "a request in this pair failed", None
+
     a, b = first["position"], last["position"]
     if a is None and b is None:
         return "never observed within depth", None
@@ -344,15 +353,16 @@ def report(store: Path, limit: int):
     rows = read_ranks(store)
     markets, hyps = read_markets(store), read_hypotheses(store)
     pairs = series(rows)
+    attempted = {(r["market"], r["keyword"]) for r in rows}
     dates = sorted({r["date"] for r in rows})
     paired = sum(movement(o[0], o[-1])[1] is not None for o in pairs.values())
     failed = sum(r["status"] == "error" for r in rows)
     print(f"# Marketing ledger · {TODAY} · store {store}")
-    print(f"\n{len(hyps)} hypotheses · {len(pairs)} tracked keys · {len(rows)} observations on "
+    print(f"\n{len(hyps)} hypotheses · {len(attempted)} tracked keys · {len(rows)} observations on "
           f"{len(dates)} dates ({', '.join(dates[:1] + dates[-1:])}) · {len(markets)} priced storefronts")
-    print(f"\n**Coverage: {paired} of {len(pairs)} keys have a comparable pair; {failed} observations "
-          f"are failed requests.** A thin section below is thin because of this line, not because "
-          f"nothing moved.")
+    print(f"\n**Coverage: {paired} of {len(attempted)} keys have a comparable pair, "
+          f"{len(attempted) - len(pairs)} have no successful observation at all; {failed} requests failed.** "
+          f"A thin section below is thin because of this line, not because nothing moved.")
     if not rows:
         print("\n**metrics/ranks.csv is empty — no observation ledger exists yet.** Sections B and C "
               "cannot be computed from nothing; ingest a snapshot first. This is the honest state, "
@@ -446,6 +456,54 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
         print(text)
     return hid
 
+# ---------------------------------------------------------------- refresh
+def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float, out_dir: Path):
+    """Re-query the basket the store already tracks, then ingest it. One command, so that the
+    weekly cadence a 21-day window depends on actually happens.
+
+    The basket is whatever `ranks.csv` already contains — never a list retyped by hand, which is
+    how a query silently leaves the basket and a window closes on a different set than it opened on.
+    """
+    import subprocess
+    rows = read_ranks(store)
+    if not rows:
+        sys.exit("nothing tracked yet: ingest a snapshot before refreshing")
+    latest = {}
+    for r in rows:                                   # last observation per key decides what to redo
+        latest[(r["market"], r["keyword"])] = r
+    basket = {}
+    for (market, keyword), r in latest.items():
+        if markets_filter and market not in markets_filter:
+            continue
+        if failed_only and r["status"] != "error":
+            continue
+        basket.setdefault(market, []).append(keyword)
+    if not basket:
+        print("nothing to refresh with those filters")
+        return 0
+    script = Path(__file__).resolve().parent / "rank_audit.py"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    merged, ok, err = {}, 0, 0
+    for market in sorted(basket):
+        target = out_dir / f"{market}.json"
+        print(f"  {market}: {len(basket[market])} queries…", flush=True)
+        subprocess.run([sys.executable, str(script), "--bundle", bundle, "--markets", market,
+                        "--keywords", ",".join(basket[market]), "--output", str(target),
+                        "--delay", str(delay)], capture_output=True)
+        if not target.exists():
+            print(f"  {market}: no output — the whole storefront is unrefreshed", file=sys.stderr)
+            continue
+        for country, entries in json.loads(target.read_text(encoding="utf-8")).items():
+            merged.setdefault(country, []).extend(entries)
+            ok += sum(e.get("query_status") == "ok" for e in entries)
+            err += sum(e.get("query_status") == "error" for e in entries)
+    snapshot = out_dir / f"snapshot_{TODAY}.json"
+    snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
+    print(f"{ok} observed · {err} failed → {snapshot}")
+    if err and not ok:
+        sys.exit("every query failed — rate limit or network. Nothing ingested; retry slower.")
+    return ingest(store, snapshot, str(TODAY), "itunes-search-api", 200, "target")
+
 # ---------------------------------------------------------------- self-check
 def self_check():
     import tempfile
@@ -527,10 +585,11 @@ def self_check():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft"], default="report")
+    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh"], default="report")
     p.add_argument("snapshot", nargs="?")
     p.add_argument("--store", type=Path)
     p.add_argument("--date", default=str(TODAY))
+    p.add_argument("--delay", type=float)
     p.add_argument("--source", default="itunes-search-api")
     p.add_argument("--depth", type=int)
     p.add_argument("--group", default="target")
@@ -539,6 +598,10 @@ def main():
     p.add_argument("--queries", default="")
     p.add_argument("--window", type=int, default=21)
     p.add_argument("--out", type=Path)
+    p.add_argument("--bundle")
+    p.add_argument("--markets")
+    p.add_argument("--failed-only", action="store_true")
+    p.add_argument("--out-dir", type=Path)
     p.add_argument("--self-check", action="store_true")
     args = p.parse_args()
     if args.self_check:
@@ -549,6 +612,13 @@ def main():
         if not args.snapshot:
             p.error("ingest needs a snapshot JSON path")
         return ingest(args.store, Path(args.snapshot), args.date, args.source, args.depth, args.group)
+    if args.command == "refresh":
+        if not args.bundle:
+            p.error("refresh needs --bundle (the app's exact bundle id)")
+        return refresh(args.store, args.bundle,
+                       [m.strip().lower() for m in (args.markets or "").split(",") if m.strip()],
+                       args.failed_only, 0.8 if args.delay is None else args.delay,
+                       args.out_dir or args.store / "reports" / "snapshots")
     if args.command == "draft":
         if not args.market:
             p.error("draft needs --market and --queries")
