@@ -30,6 +30,9 @@ RANK_HEADER = ["date", "market", "keyword", "group", "position", "popularity",
 # status vocabulary: ok = found at `position`; beyond-depth = queried, absent within `depth`;
 # error = request failed. A keyword never queried has no row at all — that is not the same thing.
 TODAY = dt.date.today()
+# Apple documents the iTunes Search API at "approximately 20 calls per minute"; over it, 429.
+# https://performance-partners.apple.com/search-api
+DEFAULT_DELAY = 3.0
 
 # Section C model. Two declared factors, both printed with every row, neither measured by this
 # toolkit: `gain` is how much of the top-3 position is still unclaimed, `reach` is how close the
@@ -457,13 +460,33 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     return hid
 
 # ---------------------------------------------------------------- refresh
-def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float, out_dir: Path):
+def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
+            out_dir: Path, passes: int = 1):
     """Re-query the basket the store already tracks, then ingest it. One command, so that the
     weekly cadence a 21-day window depends on actually happens.
 
     The basket is whatever `ranks.csv` already contains — never a list retyped by hand, which is
     how a query silently leaves the basket and a window closes on a different set than it opened on.
+
+    Apple documents the Search API at "approximately 20 calls per minute", and over it returns 429
+    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0s. Measured here
+    on 2026-09-08: 6 workers at 0.1s lost 478 of 649 queries; one worker at 1.0s still lost 135 of
+    261. The word "approximately" is why `--passes` exists: a burst can 429 at a legal rate.
     """
+    total = 0
+    for attempt in range(max(1, passes)):
+        if attempt:
+            print(f"pass {attempt + 1}: retrying what failed…", flush=True)
+        got = _refresh_once(store, bundle, markets_filter, failed_only or attempt > 0, delay, out_dir,
+                            suffix=f"_p{attempt + 1}" if attempt else "")
+        total += got or 0
+        if not got:
+            break
+    return total
+
+
+def _refresh_once(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
+                  out_dir: Path, suffix: str = ""):
     import subprocess
     rows = read_ranks(store)
     if not rows:
@@ -497,11 +520,12 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
             merged.setdefault(country, []).extend(entries)
             ok += sum(e.get("query_status") == "ok" for e in entries)
             err += sum(e.get("query_status") == "error" for e in entries)
-    snapshot = out_dir / f"snapshot_{TODAY}.json"
+    snapshot = out_dir / f"snapshot_{TODAY}{suffix}.json"
     snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
     print(f"{ok} observed · {err} failed → {snapshot}")
     if err and not ok:
-        sys.exit("every query failed — rate limit or network. Nothing ingested; retry slower.")
+        sys.exit(f"every query failed — Apple returns 429 above ~20 calls/minute, so --delay must "
+                 f"stay >= 3.0 (this run used {delay}). Nothing ingested.")
     return ingest(store, snapshot, str(TODAY), "itunes-search-api", 200, "target")
 
 # ---------------------------------------------------------------- self-check
@@ -601,6 +625,8 @@ def main():
     p.add_argument("--bundle")
     p.add_argument("--markets")
     p.add_argument("--failed-only", action="store_true")
+    p.add_argument("--passes", type=int, default=3,
+                   help="retry passes over whatever still failed (default 3)")
     p.add_argument("--out-dir", type=Path)
     p.add_argument("--self-check", action="store_true")
     args = p.parse_args()
@@ -617,8 +643,8 @@ def main():
             p.error("refresh needs --bundle (the app's exact bundle id)")
         return refresh(args.store, args.bundle,
                        [m.strip().lower() for m in (args.markets or "").split(",") if m.strip()],
-                       args.failed_only, 0.8 if args.delay is None else args.delay,
-                       args.out_dir or args.store / "reports" / "snapshots")
+                       args.failed_only, DEFAULT_DELAY if args.delay is None else args.delay,
+                       args.out_dir or args.store / "reports" / "snapshots", args.passes)
     if args.command == "draft":
         if not args.market:
             p.error("draft needs --market and --queries")
