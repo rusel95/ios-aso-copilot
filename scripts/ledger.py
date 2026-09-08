@@ -71,7 +71,7 @@ def read_ranks(store: Path):
         # "itunes-search-api@2026-08-28 limit=182 hypothesis=H003". Comparability keys on the
         # provider; the rest of the string is a note, and matching it exactly would make every
         # pair incomparable for the sole reason that each observation described itself.
-        r["provider"] = re.split(r"[@\s]", (r.get("source") or "").strip(), 1)[0]
+        r["provider"] = re.split(r"[@\s]", (r.get("source") or "").strip(), maxsplit=1)[0]
     return rows
 
 
@@ -86,6 +86,16 @@ def read_markets(store: Path):
             if code and usd:
                 out[code] = float(usd)
     return out
+
+
+def read_brand_tokens(store: Path):
+    """Brand queries measure whether we are indexed, never demand. Nobody searches a brand they have
+    not heard of, so a brand term is not an acquisition target and must not be ranked as one."""
+    config = store / "config.md"
+    if not config.exists():
+        return []
+    found = re.search(r"^\*\*Brand tokens\*\*:\s*(.+)$", config.read_text(encoding="utf-8"), re.M)
+    return [b.strip().lower() for b in found.group(1).split(",") if b.strip()] if found else []
 
 
 def read_hypotheses(store: Path):
@@ -207,9 +217,9 @@ def movement(first, last):
     return (label + (" · legacy, depth not recorded" if first["legacy"] else "")), a - b
 
 
-def section_a(hyps, ranks_by_market, markets):
+def section_a(hyps, pairs, markets):
     print("\n## A · Hypothesis ledger — close before proposing\n")
-    print("| ID | Markets | Live since | Window | State | Keys improved / regressed / flat | Action |")
+    print("| ID | Markets | Live since | Window | State | Its own basket ↑/↓/→ | Action |")
     print("|---|---|---|---|---|---|---|")
     counts = {"judged": 0, "due": 0, "open": 0, "not-shipped": 0}
     for h in hyps:
@@ -227,14 +237,28 @@ def section_a(hyps, ranks_by_market, markets):
                 state, action, counts["due"] = f"DUE ({age}d ≥ {window}d)", "judge now", counts["due"] + 1
             else:
                 state, action, counts["open"] = f"open ({window - age}d left)", "wait", counts["open"] + 1
-        up = down = flat = 0
-        for market in mkts:
-            for pair in ranks_by_market.get(market, []):
-                label, delta = movement(pair[0], pair[-1])
-                if delta is None:
-                    continue
-                up, down, flat = up + (delta > 0), down + (delta < 0), flat + (delta == 0)
-        keys = f"{up} / {down} / {flat}" if mkts else "no `markets:` field"
+        # Only the hypothesis's own declared query basket. Counting every key in the storefront
+        # would put a number next to the hypothesis that has nothing to do with it, and a number
+        # in that column will be read as its effect.
+        basket = [q.strip().lower() for q in (h.get("queries") or "").split(";") if q.strip()]
+        if not mkts:
+            keys = "no `markets:`"
+        elif not basket:
+            keys = "no `queries:` — unjudgeable"
+        else:
+            up = down = flat = miss = 0
+            for market in mkts:
+                for query in basket:
+                    obs = pairs.get((market, query))
+                    if not obs:
+                        miss += 1
+                        continue
+                    _, delta = movement(obs[0], obs[-1])
+                    if delta is None:
+                        miss += 1
+                    else:
+                        up, down, flat = up + (delta > 0), down + (delta < 0), flat + (delta == 0)
+            keys = f"{up} / {down} / {flat}" + (f" (+{miss} unpaired)" if miss else "")
         print(f"| {h.get('id','?')} | {','.join(mkts) or '—'} | {live or '—'} | "
               f"{h.get('window_days','21')}d | {state} | {keys} | {action} |")
     print(f"\n{counts['judged']} judged · {counts['due']} due · {counts['open']} open · "
@@ -273,7 +297,7 @@ def section_b(pairs, markets, limit):
     return numeric, censored
 
 
-def section_c(pairs, markets, hyps, limit):
+def section_c(pairs, markets, hyps, limit, brand):
     print("\n## C · What to do next, ordered by money at stake\n")
     print("_Order = net proceeds per paying subscriber in that storefront (live ASC price record) "
           "× gain (how much of a top-3 position is unclaimed) × reach (how movable the current "
@@ -283,8 +307,11 @@ def section_c(pairs, markets, hyps, limit):
           "outage is not an opportunity._\n")
     covered = {m.strip().lower() for h in hyps if not (h.get("verdict") or "").strip()
                for m in (h.get("markets") or "").split(",") if m.strip()}
-    scored, unpriced = [], 0
+    scored, unpriced, brand_skipped = [], 0, 0
     for (market, keyword), obs in pairs.items():
+        if any(token in keyword.lower() for token in brand):
+            brand_skipped += 1
+            continue
         proceeds = markets.get(market)
         if proceeds is None:
             unpriced += 1
@@ -304,6 +331,9 @@ def section_c(pairs, markets, hyps, limit):
     for s in scored[:limit]:
         pos = s[3] if s[3] is not None else f">depth"
         print(f"| {s[0]} | {s[1]} | {s[2]} | {pos} | {s[4]} | ${s[5]:.2f} | {s[6]} | {s[7]} |")
+    if brand_skipped:
+        print(f"\n{brand_skipped} brand-term keys excluded: rank on our own name shows we are indexed, "
+              f"not that anyone searches for us. Set `**Brand tokens**:` in config.md to change the list.")
     if unpriced:
         print(f"\n{unpriced} tracked keys sit in storefronts with no `proceeds_usd` in "
               f"metrics/markets.csv — ranked nowhere rather than ranked at zero.")
@@ -314,19 +344,22 @@ def report(store: Path, limit: int):
     rows = read_ranks(store)
     markets, hyps = read_markets(store), read_hypotheses(store)
     pairs = series(rows)
-    by_market = {}
-    for (market, _), obs in pairs.items():
-        by_market.setdefault(market, []).append(obs)
+    dates = sorted({r["date"] for r in rows})
+    paired = sum(movement(o[0], o[-1])[1] is not None for o in pairs.values())
+    failed = sum(r["status"] == "error" for r in rows)
     print(f"# Marketing ledger · {TODAY} · store {store}")
-    print(f"\n{len(hyps)} hypotheses · {len(pairs)} tracked keys · {len(rows)} rank observations · "
-          f"{len(markets)} priced storefronts")
+    print(f"\n{len(hyps)} hypotheses · {len(pairs)} tracked keys · {len(rows)} observations on "
+          f"{len(dates)} dates ({', '.join(dates[:1] + dates[-1:])}) · {len(markets)} priced storefronts")
+    print(f"\n**Coverage: {paired} of {len(pairs)} keys have a comparable pair; {failed} observations "
+          f"are failed requests.** A thin section below is thin because of this line, not because "
+          f"nothing moved.")
     if not rows:
         print("\n**metrics/ranks.csv is empty — no observation ledger exists yet.** Sections B and C "
               "cannot be computed from nothing; ingest a snapshot first. This is the honest state, "
               "not a bug.")
-    section_a(hyps, by_market, markets)
+    section_a(hyps, pairs, markets)
     section_b(pairs, markets, limit)
-    section_c(pairs, markets, hyps, limit)
+    section_c(pairs, markets, hyps, limit, read_brand_tokens(store))
 
 
 # ---------------------------------------------------------------- self-check
@@ -381,7 +414,11 @@ def self_check():
         by_market = {"de": [obs for (m, _), obs in pairs.items() if m == "de"]}
         counts = section_a(hyps, by_market, read_markets(store))
         assert counts["due"] == 1 and counts["not-shipped"] == 1, counts
-        scored = section_c(pairs, read_markets(store), hyps, 10)
+        (store / "config.md").write_text("**Brand tokens**: komprimieren\n", encoding="utf-8")
+        assert read_brand_tokens(store) == ["komprimieren"]
+        assert not section_c(pairs, read_markets(store), hyps, 10, ["komprimieren"]), \
+            "a brand term is not an acquisition target"
+        scored = section_c(pairs, read_markets(store), hyps, 10, [])
         assert scored and scored[0][1] == "de" and scored[0][5] == 29.88
         assert scored[0][2] == "video komprimieren" and scored[-1][2] == "fotos komprimieren", (
             "a #30 with room must outrank a #8 that is nearly top3")
