@@ -378,9 +378,12 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
         sys.exit("--queries is required: an experiment with no basket cannot be judged")
 
     # 1. Refuse first, scaffold second. This is the failure this store already has nine of.
-    unmeasurable = [q for q in queries if (market, q) not in pairs]
+    # A row whose only observation is a failed request is a term we tried to look up, not one we
+    # measured. Drafting against it opens a window on nothing, same as no row at all.
+    unmeasurable = [q for q in queries
+                    if not any(o["status"] != "error" for o in pairs.get((market, q), []))]
     if unmeasurable:
-        sys.exit(f"Refusing to draft: {market} has no observation for {unmeasurable}. Add these to "
+        sys.exit(f"Refusing to draft: {market} has no successful observation for {unmeasurable}. Add these to "
                  f"the tracked basket and ingest a snapshot first, or the window closes on nothing. "
                  f"({len(pairs)} keys tracked, {sum(1 for m, _ in pairs if m == market)} in {market})")
     if market not in markets:
@@ -513,11 +516,12 @@ def self_check():
         assert "queries: fotos komprimieren" in body and "kill_criterion_written:" in body
         assert "not better than 8" in body, "kill criterion must carry the real baseline"
         assert "In flight in this storefront" in body, "must warn about a concurrent experiment"
-        try:
-            draft(store, "de", ["never queried"], 21, None)
-            raise AssertionError("must refuse a basket it cannot measure")
-        except SystemExit as exc:
-            assert "no observation" in str(exc)
+        for bad in ("never queried", "failed"):   # "failed" exists but only as a failed request
+            try:
+                draft(store, "de", [bad], 21, None)
+                raise AssertionError(f"must refuse a basket it cannot measure: {bad}")
+            except SystemExit as exc:
+                assert "no successful observation" in str(exc), exc
     print("\nOK: stale positions, failed requests, dedupe, censored pairs, legacy free-text provenance,\n    window states, proceeds-weighted order")
 
 
