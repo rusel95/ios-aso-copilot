@@ -59,7 +59,19 @@ def read_ranks(store: Path):
     with path.open(encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     for r in rows:
-        r["position"] = int(r["position"]) if (r.get("position") or "").strip() else None
+        raw = (r.get("position") or "").strip()
+        # Stores written before `status` existed use a word in this column ("absent", "not found")
+        # to mean the same thing. Read it, do not crash on it, and do not read it as a number.
+        r["position"] = int(raw) if raw.lstrip("-").isdigit() else None
+        if not (r.get("status") or "").strip():
+            r["status"] = "ok" if r["position"] is not None else ("beyond-depth" if raw else "unknown")
+        r["depth"] = (r.get("depth") or "").strip()
+        r["legacy"] = not r["depth"]
+        # In the wild this column holds a whole sentence:
+        # "itunes-search-api@2026-08-28 limit=182 hypothesis=H003". Comparability keys on the
+        # provider; the rest of the string is a note, and matching it exactly would make every
+        # pair incomparable for the sole reason that each observation described itself.
+        r["provider"] = re.split(r"[@\s]", (r.get("source") or "").strip(), 1)[0]
     return rows
 
 
@@ -88,7 +100,9 @@ def read_hypotheses(store: Path):
             field = re.match(r"^([a-z_]+):\s*(.*)$", line)
             if field:
                 key = field.group(1)
-                meta[key] = field.group(2).strip().strip(">|").strip()
+                # frontmatter written from the template keeps its inline "# what this field means"
+                value = re.sub(r"\s+#.*$", "", field.group(2)).strip().strip(">|").strip()
+                meta[key] = value
             elif key and line.strip():
                 meta[key] = (meta[key] + " " + line.strip()).strip()
         meta["_path"] = path.name
@@ -174,8 +188,12 @@ def series(rows):
 
 def movement(first, last):
     """Return (label, delta) — a censored pair never becomes a numeric delta."""
-    if first["source"] != last["source"] or first.get("depth") != last.get("depth"):
-        return "incomparable method/depth", None
+    if first["provider"] != last["provider"]:
+        return f"incomparable provider ({first['provider']} vs {last['provider']})", None
+    if not (first["legacy"] or last["legacy"]) and first["depth"] != last["depth"]:
+        return f"incomparable depth ({first['depth']} vs {last['depth']})", None
+    if "error" in (first.get("status"), last.get("status")):
+        return "a request in this pair failed", None
     a, b = first["position"], last["position"]
     if a is None and b is None:
         return "never observed within depth", None
@@ -183,7 +201,10 @@ def movement(first, last):
         return "ENTERED (was beyond depth)", None
     if b is None:
         return "EXITED (now beyond depth)", None
-    return ("improved" if b < a else "regressed" if b > a else "flat"), a - b
+    label = "improved" if b < a else "regressed" if b > a else "flat"
+    # Rows predating the depth/status columns pair with each other, but the pair cannot be verified
+    # comparable — it carries that caveat rather than being silently promoted or silently dropped.
+    return (label + (" · legacy, depth not recorded" if first["legacy"] else "")), a - b
 
 
 def section_a(hyps, ranks_by_market, markets):
@@ -200,7 +221,8 @@ def section_a(hyps, ranks_by_market, markets):
             state, action, counts["not-shipped"] = "not shipped", "ship it or drop it", counts["not-shipped"] + 1
         else:
             age = (TODAY - live).days
-            window = int(h.get("window_days") or 21)
+            window = re.match(r"\s*(\d+)", h.get("window_days") or "")
+            window = int(window.group(1)) if window else 21
             if age >= window:
                 state, action, counts["due"] = f"DUE ({age}d ≥ {window}d)", "judge now", counts["due"] + 1
             else:
@@ -338,6 +360,18 @@ def self_check():
         assert movement(*[pairs[("de", "fotos komprimieren")][i] for i in (0, -1)]) == ("improved", 32)
         label, delta = movement(*[pairs[("de", "video komprimieren")][i] for i in (0, -1)])
         assert delta is None and label.startswith("ENTERED"), "censored → number is not a delta"
+        legacy = store / "metrics" / "legacy.csv"
+        legacy.write_text("date,market,keyword,group,position,popularity,difficulty,source\n"
+            "2026-08-23,de,weisses rauschen,target,43,,,itunes-search-api@2026-08-23 limit=200 baseline\n"
+            "2026-09-04,de,weisses rauschen,target,21,,,itunes-search-api@2026-09-04 limit=182 H003\n",
+            encoding="utf-8")
+        import shutil
+        keep = (store / "metrics" / "ranks.csv").read_text(encoding="utf-8")
+        shutil.copy(legacy, store / "metrics" / "ranks.csv")
+        lrows = series(read_ranks(store))[("de", "weisses rauschen")]
+        assert movement(lrows[0], lrows[-1]) == ("improved · legacy, depth not recorded", 22), \
+            "a store that writes its provenance as prose must still pair"
+        (store / "metrics" / "ranks.csv").write_text(keep, encoding="utf-8")
         (store / "hypotheses" / "H001-x.md").write_text(
             "---\nid: H001\nmarkets: de\nwent_live: 2026-08-01\nwindow_days: 21\nverdict:\n---\n", encoding="utf-8")
         (store / "hypotheses" / "H002-x.md").write_text(
@@ -352,7 +386,7 @@ def self_check():
         assert scored[0][2] == "video komprimieren" and scored[-1][2] == "fotos komprimieren", (
             "a #30 with room must outrank a #8 that is nearly top3")
         assert all(s[0] > 0 for s in scored), "score must use real proceeds, never a stored opportunity field"
-    print("\nOK: stale-position refusal, failed-request status, dedupe, censored pairs, window states, proceeds order")
+    print("\nOK: stale positions, failed requests, dedupe, censored pairs, legacy free-text provenance,\n    window states, proceeds-weighted order")
 
 
 def main():
