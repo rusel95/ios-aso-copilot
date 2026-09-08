@@ -286,7 +286,10 @@ def section_a(hyps, pairs, markets):
         # would put a number next to the hypothesis that has nothing to do with it, and a number
         # in that column will be read as its effect.
         basket = [q.strip().lower() for q in (h.get("queries") or "").split(";") if q.strip()]
-        if not mkts:
+        if (h.get("primary_signal") or "").strip() == "funnel":
+            # A funnel hypothesis is not measured by rank; an empty basket is correct, not missing.
+            keys = "funnel — not rank-measured"
+        elif not mkts:
             keys = "no `markets:`"
         elif not basket:
             keys = "no `queries:` — unjudgeable"
