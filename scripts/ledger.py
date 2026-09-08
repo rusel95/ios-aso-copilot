@@ -31,18 +31,24 @@ RANK_HEADER = ["date", "market", "keyword", "group", "position", "popularity",
 # error = request failed. A keyword never queried has no row at all — that is not the same thing.
 TODAY = dt.date.today()
 
-# Section C reach model. A position band's share of taps is not measured by this toolkit; these
-# weights are a declared ordering assumption, printed with the output, not an Apple figure.
-BANDS = [(3, "top3", 1.0), (10, "top10", 0.55), (30, "top30", 0.20), (10**9, "deep", 0.05)]
+# Section C model. Two declared factors, both printed with every row, neither measured by this
+# toolkit: `gain` is how much of the top-3 position is still unclaimed, `reach` is how close the
+# current position is to being moved at all. A key we already rank #8 for is a far cheaper target
+# than one we are nowhere for, even though the second has more theoretical headroom — without the
+# second factor this section degenerates into "every keyword you don't rank for, sorted by price".
+BANDS = [(3, "top3", 0.00, 1.00), (10, "top10", 0.45, 1.00), (30, "top30", 0.80, 0.70),
+         (200, "deep", 0.95, 0.35)]
+BEYOND = ("beyond-depth", 1.00, 0.10)
 
 
 def band(pos):
+    """-> (name, gain, reach)"""
     if pos is None:
-        return "beyond-depth", 0.0
-    for limit, name, weight in BANDS:
+        return BEYOND
+    for limit, name, gain, reach in BANDS:
         if pos <= limit:
-            return name, weight
-    return "deep", 0.05
+            return name, gain, reach
+    return BEYOND
 
 
 # ---------------------------------------------------------------- store readers
@@ -120,7 +126,10 @@ def load_snapshot(path: Path):
         if pos is not None and isinstance(total, int) and pos > total:
             rejected.append((market, term, pos, total))
             continue
-        out.append((market, str(term), pos))
+        # A failed request observed nothing. It is not "absent within depth", which is a successful
+        # query that looked and did not find us — collapsing the two turns an outage into a rank loss.
+        status = "error" if r.get("query_status") == "error" else ("ok" if pos is not None else "beyond-depth")
+        out.append((market, str(term), pos if status == "ok" else None, status))
     return out, rejected
 
 
@@ -142,10 +151,9 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
         writer = csv.writer(fh)
         if not target.stat().st_size:
             writer.writerow(RANK_HEADER)
-        for market, term, pos in rows:
+        for market, term, pos, status in rows:
             if (date, market, term, source) in existing:
                 continue
-            status = "ok" if pos is not None else "beyond-depth"
             writer.writerow([date, market, term, group, pos if pos is not None else "",
                              "", "", source, depth or "", status])
             new += 1
@@ -246,9 +254,11 @@ def section_b(pairs, markets, limit):
 def section_c(pairs, markets, hyps, limit):
     print("\n## C · What to do next, ordered by money at stake\n")
     print("_Order = net proceeds per paying subscriber in that storefront (live ASC price record) "
-          "× headroom from the current position band. Band weights are a declared ordering "
-          "assumption, not measured tap share. No currency total is implied: this ranks WHAT "
-          "FIRST, it does not forecast revenue._\n")
+          "× gain (how much of a top-3 position is unclaimed) × reach (how movable the current "
+          "position is). Gain and reach are declared ordering assumptions printed on every row, not "
+          "measured tap share. No currency total is implied: this ranks WHAT FIRST, it does not "
+          "forecast revenue. A key whose last observation was a failed request is absent here — an "
+          "outage is not an opportunity._\n")
     covered = {m.strip().lower() for h in hyps if not (h.get("verdict") or "").strip()
                for m in (h.get("markets") or "").split(",") if m.strip()}
     scored, unpriced = [], 0
@@ -257,15 +267,17 @@ def section_c(pairs, markets, hyps, limit):
         if proceeds is None:
             unpriced += 1
             continue
+        if obs[-1]["status"] == "error":
+            continue                                # last look failed: unknown, not an opportunity
         pos = obs[-1]["position"]
-        name, weight = band(pos)
-        headroom = round(1.0 - weight, 2)          # distance to top3, in band terms
-        if headroom <= 0:
+        name, gain, reach = band(pos)
+        if gain <= 0:
             continue                                # already top3: defend, don't attack
-        scored.append((round(proceeds * headroom, 2), market, keyword, pos, name,
-                       proceeds, headroom, "covered by an open hypothesis" if market in covered else "UNCLAIMED"))
+        scored.append((round(proceeds * gain * reach, 2), market, keyword, pos, name,
+                       proceeds, f"{gain}×{reach}",
+                       "covered by an open hypothesis" if market in covered else "UNCLAIMED"))
     scored.sort(reverse=True)
-    print("| Score | Market | Key | Position now | Band | Net proceeds/sub | Headroom | Status |")
+    print("| Score | Market | Key | Position now | Band | Net proceeds/sub | Gain×Reach | Status |")
     print("|---:|---|---|---:|---|---:|---:|---|")
     for s in scored[:limit]:
         pos = s[3] if s[3] is not None else f">depth"
@@ -310,8 +322,11 @@ def self_check():
             {"country_code": "de", "term": "fotos komprimieren", "our_rank": 40, "total_results": 200},
             {"country_code": "de", "term": "video komprimieren", "our_rank": None, "total_results": 200},
             {"country_code": "de", "term": "stale", "our_rank": 12, "total_results": 5},   # impossible
+            {"country_code": "de", "term": "failed", "our_rank": None, "query_status": "error"},
         ]), encoding="utf-8")
-        assert ingest(store, snap, "2026-09-01", "itunes-search-api", 200, "target") == 2, "stale row must be refused"
+        assert ingest(store, snap, "2026-09-01", "itunes-search-api", 200, "target") == 3, "stale row must be refused"
+        failed = [r for r in read_ranks(store) if r["keyword"] == "failed"]
+        assert failed and failed[0]["status"] == "error", "a failed request is not beyond-depth"
         snap2 = store / "s2.json"
         snap2.write_text(json.dumps([
             {"country_code": "de", "term": "fotos komprimieren", "our_rank": 8, "total_results": 200},
@@ -334,8 +349,10 @@ def self_check():
         assert counts["due"] == 1 and counts["not-shipped"] == 1, counts
         scored = section_c(pairs, read_markets(store), hyps, 10)
         assert scored and scored[0][1] == "de" and scored[0][5] == 29.88
+        assert scored[0][2] == "video komprimieren" and scored[-1][2] == "fotos komprimieren", (
+            "a #30 with room must outrank a #8 that is nearly top3")
         assert all(s[0] > 0 for s in scored), "score must use real proceeds, never a stored opportunity field"
-    print("\nOK: stale-position refusal, dedupe, censored pairs, window states, proceeds-weighted order")
+    print("\nOK: stale-position refusal, failed-request status, dedupe, censored pairs, window states, proceeds order")
 
 
 def main():
