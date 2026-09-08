@@ -34,6 +34,15 @@ TODAY = dt.date.today()
 # https://performance-partners.apple.com/search-api
 DEFAULT_DELAY = 3.0
 
+# Every input this run could not use. A store file that cannot be parsed must never be skipped
+# quietly: a dropped hypothesis reads exactly like a hypothesis that does not exist, and a ledger
+# that hides its own blind spots is worse than no ledger.
+PROBLEMS: list = []
+
+
+def problem(where: str, why: str):
+    PROBLEMS.append((where, why))
+
 # Section C model. Two declared factors, both printed with every row, neither measured by this
 # toolkit: `gain` is how much of the top-3 position is still unclaimed, `reach` is how close the
 # current position is to being moved at all. A key we already rank #8 for is a far cheaper target
@@ -61,8 +70,13 @@ def read_ranks(store: Path):
         return []
     with path.open(encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
-    for r in rows:
+    for i, r in enumerate(rows, 2):
         raw = (r.get("position") or "").strip()
+        if raw and not raw.lstrip("-").isdigit() and raw.lower() not in ("absent", "not found", "none", "-"):
+            problem(f"metrics/ranks.csv:{i}", f"position {raw!r} is neither a number nor a known "
+                                              f"word for absent; read as not observed")
+        if not (r.get("market") or "").strip() or not (r.get("keyword") or "").strip():
+            problem(f"metrics/ranks.csv:{i}", "row has no market or no keyword; it can never be paired")
         # Stores written before `status` existed use a word in this column ("absent", "not found")
         # to mean the same thing. Read it, do not crash on it, and do not read it as a number.
         r["position"] = int(raw) if raw.lstrip("-").isdigit() else None
@@ -84,10 +98,17 @@ def read_markets(store: Path):
     if not path.exists():
         return out
     with path.open(encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
+        for i, r in enumerate(csv.DictReader(fh), 2):
             code, usd = (r.get("storefront") or "").strip().lower(), (r.get("proceeds_usd") or "").strip()
-            if code and usd:
+            if not code:
+                continue                      # territory with no storefront code: expected, not a fault
+            if not usd:
+                problem(f"metrics/markets.csv:{i}", f"{code} has no proceeds_usd; it cannot be ranked by value")
+                continue
+            try:
                 out[code] = float(usd)
+            except ValueError:
+                problem(f"metrics/markets.csv:{i}", f"{code} proceeds_usd {usd!r} is not a number")
     return out
 
 
@@ -107,6 +128,8 @@ def read_hypotheses(store: Path):
         text = path.read_text(encoding="utf-8")
         match = re.match(r"^---\n(.*?)\n---", text, re.S)
         if not match:
+            problem(f"hypotheses/{path.name}", "no YAML frontmatter — NOT in the ledger at all, so it "
+                                               "can never be judged, closed or counted")
             continue
         meta, key = {}, None
         for line in match.group(1).splitlines():
@@ -119,7 +142,17 @@ def read_hypotheses(store: Path):
             elif key and line.strip():
                 meta[key] = (meta[key] + " " + line.strip()).strip()
         meta["_path"] = path.name
+        if not (meta.get("id") or "").strip():
+            problem(f"hypotheses/{path.name}", "frontmatter has no `id:` — NOT in the ledger")
+            continue
         out.append(meta)
+    seen = {}
+    for h in out:
+        seen.setdefault(h["id"], []).append(h["_path"])
+    for hid, files in seen.items():
+        if len(files) > 1:
+            problem(f"hypotheses/{hid}", f"id claimed by {len(files)} files ({', '.join(files)}); "
+                                         f"ids are never reused, so one of them is mislabelled")
     return out
 
 
@@ -352,7 +385,20 @@ def section_c(pairs, markets, hyps, limit, brand):
     return scored
 
 
+def print_problems():
+    if not PROBLEMS:
+        print("\n_Every store file parsed cleanly._")
+        return
+    print(f"\n## ⚠ {len(PROBLEMS)} inputs this run could not use\n")
+    print("| Where | What went wrong |\n|---|---|")
+    for where, why in PROBLEMS:
+        print(f"| `{where}` | {why} |")
+    print("\nThese are not counted anywhere below. Fix them or the ledger is answering a question "
+          "about a smaller store than you have.")
+
+
 def report(store: Path, limit: int):
+    PROBLEMS.clear()
     rows = read_ranks(store)
     markets, hyps = read_markets(store), read_hypotheses(store)
     pairs = series(rows)
@@ -370,6 +416,7 @@ def report(store: Path, limit: int):
         print("\n**metrics/ranks.csv is empty — no observation ledger exists yet.** Sections B and C "
               "cannot be computed from nothing; ingest a snapshot first. This is the honest state, "
               "not a bug.")
+    print_problems()
     section_a(hyps, pairs, markets)
     section_b(pairs, markets, limit)
     section_c(pairs, markets, hyps, limit, read_brand_tokens(store))
@@ -469,7 +516,16 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     how a query silently leaves the basket and a window closes on a different set than it opened on.
 
     Apple documents the Search API at "approximately 20 calls per minute", and over it returns 429
-    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0s. Measured here
+    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0
+
+# Every input this run could not use. A store file that cannot be parsed must never be skipped
+# quietly: a dropped hypothesis reads exactly like a hypothesis that does not exist, and a ledger
+# that hides its own blind spots is worse than no ledger.
+PROBLEMS: list = []
+
+
+def problem(where: str, why: str):
+    PROBLEMS.append((where, why))s. Measured here
     on 2026-09-08: 6 workers at 0.1s lost 478 of 649 queries; one worker at 1.0s still lost 135 of
     261. The word "approximately" is why `--passes` exists: a burst can 429 at a legal rate.
     """
@@ -510,11 +566,14 @@ def _refresh_once(store: Path, bundle: str, markets_filter, failed_only: bool, d
     for market in sorted(basket):
         target = out_dir / f"{market}.json"
         print(f"  {market}: {len(basket[market])} queries…", flush=True)
-        subprocess.run([sys.executable, str(script), "--bundle", bundle, "--markets", market,
-                        "--keywords", ",".join(basket[market]), "--output", str(target),
-                        "--delay", str(delay)], capture_output=True)
-        if not target.exists():
-            print(f"  {market}: no output — the whole storefront is unrefreshed", file=sys.stderr)
+        done = subprocess.run([sys.executable, str(script), "--bundle", bundle, "--markets", market,
+                               "--keywords", ",".join(basket[market]), "--output", str(target),
+                               "--delay", str(delay)], capture_output=True, text=True)
+        if done.returncode or not target.exists():
+            tail = (done.stderr or done.stdout or "").strip().splitlines()[-4:]
+            print(f"  {market}: FAILED (exit {done.returncode}) — this storefront is unrefreshed, its "
+                  f"keys keep their previous observation:\n      " + "\n      ".join(tail),
+                  file=sys.stderr, flush=True)
             continue
         for country, entries in json.loads(target.read_text(encoding="utf-8")).items():
             merged.setdefault(country, []).extend(entries)
