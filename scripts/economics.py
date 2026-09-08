@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 
 
 def ltv_per_paying_subscriber(price: float, commission: float, retention: float) -> float:
@@ -31,6 +32,10 @@ def ltv_per_paying_subscriber(price: float, commission: float, retention: float)
     subsequent year — an infinite geometric series, net / (1 - retention). The handbook's own
     worked figure ("$54") is a rounded version of exactly this.
     """
+    if not math.isfinite(price) or price <= 0:
+        raise ValueError("price must be finite and positive")
+    if not math.isfinite(commission) or not 0 <= commission < 1:
+        raise ValueError("commission must be in [0, 1)")
     if not 0 <= retention < 1:
         raise ValueError("retention must be in [0, 1)")
     net_year_one = price * (1 - commission)
@@ -39,21 +44,29 @@ def ltv_per_paying_subscriber(price: float, commission: float, retention: float)
 
 def ltv_per_trial(price: float, commission: float, retention: float, trial_to_paid_cvr: float) -> float:
     """HANDBOOK.md Крок 2: LTV per subscriber, discounted by how many trial-starters ever pay."""
+    if not math.isfinite(trial_to_paid_cvr) or not 0 <= trial_to_paid_cvr <= 1:
+        raise ValueError("trial_to_paid_cvr must be in [0, 1]")
     return ltv_per_paying_subscriber(price, commission, retention) * trial_to_paid_cvr
 
 
 def breakeven_trial_start_rate(ltv_trial: float, cpi: float) -> float:
     """HANDBOOK.md Крок 3/4: the download-to-trial rate at which LTV/download exactly covers CPI."""
-    if ltv_trial <= 0:
+    if not math.isfinite(cpi) or cpi < 0:
+        raise ValueError("cpi must be finite and nonnegative")
+    if not math.isfinite(ltv_trial) or ltv_trial <= 0:
         raise ValueError("ltv_per_trial must be positive")
     return cpi / ltv_trial
 
 
 def scaling_verdict(observed_trial_rate: float, breakeven_rate: float) -> str:
+    if not math.isfinite(observed_trial_rate) or not 0 <= observed_trial_rate <= 1:
+        raise ValueError("observed_trial_rate must be in [0, 1]")
+    if not math.isfinite(breakeven_rate) or breakeven_rate < 0:
+        raise ValueError("breakeven_rate must be finite and nonnegative")
     if observed_trial_rate >= breakeven_rate:
         return (
             f"observed trial-start rate {observed_trial_rate:.1%} clears break-even "
-            f"({breakeven_rate:.1%}) — the arithmetic supports raising spend"
+            f"({breakeven_rate:.1%}) — this scenario clears break-even, but does not establish incremental profit or justify scaling"
         )
     return (
         f"observed trial-start rate {observed_trial_rate:.1%} is BELOW break-even "
@@ -67,6 +80,7 @@ def _tag(*input_names: str) -> str:
 
 
 def run(args: argparse.Namespace) -> None:
+    print("SCENARIO ONLY: constant renewal probability, no refunds/taxes/discounting/operating costs; not a forecast or bank payout.")
     inputs = "price,commission,retention,trial_to_paid_cvr"
     ltv_sub = ltv_per_paying_subscriber(args.price, args.commission, args.retention)
     print(f"LTV per paying subscriber: ${ltv_sub:.2f}  [{_tag('price', 'commission', 'retention')}]")
@@ -114,6 +128,14 @@ def self_check() -> None:
     higher_retention_ltv = ltv_per_trial(price, commission, 0.9, trial_to_paid_cvr)
     assert higher_retention_ltv > ltv_trial
 
+    for values in ((-1, .15, .2), (float("nan"), .15, .2), (30, 1.5, .2)):
+        try:
+            ltv_per_paying_subscriber(*values)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(values)
+
     # Verdict direction, both sides:
     assert "BELOW" in scaling_verdict(0.05, breakeven)
     assert "clears" in scaling_verdict(0.10, breakeven)
@@ -155,7 +177,10 @@ def main(argv: list[str] | None = None) -> int:
     if missing:
         parser.error(f"missing required arguments: {', '.join(missing)}")
 
-    run(args)
+    try:
+        run(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     return 0
 
 

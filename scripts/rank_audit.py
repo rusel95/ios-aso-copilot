@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rank_audit.py — App Store keyword rank + difficulty + opportunity analysis.
+rank_audit.py — App Store keyword discovery observations with explicit provenance.
 
 Keyword discovery strategy (in order of preference):
   1. --expand-from-hints  : auto-generate queries from Apple's own autocomplete for seed terms
@@ -50,7 +50,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -499,7 +499,7 @@ def _get(url: str, headers: dict | None = None, timeout: float = 8.0) -> bytes:
 
 def fetch_hints(term: str, country: str) -> list[str]:
     """Fetch Apple autocomplete hints for `term` in `country`.
-    Returns popularity-ordered list of suggestions (what users actually type).
+    Returns suggestions for discovery; ordering is not calibrated search volume.
     """
     storefront = STOREFRONTS.get(country)
     if not storefront:
@@ -530,22 +530,26 @@ def expand_keywords(seeds: list[str], country: str, budget: int) -> tuple[list[s
     """
     Expand seed terms using Apple autocomplete hints.
     Returns deduplicated list of up to `budget` terms, seeds-first,
-    along with a dictionary mapping term -> hint_rank (1 = highest popularity).
+    along with a dictionary mapping term -> hint_rank (observed suggestion order, not popularity).
     """
     seen: set[str] = set()
     result: list[str] = []
     hint_ranks: dict[str, int] = {}
 
-    def add(term: str, rank: int) -> None:
+    def add(term: str, rank: int | None) -> None:
         t = term.strip().lower()
         if t and t not in seen:
             seen.add(t)
             result.append(term.strip())
             hint_ranks[term.strip()] = rank
+        elif t and rank is not None:
+            canonical = next(x for x in result if x.lower() == t)
+            if hint_ranks[canonical] is None:
+                hint_ranks[canonical] = rank
 
-    # Seeds always included first (rank 1 = seed/primary head term)
+    # A supplied seed is not an observed first autocomplete result.
     for s in seeds:
-        add(s, 1)
+        add(s, None)
 
     # Level 1: hints for each seed
     level1: list[str] = []
@@ -573,15 +577,24 @@ def search_itunes(term: str, country: str, limit: int = 200) -> list[dict]:
         "term": term, "country": country,
         "media": "software", "entity": "software", "limit": limit,
     })
+    data = json.loads(_get(f"https://itunes.apple.com/search?{params}"))
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        raise ValueError("Invalid iTunes response: missing results list")
+    if any(not isinstance(app, dict) for app in data["results"]):
+        raise ValueError("Invalid iTunes result row")
+    return data["results"]
+
+
+def audit_keyword(term: str, country: str, bundle_id: str, hint_rank: int | None = None) -> dict:
+    provenance = {"source": "itunes-search-api", "rank_kind": "api_order_proxy",
+                  "observed_at": datetime.now(timezone.utc).isoformat(),
+                  "bundle_id": bundle_id, "query_limit": 200}
     try:
-        data = json.loads(_get(f"https://itunes.apple.com/search?{params}"))
-        return data.get("results", [])
-    except Exception:
-        return []
-
-
-def audit_keyword(term: str, country: str, bundle_id: str, hint_rank: int = 20) -> dict:
-    results = search_itunes(term, country)
+        results = search_itunes(term, country)
+    except (OSError, ValueError, TimeoutError) as exc:
+        return {"term": term, "country": country, "hint_rank": hint_rank,
+                "our_rank": None, "total_results": None, "query_status": "error",
+                "error": f"{type(exc).__name__}: {exc}", **provenance}
     total = len(results)
 
     our_rank: Optional[int] = None
@@ -608,6 +621,8 @@ def audit_keyword(term: str, country: str, bundle_id: str, hint_rank: int = 20) 
             break
 
     return {
+        **provenance,
+        "query_status": "ok",
         "term": term,
         "country": country,
         "hint_rank": hint_rank,
@@ -627,155 +642,12 @@ def audit_keyword(term: str, country: str, bundle_id: str, hint_rank: int = 20) 
 
 
 def compute_scores(row: dict, country: str) -> dict:
-    weight = MARKET_WEIGHT.get(country, 3)
-    total  = row["total_results"]
-    rank   = row["our_rank"]
-    hint_rank = row.get("hint_rank", 20)
-    top3_avg = row.get("top3_avg_ratings", row.get("top1_ratings_total", 0))
-    top3_title_match = row.get("top3_has_title_match", False)
-
-    # 1. Search Popularity (0-100): derived from Apple hint position + search result saturation
-    if hint_rank == 1:       hint_pts = 65
-    elif hint_rank == 2:     hint_pts = 58
-    elif hint_rank == 3:     hint_pts = 52
-    elif hint_rank <= 5:     hint_pts = 45
-    elif hint_rank <= 10:    hint_pts = 38
-    elif hint_rank <= 20:    hint_pts = 26
-    else:                    hint_pts = 15
-
-    sat_pts = min(35, int((total / 200.0) * 35))
-    popularity = min(100, hint_pts + sat_pts)
-
-    # Absolute volume proxy index (Popularity scaled by Storefront market weight)
-    # E.g. US (weight 100) -> 10.0x, ES/IT (weight 7) -> 0.7x, UA (weight 2) -> 0.2x
-    vol_index = round(popularity * (weight / 10.0), 1)
-
-    # 2. Difficulty (0-100): based on Top-3 competitor review counts (log scale)
-    difficulty = min(100, int(math.log10(max(top3_avg, 1) + 1) / math.log10(100001) * 100))
-
-    # 3. KEI (Keyword Efficiency Index): Popularity^2 / max(Difficulty, 1)
-    kei = round((popularity ** 2) / max(difficulty, 1), 1)
-
-    # 4. Standard Opportunity Score (weighted by market weight)
-    if rank is None:        rank_factor = 0.005
-    elif rank <= 5:         rank_factor = 1.0
-    elif rank <= 10:        rank_factor = 0.85
-    elif rank <= 20:        rank_factor = 0.65
-    elif rank <= 50:        rank_factor = 0.35
-    elif rank <= 100:       rank_factor = 0.15
-    else:                   rank_factor = 0.04
-
-    opportunity = (
-        weight
-        * (popularity / 10)
-        * rank_factor
-        * (1 - difficulty / 130)
-    )
-
-    # 5. Top-3 Target Opportunity Score (Probability of reaching Top 3, weighted by market scale)
-    if rank is not None:
-        if rank <= 3:      t3_rank = 1.0
-        elif rank <= 10:   t3_rank = 0.95
-        elif rank <= 30:   t3_rank = 0.85
-        elif rank <= 60:   t3_rank = 0.70
-        elif rank <= 100:  t3_rank = 0.50
-        elif rank <= 150:  t3_rank = 0.35
-        else:              t3_rank = 0.20
-    else:
-        t3_rank = 0.10
-
-    # Vulnerability multiplier: if top 3 apps do not have exact keyword in Title,
-    # putting the keyword in our Title gives a 1.4x algorithmic boost
-    vuln_multiplier = 1.4 if not top3_title_match else 1.0
-    competition_ease = max(0.1, (100 - difficulty * 0.75) / 100.0)
-    mkt_scale = math.sqrt(weight / 10.0)
-    top3_score = round(popularity * t3_rank * vuln_multiplier * competition_ease * mkt_scale, 1)
-
-    # 6. ASA Sweet Spot & Leverage Score
-    # Sweet spot is ranks #4-#15: already indexed, close enough to push into Top 3 with paid installs
-    if rank is None:
-        rank_sweet_spot = 0.05
-    elif 4 <= rank <= 7:
-        rank_sweet_spot = 1.20  # Prime strike zone
-    elif 8 <= rank <= 15:
-        rank_sweet_spot = 1.00  # Strong strike zone
-    elif 1 <= rank <= 3:
-        rank_sweet_spot = 0.35  # Already dominant; organic is free; ASA only for defense
-    elif 16 <= rank <= 30:
-        rank_sweet_spot = 0.70  # Good secondary target
-    elif 31 <= rank <= 60:
-        rank_sweet_spot = 0.40  # Needs ASO title update first
-    else:
-        rank_sweet_spot = 0.15  # Too low for direct ASA push
-
-    # Defense factor based on Top 3 competitor review barrier
-    if top3_avg < 100:      defense_factor = 1.40
-    elif top3_avg < 500:    defense_factor = 1.20
-    elif top3_avg < 2000:   defense_factor = 1.00
-    elif top3_avg < 10000:  defense_factor = 0.70
-    else:                   defense_factor = 0.40
-
-    gap_factor = 1.30 if not top3_title_match else 1.00
-    asa_score = round(popularity * rank_sweet_spot * defense_factor * gap_factor * mkt_scale * 0.4, 1)
-
-    # Actionable tactical recommendation
-    if rank in [1, 2, 3]:
-        asa_action = "🛡️ Brand Defense (Low-bid Exact Match)"
-    elif rank and 4 <= rank <= 15 and top3_avg < 2000:
-        asa_action = "🚀 ASA Strike Zone (High ROI push to grab Top 3!)"
-    elif rank and 4 <= rank <= 15:
-        asa_action = "⚔️ Contest Strike (Competitive Push into Top 3)"
-    elif rank and 16 <= rank <= 30 and not top3_title_match:
-        asa_action = "⚡ Title Gap + ASA (Add to Title, run moderate bid)"
-    elif rank and rank <= 50:
-        asa_action = "🧪 Discovery Match (Test real volume via low-bid CPT)"
-    elif rank and rank > 50:
-        asa_action = "📝 ASO First (Rank too low; update metadata first)"
-    else:
-        asa_action = "🌱 Keyword Gap (Add to keywords field)"
-
-    # Actionable strategy classification for ASO
-    if not top3_title_match and rank is not None and rank <= 70:
-        strategy = "🔥 Put in Title (Top 3 have no title match!)"
-    elif not top3_title_match and (rank is None or rank > 70) and difficulty <= 35:
-        strategy = "🌱 Put in Title (uncontested niche with title gap)"
-    elif rank is not None and rank <= 30:
-        strategy = "⚡ Put in Title/Subtitle (immediate striking distance)"
-    elif rank is not None and rank <= 80:
-        strategy = "🎯 Put in Subtitle (push from Top 80 into Top 30)"
-    elif difficulty <= 25:
-        strategy = "💡 Put in Subtitle/Keywords (low competition niche)"
-    elif popularity >= 60:
-        strategy = "🏔️ Long-term volume term (requires review base)"
-    else:
-        strategy = "📝 Add to Keywords field"
-
-    return {
-        "volume_proxy": popularity,
-        "popularity": popularity,
-        "vol_index": vol_index,
-        "difficulty": difficulty,
-        "kei": kei,
-        "top3_score": top3_score,
-        "asa_score": asa_score,
-        "asa_action": asa_action,
-        "opportunity": round(opportunity, 2),
-        "strategy": strategy,
-    }
-
-
-def diff_label(d: int) -> str:
-    if d < 20:  return "🟢 low"
-    if d < 45:  return "🟡 med"
-    if d < 70:  return "🟠 high"
-    return "🔴 very high"
-
-
-def vol_label(v: int) -> str:
-    if v >= 80:  return "◉◉◉ very high"
-    if v >= 55:  return "◉◉○ high"
-    if v >= 35:  return "◉○○ medium"
-    return       "○○○ low"
+    """Retire uncalibrated volume, takeover and ROI scores; keep raw observations."""
+    return {"score_kind": "unavailable_without_demand_and_outcome_evidence",
+            **{key: None for key in ("volume_proxy", "popularity", "vol_index", "difficulty",
+                                    "kei", "top3_score", "asa_score", "opportunity")},
+            "strategy": "Validate exact-query demand, relevance and conversion before prioritizing",
+            "asa_action": "No spend recommendation from API order or review counts"}
 
 
 def run_audit(
@@ -797,7 +669,7 @@ def run_audit(
         hint_ranks: dict[str, int] = {}
         if manual_keywords and country in manual_keywords:
             queries = manual_keywords[country][:budget]
-            hint_ranks = {q: 20 for q in queries}
+            hint_ranks = {q: None for q in queries}
             src = "manual"
         elif expand_hints and country in STOREFRONTS:
             if custom_seeds:
@@ -814,14 +686,14 @@ def run_audit(
         else:
             fallback = FALLBACK_KEYWORDS.get(country, [])
             queries = fallback[:budget]
-            hint_ranks = {q: 20 for q in queries}
+            hint_ranks = {q: None for q in queries}
             src = f"fallback({len(queries)})"
 
         print(f"  {flag} {country.upper():3} [{src}] {len(queries)} queries…", end=" ", flush=True)
 
         rows = []
         for term in queries:
-            h_rank = hint_ranks.get(term, 20)
+            h_rank = hint_ranks.get(term)
             row = audit_keyword(term, country, bundle_id, hint_rank=h_rank)
             scores = compute_scores(row, country)
             rows.append({**row, **scores})
@@ -837,203 +709,51 @@ def run_audit(
 
 
 def format_report(bundle_id: str, results: dict[str, list[dict]]) -> str:
-    lines: list[str] = []
-    today = date.today().isoformat()
-
-    all_rows = [r for rows in results.values() for r in rows]
-    ranked_rows = [r for r in all_rows if r["our_rank"]]
-
-    total_opp_by_market = {
-        country: sum(r["opportunity"] for r in rows)
-        for country, rows in results.items()
-    }
-
-    best_overall_rank = min((r["our_rank"] for r in ranked_rows), default=None)
-
-    lines += [
-        f"# ASO Rank Audit & Top-3 Opportunity Roadmap",
-        f"**Bundle:** `{bundle_id}`  |  **Date:** {today}",
-        f"[live:itunes-search-api@{today}]",
-        "",
-        "## Global Summary",
-        "",
-        f"| Metric | Value |",
-        f"|---|---|",
-        f"| Markets audited | {len(results)} |",
-        f"| Total queries evaluated | {len(all_rows)} |",
-        f"| Visible in top-200 | {len(ranked_rows)} ({len(ranked_rows)*100//max(len(all_rows),1)}%) |",
-        f"| Markets with visibility | {sum(1 for rows in results.values() if any(r['our_rank'] for r in rows))} |",
-        f"| Best overall rank | {'#' + str(best_overall_rank) if best_overall_rank else '—'} |",
-        "",
-    ]
-
-    # TOP 3 BREAKTHROUGH OPPORTUNITIES (SORTED BY TOP-3 SCORE)
-    top3_sorted = sorted(all_rows, key=lambda r: -r.get("top3_score", 0))[:40]
-
-    lines += [
-        "---",
-        "",
-        "## 🏆 Top Opportunities to Reach TOP 3 (Prioritized)",
-        "",
-        "_Top-3 Score = Popularity × Proximity (our rank) × Title Vulnerability (1.5x if top 3 lack title match) × Competition Ease_",
-        "_Goal: Find the fastest, highest-probability moves into Top 3 anywhere in the world._",
-        "",
-        "| # | Market | Keyword | Rank | Pop | Diff | KEI | Top-3 Score | Title Gap | Top Competitor (Reviews) | Actionable Strategy |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
-    ]
-
-    for i, r in enumerate(top3_sorted, 1):
-        flag = FLAGS.get(r["country"], r["country"].upper())
-        rank_str = f"#{r['our_rank']}" if r["our_rank"] else "unranked"
-        title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
-        top1_info = f"{r['top1_name'][:20]} ({r['top1_ratings_total']:,})"
-        lines.append(
-            f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` | {rank_str} "
-            f"| {r['popularity']} | {r['difficulty']} | {r['kei']} | **{r['top3_score']}** "
-            f"| {title_gap_str} | {top1_info} | {r.get('strategy', '—')} |"
-        )
-    lines.append("")
-
-    # ASA STRIKE ZONE LEADERBOARD (SORTED BY ASA SCORE)
-    asa_sorted = sorted(all_rows, key=lambda r: -r.get("asa_score", 0))[:30]
-
-    lines += [
-        "---",
-        "",
-        "## 🎯 ASA Strike Zone & Paid Push Leaderboard (High-ROI Ad Targets)",
-        "",
-        "_ASA Score = Popularity × Sweet-Spot Proximity (peak at rank #4-#15) × Competitor Weakness (<500 reviews) × Title Gap × Market Scale_",
-        "_Goal: Find exact-match and discovery targets where paid downloads have the highest leverage to permanently lift organic rank to Top 3._",
-        "",
-        "| # | Market | Keyword | Rank | Pop | Est Vol | Diff | Top-3 Avg Reviews | ASA Score | Action / Strategy |",
-        "|---|---|---|---|---|---|---|---|---|---|",
-    ]
-
-    for i, r in enumerate(asa_sorted, 1):
-        flag = FLAGS.get(r["country"], r["country"].upper())
-        rank_str = f"#{r['our_rank']}" if r["our_rank"] else "unranked"
-        top3_avg_rev = r.get("top3_avg_ratings", 0)
-        action_str = r.get("asa_action", r.get("strategy", "—"))
-        lines.append(
-            f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` | {rank_str} "
-            f"| {r['popularity']} | {r.get('vol_index', r['popularity'])} | {r['difficulty']} "
-            f"| {top3_avg_rev:,} | **{r.get('asa_score', 0)}** | {action_str} |"
-        )
-    lines.append("")
-
-    # Market Opportunity Ranking
-    lines += [
-        "---",
-        "",
-        "### Market Opportunity Ranking (Macro Overview)",
-        "",
-        "_Opportunity = market_weight × (popularity / 10) × rank_reachability × (1 − difficulty / 130)_",
-        "",
-        "| # | Market | Opp Score | Best rank | Visible | Best Top-3 Target Keyword |",
-        "|---|---|---|---|---|---|",
-    ]
-
-    sorted_markets = sorted(total_opp_by_market.items(), key=lambda x: -x[1])
-    for i, (country, opp) in enumerate(sorted_markets, 1):
-        rows = results[country]
-        flag = FLAGS.get(country, country.upper())
-        best_rank = min((r["our_rank"] for r in rows if r["our_rank"]), default=None)
-        n_ranked = sum(1 for r in rows if r["our_rank"])
-        top_t3_row = max(rows, key=lambda r: r.get("top3_score", 0))
-        lines.append(
-            f"| {i} | {flag} {country.upper()} | **{opp:.0f}** | "
-            f"{'#'+str(best_rank) if best_rank else '—'} | "
-            f"{n_ranked}/{len(rows)} | "
-            f"`{top_t3_row['term']}` (T3: {top_t3_row['top3_score']}, #{top_t3_row['our_rank'] or '—'}) |"
-        )
-    lines.append("")
-
-    # Per-market detail
-    lines += ["---", "", "## Per-Market Detail", ""]
-    for country, opp in sorted_markets:
-        rows = results[country]
-        flag = FLAGS.get(country, country.upper())
-        weight = MARKET_WEIGHT.get(country, 3)
-        ranked = sorted([r for r in rows if r["our_rank"]], key=lambda r: -r.get("top3_score", 0))
-        unranked = sorted([r for r in rows if not r["our_rank"]], key=lambda r: -r.get("top3_score", 0))
-
-        lines += [
-            f"### {flag} {country.upper()}  ·  Weight {weight}/100  ·  Total Opp: {opp:.0f}",
-            "",
-        ]
-        if ranked:
-            lines += [
-                "**Ranked Keywords (ordered by Top-3 Feasibility):**",
-                "| Rank | Keyword | Pop | Diff | KEI | Top-3 Score | ASA Score | Title Gap | Top Competitor | Strategy / ASA Action |",
-                "|---|---|---|---|---|---|---|---|---|---|",
-            ]
-            for r in ranked:
-                title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
-                action_str = r.get("asa_action", r.get("strategy", "—"))
-                lines.append(
-                    f"| #{r['our_rank']} | `{r['term']}` | {r['popularity']} | {r['difficulty']} "
-                    f"| {r['kei']} | **{r['top3_score']}** | {r.get('asa_score', 0)} | {title_gap_str} "
-                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {action_str} |"
-                )
-            lines.append("")
-
-        if unranked:
-            lines += [
-                "**Unranked Opportunities (Keyword Gaps):**",
-                "| Keyword | Pop | Diff | KEI | Top-3 Score | ASA Score | Title Gap | Top Competitor | Strategy |",
-                "|---|---|---|---|---|---|---|---|---|",
-            ]
-            for r in unranked[:6]:
-                title_gap_str = "🟢 OPEN" if not r.get("top3_has_title_match") else "🔴 Defended"
-                lines.append(
-                    f"| `{r['term']}` | {r['popularity']} | {r['difficulty']} "
-                    f"| {r['kei']} | **{r['top3_score']}** | {r.get('asa_score', 0)} | {title_gap_str} "
-                    f"| {r['top1_name'][:20]} ({r['top1_ratings_total']:,}) | {r.get('strategy', '—')} |"
-                )
-            lines.append("")
-
-    # Global leaderboard
-    lines += [
-        "---", "", "## Global Keyword Opportunity Leaderboard (top 40 by Market Opp)", "",
-        "| # | Market | Keyword | Rank | Pop | Diff | KEI | Opp |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
-    for i, r in enumerate(sorted(all_rows, key=lambda r: -r["opportunity"])[:40], 1):
-        flag = FLAGS.get(r["country"], r["country"].upper())
-        lines.append(
-            f"| {i} | {flag} {r['country'].upper()} | `{r['term']}` "
-            f"| {'#'+str(r['our_rank']) if r['our_rank'] else 'absent'} "
-            f"| {r['popularity']} | {r['difficulty']} | {r['kei']} "
-            f"| **{r['opportunity']:.0f}** |"
-        )
-    lines.append("")
-
+    rows = [r for items in results.values() if isinstance(items, list) for r in items]
+    errors = sum(r.get("query_status") == "error" for r in rows)
+    lines = ["# App Store discovery observations", "",
+             f"Bundle: `{bundle_id}`. Report generated: {datetime.now(timezone.utc).isoformat()}.",
+             f"Queries: {len(rows)}. Errors: {errors}.", "",
+             "Positions are iTunes Search API order, not verified organic device rankings.",
+             "Missing provenance in older snapshots stays unverified. Report generation is not a fresh observation.",
+             "Review counts, autocomplete order and result counts do not establish demand, competitiveness, ROI or a paid-to-organic lift.",
+             "Legacy predictive scores are retired; keyword research needs exact-query evidence.", ""]
+    for country, items in sorted(results.items()):
+        if not isinstance(items, list):
+            continue
+        lines += [f"## {country.upper()}", "", "| Query | API position | Status | Observed at | First other result | Ratings |", "|---|---:|---|---|---|---:|"]
+        for row in items:
+            status = row.get("query_status", "legacy provenance unverified")
+            position = row.get("our_rank")
+            if status == "error":
+                pos = "unknown"
+            else:
+                pos = str(position) if position is not None else "not observed in returned results"
+            cells = [row["term"], pos, status, row.get("observed_at", "unknown"), row.get("top1_name", "unknown"), str(row.get("top1_ratings_total", "unknown"))]
+            lines.append("| " + " | ".join(str(x).replace("|", r"\|").replace("\n", " ") for x in cells) + " |")
+        lines.append("")
     return "\n".join(lines)
 
 
 def self_check() -> None:
-    print("self-check: testing API…")
-    results = search_itunes("white noise", "us", limit=5)
-    assert len(results) > 0, "No results — API may be down"
-    assert "bundleId" in results[0]
-    print(f"  ✓ iTunes API: {len(results)} results for 'white noise' US")
-
-    hints = fetch_hints("white noise", "us")
-    if hints:
-        print(f"  ✓ Autocomplete hints: {hints[:3]}")
-    else:
-        print("  ⚠ No hints (may be region/network issue)")
-
-    row = audit_keyword("white noise", "us", "com.nonexistent")
-    scores = compute_scores(row, "us")
-    assert 0 <= scores["opportunity"]
-    print(f"  ✓ Scoring: vol={scores['volume_proxy']} diff={scores['difficulty']} opp={scores['opportunity']} asa={scores.get('asa_score')}")
-    print("self-check: PASSED")
+    from unittest.mock import patch
+    with patch(__name__ + "._get", side_effect=TimeoutError("test timeout")):
+        failed = audit_keyword("compress photo", "us", "com.test")
+        assert failed["query_status"] == "error" and failed["total_results"] is None
+    with patch(__name__ + "._get", return_value=b'{"results": []}'):
+        absent = audit_keyword("compress photo", "us", "com.test")
+        assert absent["query_status"] == "ok" and absent["total_results"] == 0
+    with patch(__name__ + ".fetch_hints", return_value=[]), patch(__name__ + ".time.sleep"):
+        _, ranks = expand_keywords(["unmeasured seed"], "us", 1)
+        assert ranks["unmeasured seed"] is None
+    assert compute_scores(absent, "us")["popularity"] is None
+    assert "unknown | error" in format_report("com.test", {"us": [failed]})
+    print("OK: request errors stay unknown; supplied seeds have no measured popularity; no forecast scores")
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description="App Store keyword rank + opportunity audit")
-    p.add_argument("--bundle",  default="ruslan.whiteNoise.WhiteNoise")
+    p.add_argument("--bundle", help="Exact app bundle ID; required outside self-check")
     p.add_argument("--markets", default="all",
                    help="Comma-separated codes or 'all'")
     p.add_argument("--expand-from-hints", action="store_true",
@@ -1054,6 +774,9 @@ def main() -> None:
     if args.self_check:
         self_check()
         return
+
+    if not args.bundle:
+        p.error("--bundle is required; never infer the app from its name")
 
     if args.reanalyze:
         json_path = Path(args.reanalyze)

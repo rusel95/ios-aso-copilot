@@ -15,7 +15,7 @@ description: >
   зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж, юджісі, тікток, рілс, сценарій відео.
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # marketing-ops
@@ -223,13 +223,15 @@ ago was given against a world that has since moved (FR-023).
 | UGC Short-form Video (30s TikTok, Reels, Shorts), Scripts & Creator Brief | `references/ugc-playbook.md` |
 | Handbook reasoning (cited, never restated — FR-035) | `marketing/HANDBOOK.md` |
 
-Five bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check`.
+Seven bundled scripts, all re-run every iteration rather than one-off. Each has `--self-check` or CLI flags:
 
 - `$SKILL_DIR/scripts/funnel_visualizer.py` — Storefront conversion pyramid, bottleneck diagnostics & cash in pocket
 - `$SKILL_DIR/scripts/campaign_link.py` — App Store campaign tracking links generator (`?ct=...`)
 - `$SKILL_DIR/scripts/harvest_keywords.py` — Apple autocomplete hints + competitor discovery
 - `$SKILL_DIR/scripts/economics.py` — LTV / break-even / scaling verdict
 - `$SKILL_DIR/scripts/rank_audit.py` — full keyword rank audit with opportunity scoring
+- `$SKILL_DIR/scripts/global_velocity_audit.py` — 600+ query multi-threaded velocity, recency, and vulnerability audit
+- `$SKILL_DIR/scripts/measure_velocity.py` — targeted competitor momentum & review recency measurement
 
 ### rank_audit.py — when and how to run
 
@@ -272,6 +274,38 @@ python3 $SKILL_DIR/scripts/rank_audit.py \
 **Saving results:** append a summary row to `$STORE/metrics/ranks.csv` and save full report to
 `$STORE/reports/aso_rank_audit_YYYY-MM-DD.md`. The `check_ranks.py` script handles the CSV append;
 `rank_audit.py --output` handles the full report.
+
+### global_velocity_audit.py — Competitor Momentum, Recency & Sweet Spot Discovery
+
+**Trigger:** Run before launching any Apple Search Ads campaign, selecting keyword targets, or planning new version title/subtitle metadata.
+
+**Core Theory — Why Review Count Alone Lies:**
+Apple's App Store ranking algorithm does **not** rank simply by cumulative lifetime reviews. It heavily prioritizes:
+1. **Download Velocity (7–30 day momentum)** on that exact query.
+2. **Search-to-Install Conversion Rate (TTR/CVR)** for that query.
+3. **Review Recency & Velocity (30-day rate)** and current-version sentiment.
+
+**Competitor Taxonomy:**
+- 🎯 **Soft Target** (`total_ratings < 50`, `velocity_30d <= 2`): Validated search volume, zero defense. Can be overtaken with 10–15 five-star reviews + modest ASA push.
+- 💤 **Sleeping Giant** (`total_ratings >= 100`, `days_since_last_review > 90` or `velocity_30d == 0`): Massive historical review count, but completely dormant. Ripe for displacement by an app with fresh momentum.
+- 🪦 **Outdated Incumbent** (`days_since_update > 180`): Abandoned or neglected app sitting at #1. Apple's algorithm naturally deprioritizes stale binaries when a fresh alternative gains traction.
+- 🔥 **Active Defender** (`velocity_30d >= 8`, updated recently): Actively running aggressive ASA and pulling daily reviews. **DO NOT ATTACK** on low budgets ($2–$5/day).
+
+**The 15–50 Reviews Sweet Spot:**
+- If Top 1 has **0–4 reviews**: The keyword is often a desert (<100 searches/mo) — ranking #1 brings negligible downloads.
+- If Top 1 has **15–50 reviews**: Proves cumulative downloads of ~1,500–4,000 (~1,000–3,000 searches/month), yet remains 100% beatable without venture-scale ad budgets.
+
+**Usage:**
+```bash
+# Run full global audit across all 600+ harvested queries in 25 markets (~85s with 8 workers):
+python3 $SKILL_DIR/scripts/global_velocity_audit.py \
+  --input $STORE/reports/compresso_global_audit_2026-09-05.json \
+  --output-json $STORE/reports/global_velocity_audit_$(date +%Y-%m-%d).json \
+  --output-md $STORE/reports/global_velocity_audit_$(date +%Y-%m-%d).md
+
+# Targeted check for specific markets:
+python3 $SKILL_DIR/scripts/measure_velocity.py --markets ua,de,pl,nl,us
+```
 
 First run against an uninitialized store: seed it with
 `cp -n -r $SKILL_DIR/assets/store-template/. $STORE` (never overwrites an existing file — safe to
