@@ -47,7 +47,7 @@ high enough to justify a dedicated screenshot set. Creating or updating a CPP is
 ## Reviews (`doc:HANDBOOK.md§1.6`)
 
 **List worst-rating-first**, with a drafted reply for every unanswered review, **queued and never
-posted automatically** (`asc reviews respond` is fenced — a public reply under Ruslan's name is
+posted automatically** (`asc reviews respond` is fenced — a public reply under the developer's name is
 exactly the kind of action this skill never takes on its own). Replying matters most on 1–3★: the
 reply is public, future visitors read it, and the original author often revises their rating after a
 good one.

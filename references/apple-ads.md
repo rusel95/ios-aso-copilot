@@ -22,12 +22,12 @@ asc auth status        # App Store Connect — configured, used by every other p
 asc ads auth status     # Apple Ads — separate account, separate keys
 ```
 
-## Step 1 — Create the Apple Ads account (Ruslan's — needs his sign-in)
+## Step 1 — Create the Apple Ads account (Developer's — needs web sign-in)
 
 Sign in at ads.apple.com with the Apple ID used for App Store Connect (or create the Apple Ads
 account if none exists there yet — read the live screen; Apple's own onboarding flow is the
 authority on the exact sequence, not this file). This step is fenced from the skill regardless of
-mode — it's an account creation under Ruslan's identity — so it's always his to do, in every mode.
+mode — it's an account creation under the developer's identity — so it's always the developer's to do, in every mode.
 
 ## Step 2 — Get the "API Account Manager" role
 
@@ -112,7 +112,7 @@ Once credentials exist, the structure (`doc:HANDBOOK.md` Part 2.2 for the full r
 
 | Campaign | Match type | Search Match | Role |
 |---|---|---|---|
-| Brand | exact | **off** | capture searches for "Compresso" itself — cheap, defends the name |
+| Brand | exact | **off** | capture searches for the app's own name — cheap, defends the name |
 | Category | exact | off | head terms in the app's category ("photo compressor", etc.) |
 | Competitor | exact | off | competitor app names surfaced via `references/commands.md`'s iTunes Search API discovery |
 | Discovery | broad | **on** | everything else — where new query data comes from |

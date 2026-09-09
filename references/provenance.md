@@ -20,7 +20,7 @@ Do not invent a new kind at the point of use. If nothing below fits, the claim i
 | `store` | `store:<file>#<row-key>` | `store:metrics/weekly.csv#2026-09-07/search` | none — the row's own `recorded`/`date` column carries its age |
 | `doc` | `doc:<file>§<section>` | `doc:HANDBOOK.md§1.3` | none |
 | `web` | `web:<host><path>@<date>` | `web:developer.apple.com/help/…@2026-08-19` | **90 days** — App Store rules change |
-| `user` | `user:@<date>` | a figure Ruslan read off a web UI and typed in | none, but never upgrade it to `live` |
+| `user` | `user:@<date>` | a figure the developer read off a web UI and typed in | none, but never upgrade it to `live` |
 | `derived` | `derived:(<input>,<input>,…)` | `derived:(price,commission,retention,trial-cvr)` | inherits the **worst** of its listed inputs |
 | `absent` | `absent:<reason>` | `absent:no analytics report generated yet` | none |
 

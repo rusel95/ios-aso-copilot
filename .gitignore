@@ -4,3 +4,14 @@ node_modules/
 
 __pycache__/
 *.pyc
+
+# Agent skills artifacts
+.agents/
+skills-lock.json
+
+# Local environment
+.env
+.env.*
+*.swp
+*~
+

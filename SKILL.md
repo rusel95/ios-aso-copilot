@@ -148,7 +148,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 7. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
    prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
 8. Update state, decisions and references consistently; report done, missing evidence and next action.
-9. **Schedule verification in TickTick.** When hypotheses are sent to release (or when an App Store version with staged hypotheses is submitted for review), automatically create a scheduled verification task in TickTick for the end of the measurement window (e.g. went_live + window_days). Multiple hypotheses from the same release or window are batched into a single task in project `🎛Hush White Noise` (`66bb310904da5140ff7af08a`) with target positions, baselines, and CLI command to run.
+9. **Schedule verification in TickTick.** When hypotheses are sent to release (or when an App Store version with staged hypotheses is submitted for review), automatically create a scheduled verification task in TickTick (if available) for the end of the measurement window (e.g. went_live + window_days). Multiple hypotheses from the same release or window are batched into a single task in the app's TickTick project (e.g. `🎛<App Name>` or configured project ID) with target positions, baselines, and CLI command to run.
 
 ## Evidence rules that affect decisions
 

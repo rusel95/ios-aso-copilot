@@ -9,7 +9,7 @@ missing.
 ## The approval fence
 
 **Implements FR-020…FR-023.** FR-020 states the fence as categories — spends money, publishes,
-posts under Ruslan's name, changes account settings. That is not enough to bind you: nothing about
+posts under the developer's name, changes account settings. That is not enough to bind you: nothing about
 the word "publishes" tells you that `asc reviews respond` does it. So the fence is the literal list
 below, and this list is the authority, not the category description.
 
@@ -29,7 +29,7 @@ continue.
 | `asc metadata push` | same |
 | `asc localizations update` | writes listing text directly |
 | `asc versions update` | changes the version record |
-| `asc reviews respond` | **publishes text publicly under Ruslan's name** |
+| `asc reviews respond` | **publishes text publicly under the developer's name** |
 | `asc reviews respond-batch` | same, in bulk |
 | `asc reviews response delete` | removes published content |
 | `asc ads campaigns create` / `update` | **spends money** |
@@ -50,7 +50,7 @@ continue.
 Also fenced, beyond `asc`: publishing to any social platform, posting to Reddit or Product Hunt,
 sending email, buying a subscription (Astro, aso.dev, an Apple Ads budget), entering payment
 details. Several of these — payment details, account credentials — the skill must never do at all,
-approval or not; it drafts and Ruslan executes.
+approval or not; it drafts and the developer executes.
 
 ### Allowed unattended — reads and local-only work
 
@@ -106,14 +106,14 @@ that matter:
 - **remediation** — a string Apple/`asc` provides. Carry it through verbatim; do not paraphrase or
   invent your own advice for a finding that already ships one
 
-**Actor classification** — every finding is either the skill's to resolve or Ruslan's:
+**Actor classification** — every finding is either the skill's to resolve or the developer's:
 
 - The skill's: anything fixable through `asc metadata`/`asc versions`/similar local-then-`plan`
   workflow, once past the fence.
-- Ruslan's: anything requiring a web-UI action the API cannot perform — accepting terms, confirming
+- The developer's: anything requiring a web-UI action the API cannot perform — accepting terms, confirming
   a publish state, App Privacy questionnaire changes, anything App Store Connect only exposes as a
-  click. For his items, say **what he will see on the screen**, not just what to do, so he can
-  confirm he's looking at the right control.
+  click. For developer items, say **what they will see on the screen**, not just what to do, so they can
+  confirm they're looking at the right control.
 
 **The awaiting-review case.** `WAITING_FOR_REVIEW` / `IN_REVIEW` is a **state to wait out**, not a
 defect. Apple locks the version for editing while it's under review, which `asc validate` reports as
@@ -127,7 +127,7 @@ version 1.0 was `ACCEPTED` (non-editable) as of `live:asc validate@2026-08-22`, 
 / 1 info, 1 blocking (the non-editable-state finding — unlike the `WAITING_FOR_REVIEW` case above,
 `asc validate` flagged this one as blocking). The two warnings were missing subscription promotional
 images; the info was that App Privacy publish state isn't verifiable through the public API
-(Ruslan's, web UI only). This moved from `WAITING_FOR_REVIEW` sometime between 2026-08-19 and
+(Developer's, web UI only). This moved from `WAITING_FOR_REVIEW` sometime between 2026-08-19 and
 2026-08-22 — `STATE.md` still says the older state as of this writing; a `manual`/`auto` run will
 correct it (FR-032).
 

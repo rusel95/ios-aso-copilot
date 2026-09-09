@@ -16,16 +16,16 @@ Market-proportional query budgets (bigger market = more queries):
 
 Usage:
     # Full auto — uses Apple hints to generate queries, proportional per market
-    python3 rank_audit.py --bundle "ruslan.whiteNoise.WhiteNoise" --markets all
+    python3 rank_audit.py --bundle "com.your.app" --markets all
 
     # Specific markets with hint expansion
-    python3 rank_audit.py --bundle "com.app.id" --markets us,de --expand-from-hints
+    python3 rank_audit.py --bundle "com.your.app" --markets us,de --expand-from-hints
 
     # Manual keyword list (bypass hint expansion)
-    python3 rank_audit.py --bundle "com.app.id" --markets us --keywords "white noise,sleep sounds"
+    python3 rank_audit.py --bundle "com.your.app" --markets us --keywords "white noise,sleep sounds"
 
     # Save report
-    python3 rank_audit.py --bundle "ruslan.whiteNoise.WhiteNoise" --markets all \\
+    python3 rank_audit.py --bundle "com.your.app" --markets all \
         --output marketing/reports/aso_rank_audit_$(date +%Y-%m-%d).md
 
     # Test API connectivity
