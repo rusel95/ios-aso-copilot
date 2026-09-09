@@ -1,5 +1,5 @@
 # UGC Playbook: Short-Form Video Engine (TikTok, Reels, Shorts)
-**Part of `ios-marketing-ops`**  
+**Part of `ios-aso-copilot`**  
 **Target Format**: 30-second native vertical videos (9:16, 1080×1920)  
 **Goal**: Generate viral organic reach and high-volume App Store downloads by turning storage pain and compression dopamine into repeatable UGC videos.
 

@@ -1,7 +1,10 @@
 ---
-name: ios-marketing-ops
-description: "Post-launch marketing operations and free alternative to Astro MCP for this repo's App Store app: keyword rank tracking, live search hints, competitor audit, ASO / keyword iteration, App Store release readiness, Apple Ads setup and economics, product-page experiments, reviews, and content backlog. Reads a persistent state store from the current repo's own marketing/ directory and answers 'where am I, what's next' — never starts from zero."
+name: ios-aso-copilot
+description: "AI Copilot and free alternative to Astro MCP for this repo's App Store app: keyword rank tracking, live search hints, competitor audit, ASO / keyword iteration, App Store release readiness, Apple Ads setup and economics, product-page experiments, reviews, and content backlog. Reads a persistent state store from the current repo's own marketing/ directory and answers 'where am I, what's next' — never starts from zero."
 triggers:
+  - ios-aso-copilot
+  - aso copilot
+  - app store copilot
   - ASO
   - App Store keywords
   - App Store Connect status
@@ -45,10 +48,10 @@ triggers:
   - сценарій відео
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.3.3
+  version: 2.0.0
 ---
 
-# iOS marketing operations
+# iOS ASO Copilot
 
 Keep the app's marketing work continuous: inspect the existing evidence, reconcile what is actually
 live, improve the next decision, and record changes. A report is not evidence that marketing worked.

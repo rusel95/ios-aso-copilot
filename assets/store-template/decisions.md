@@ -4,4 +4,4 @@ Append-only. One entry per direction-changing choice, newest last. Never rewritt
 a reversal is a new entry that names what it supersedes, not an edit to the old one.
 
 Entry format and the append mechanism: `references/state-store.md` in the
-`ios-marketing-ops` skill.
+`ios-aso-copilot` skill.

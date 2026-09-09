@@ -3,11 +3,18 @@
 What has landed, newest first. `ROADMAP.md` holds what has not.
 
 Each entry names the roadmap items it closes. A number that disappears from the roadmap can be
-followed here. Changes are pushed to [github.com/rusel95/ios-marketing-ops](https://github.com/rusel95/ios-marketing-ops).
+followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https://github.com/rusel95/ios-aso-copilot).
 
 ---
 
-## v1.3.1 — Evidence ledger hardening — 2026-09-08
+## v2.0.0 — Rename to ios-aso-copilot & Astro MCP Free Alternative — 2026-09-09
+
+- **Rebranded to `ios-aso-copilot`**: Clear, indie-focused name reflecting its role as an AI Copilot for App Store Optimization & Growth.
+- **Astro MCP Free Alternative**: Established as a 100% free, agent-native alternative to Astro ($108/yr), covering live App Store keyword search hints, rank audits, and competitor review velocity without background GUI app lock-in.
+- **Full Anonymization**: All internal test project identifiers and App IDs purged from repo history and examples.
+- **`npx skills` distribution**: Fully compatible with `npx skills add rusel95/ios-aso-copilot`.
+
+---
 
 - Opens every run with a deterministic hypothesis/rank/value ledger and refuses fabricated outcomes,
   stale carried ranks, request-error zeros, non-comparable deltas and unobserved draft baskets.

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * ios-marketing-ops CLI
- * Installs the skill into ~/.claude/skills/ or ~/.kiro/skills/
+ * ios-aso-copilot CLI
+ * Installs the skill into ~/.claude/skills/, ~/.kiro/skills/, or custom path
  *
  * Usage:
- *   npx ios-marketing-ops install          # install to ~/.claude/skills/
- *   npx ios-marketing-ops install --kiro   # install to ~/.kiro/skills/
- *   npx ios-marketing-ops install --path /custom/path
+ *   npx ios-aso-copilot install          # install to ~/.claude/skills/
+ *   npx ios-aso-copilot install --kiro   # install to ~/.kiro/skills/
+ *   npx ios-aso-copilot install --path /custom/path
  */
 const fs   = require("fs");
 const path = require("path");
 const os   = require("os");
 
-const SKILL_NAME = "ios-marketing-ops";
+const SKILL_NAME = "ios-aso-copilot";
 const SKILL_DIR  = path.resolve(__dirname, "..");
 
 const args = process.argv.slice(2);
@@ -45,14 +45,16 @@ if (cmd === "install") {
   }
 
   fs.symlinkSync(SKILL_DIR, target);
-  console.log(`✓ ios-marketing-ops installed → ${target}`);
+  console.log(`✓ ios-aso-copilot installed → ${target}`);
   console.log(`  Symlink points to: ${SKILL_DIR}`);
-  console.log(`\nUsage in Claude Code / Kiro: /ios-marketing-ops`);
+  console.log(`\nUsage in Claude Code / Kiro: /ios-aso-copilot`);
 
 } else if (cmd === "uninstall") {
   const targets = [
     path.join(os.homedir(), ".claude", "skills", SKILL_NAME),
     path.join(os.homedir(), ".kiro",   "skills", SKILL_NAME),
+    path.join(os.homedir(), ".claude", "skills", "ios-marketing-ops"),
+    path.join(os.homedir(), ".kiro",   "skills", "ios-marketing-ops"),
   ];
   let removed = 0;
   for (const t of targets) {
@@ -65,11 +67,11 @@ if (cmd === "install") {
   if (!removed) console.log("Nothing to uninstall.");
 
 } else {
-  console.log(`ios-marketing-ops v${require("../package.json").version}`);
-  console.log("App Store marketing operations skill for Claude/Kiro\n");
+  console.log(`ios-aso-copilot v${require("../package.json").version}`);
+  console.log("App Store Optimization (ASO) & Growth AI Copilot for Claude/Kiro/Antigravity/Cursor\n");
   console.log("Commands:");
-  console.log("  npx ios-marketing-ops install          Install to ~/.claude/skills/");
-  console.log("  npx ios-marketing-ops install --kiro   Install to ~/.kiro/skills/");
-  console.log("  npx ios-marketing-ops install --path P Install to custom path");
-  console.log("  npx ios-marketing-ops uninstall        Remove symlinks");
+  console.log("  npx ios-aso-copilot install          Install to ~/.claude/skills/");
+  console.log("  npx ios-aso-copilot install --kiro   Install to ~/.kiro/skills/");
+  console.log("  npx ios-aso-copilot install --path P Install to custom path");
+  console.log("  npx ios-aso-copilot uninstall        Remove symlinks");
 }

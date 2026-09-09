@@ -5,6 +5,6 @@ command, its effect in plain language, and its preconditions. Entries are remove
 abandoned, so this file is short by construction.
 
 Fence rules: `references/commands.md`. Entry format: `references/state-store.md`. Both in the
-`ios-marketing-ops` skill.
+`ios-aso-copilot` skill.
 
 _none queued_

@@ -1,13 +1,15 @@
 {
-  "name": "ios-marketing-ops",
-  "version": "1.3.1",
-  "description": "App Store marketing operations skill for Claude/Kiro AI agents",
+  "name": "ios-aso-copilot",
+  "version": "2.0.0",
+  "description": "AI Copilot and free Astro MCP alternative for App Store Optimization (ASO), keyword rankings, and growth",
   "keywords": [
     "aso",
     "app-store",
-    "marketing",
+    "copilot",
+    "astro-mcp",
     "claude",
-    "kiro",
+    "cursor",
+    "antigravity",
     "ai-agent",
     "skill"
   ],
@@ -15,9 +17,10 @@
   "author": "Ruslan Popesku",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rusel95/ios-marketing-ops.git"
+    "url": "https://github.com/rusel95/ios-aso-copilot.git"
   },
   "bin": {
+    "ios-aso-copilot": "./bin/cli.js",
     "ios-marketing-ops": "./bin/cli.js"
   },
   "files": [

@@ -1,9 +1,9 @@
-# ios-marketing-ops
+# ios-aso-copilot
 
-App Store marketing operations skill for Claude/Kiro AI agents.
+AI Copilot for iOS App Store Optimization (ASO) & Growth — designed for Claude, Cursor, Antigravity, and Codex.
 
-Handles the full ASO iteration cycle: keyword research, rank auditing,
-hypothesis tracking, metadata management, and Apple Ads setup — for any iOS app.
+Handles the full ASO iteration cycle: live keyword search hints, rank auditing,
+competitor review velocity, hypothesis tracking, metadata optimization, and Apple Ads economics — for any iOS app.
 
 **This is a skill, not an application.** The product is instructions an AI agent follows.
 Scripts are tools the agent calls; they do nothing without the agent context.
@@ -19,33 +19,33 @@ Scripts are tools the agent calls; they do nothing without the agent context.
 
 ```bash
 # Project-level
-npx skills add rusel95/ios-marketing-ops
+npx skills add rusel95/ios-aso-copilot
 
 # Global (across all projects)
-npx skills add rusel95/ios-marketing-ops -g
+npx skills add rusel95/ios-aso-copilot -g
 ```
 
 ### Via npm package installer or symlink
 
 ```bash
 # Symlinks into ~/.claude/skills/
-npx ios-marketing-ops install
+npx ios-aso-copilot install
 
 # For Kiro
-npx ios-marketing-ops install --kiro
+npx ios-aso-copilot install --kiro
 
 # Manual
-ln -s ~/path/to/ios-marketing-ops ~/.claude/skills/ios-marketing-ops
+ln -s ~/path/to/ios-aso-copilot ~/.claude/skills/ios-aso-copilot
 ```
 
 ## Usage
 
-In Claude Code or Kiro, once installed:
+In Claude Code, Cursor, or Antigravity, once installed:
 
 ```
-/ios-marketing-ops              → orientation: phase, open hypotheses, next action
-/ios-marketing-ops auto         → unattended full cycle (rank → hypotheses → metadata)
-/ios-marketing-ops manual       → guided step-by-step with approval at each decision
+/ios-aso-copilot              → orientation: phase, open hypotheses, next action
+/ios-aso-copilot auto         → unattended full cycle (rank → hypotheses → metadata)
+/ios-aso-copilot manual       → guided step-by-step with approval at each decision
 ```
 
 ## What it does
@@ -60,7 +60,7 @@ In Claude Code or Kiro, once installed:
 
 ## Comparison with Astro MCP (tryastro.app)
 
-| Feature | Astro MCP ($108/yr) | `ios-marketing-ops` (Free & Open Source) |
+| Feature | Astro MCP ($108/yr) | `ios-aso-copilot` (Free & Open Source) |
 |---|:---:|:---:|
 | **Cost** | $108/year subscription | **$0 (Free forever)** |
 | **Architecture** | Proprietary Mac app running on port 8089 | **Native Agent Skill / CLI (Claude, Antigravity, Cursor)** |
@@ -98,7 +98,7 @@ python3 scripts/economics.py --self-check
 ## Repository structure
 
 ```
-ios-marketing-ops/
+ios-aso-copilot/
 ├── SKILL.md          ← agent instructions (the operative document)
 ├── README.md         ← this file
 ├── CHANGELOG.md      ← what has landed
@@ -127,7 +127,7 @@ Each app needs its own `marketing/` store in the app's repo:
 
 ```bash
 # Seed the store (run once, never overwrites existing files)
-cp -n -r ~/.claude/skills/ios-marketing-ops/assets/store-template/. ./marketing/
+cp -n -r ~/.claude/skills/ios-aso-copilot/assets/store-template/. ./marketing/
 
 # Fill in your app's identity
 nano marketing/config.md   # set App ID and version
@@ -148,4 +148,4 @@ nano marketing/config.md   # set App ID and version
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Roadmap: [ROADMAP.md](ROADMAP.md)
 - Findings: [FINDINGS.md](FINDINGS.md)
-- GitHub: [github.com/rusel95/ios-marketing-ops](https://github.com/rusel95/ios-marketing-ops)
+- GitHub: [github.com/rusel95/ios-aso-copilot](https://github.com/rusel95/ios-aso-copilot)
