@@ -1,21 +1,48 @@
 ---
 name: ios-marketing-ops
-description: >
-  Post-launch marketing operations for this repo's App Store app: ASO / keyword iteration, App
-  Store release readiness, Apple Ads setup and economics, product-page experiments, reviews,
-  content backlog. Reads a persistent state store from the current repo's own marketing/ (app
-  identity and numbers are per-repo, never shared across apps) and answers "where am I, what's
-  next" — never starts from zero.
-  Triggers on: ASO, App Store keywords, App Store Connect status/readiness, Apple Ads / Search Ads,
-  marketing hypothesis or iteration, weekly funnel numbers, keyword rank, product page experiment,
-  review replies, marketing content backlog, off-store traffic, reddit, threads, twitter, campaign link,
-  channel hypothesis, ugc, tiktok, reels, shorts, video script — and the Ukrainian equivalents: маркетинг, ASO, ключові слова, статус релізу,
-  Apple Ads / реклама, гіпотеза, ітерація, ранжування, відгуки, де я і що далі, що робити далі,
-  запусти рекламу, онови позиції, проведи мене по кроках, зроби ітерацію в авто-режимі,
-  зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж, юджісі, тікток, рілс, сценарій відео.
+description: "Post-launch marketing operations for this repo's App Store app: ASO / keyword iteration, App Store release readiness, Apple Ads setup and economics, product-page experiments, reviews, and content backlog. Reads a persistent state store from the current repo's own marketing/ directory and answers 'where am I, what's next' — never starts from zero."
+triggers:
+  - ASO
+  - App Store keywords
+  - App Store Connect status
+  - Apple Ads
+  - Search Ads
+  - marketing hypothesis
+  - weekly funnel numbers
+  - keyword rank
+  - product page experiment
+  - review replies
+  - marketing content backlog
+  - off-store traffic
+  - reddit marketing
+  - campaign link
+  - channel hypothesis
+  - ugc video
+  - маркетинг
+  - ключові слова
+  - статус релізу
+  - реклама
+  - гіпотеза
+  - ітерація
+  - ранжування
+  - відгуки
+  - де я і що далі
+  - що робити далі
+  - запусти рекламу
+  - онови позиції
+  - проведи мене по кроках
+  - зроби ітерацію в авто-режимі
+  - зовнішній трафік
+  - реддіт
+  - тредс
+  - де запостити
+  - кампанія
+  - трафік з соцмереж
+  - юджісі
+  - сценарій відео
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.3.1
+  version: 1.3.2
 ---
 
 # iOS marketing operations

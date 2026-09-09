@@ -247,13 +247,52 @@ def audit_query(country: str, term: str, base_meta: dict) -> dict:
         "all_competitors": competitors
     }
 
+def _self_check() -> int:
+    # Test market weights
+    assert MARKET_WEIGHT["us"] == 100
+    assert MARKET_WEIGHT["ua"] == 2
+    
+    # Test app classification logic
+    # 1. Soft target
+    soft = analyze_app("us", {"trackId": 1, "trackName": "Soft App", "userRatingCount": 20, "averageUserRating": 4.5}, 1)
+    assert soft["classification"] == "🎯 Soft Target"
+    assert soft["vulnerability"] >= 9.0
+    
+    # 2. Low rating bonus
+    low_rated = analyze_app("us", {"trackId": 2, "trackName": "Buggy App", "userRatingCount": 20, "averageUserRating": 3.8}, 1)
+    assert low_rated["vulnerability"] == 10.0
+    
+    # 3. Active defender
+    # Mock cache
+    with _CACHE_LOCK:
+        _REVIEWS_CACHE[("us", 3)] = {
+            "has_rss_feed": True,
+            "feed_review_count": 20,
+            "days_since_last_review": 2,
+            "velocity_30d": 15,
+            "velocity_90d": 40,
+            "recent_rating": 4.8,
+            "last_review_date": "2026-09-01"
+        }
+    defender = analyze_app("us", {"trackId": 3, "trackName": "Big App", "userRatingCount": 50000, "averageUserRating": 4.8}, 1)
+    assert defender["classification"] == "🔥 Active Defender"
+    assert defender["vulnerability"] <= 3.0
+    
+    print("OK — market weights, classifications, and vulnerability scoring verified.")
+    print("Self-check passed successfully.")
+    return 0
+
 def main():
     parser = argparse.ArgumentParser(description="Global velocity and vulnerability audit across all queries")
+    parser.add_argument("--self-check", action="store_true", help="Run self-tests and exit")
     parser.add_argument("--input", default="marketing/reports/global_audit.json")
     parser.add_argument("--output-json", default="marketing/reports/global_velocity_audit_2026-09-08.json")
     parser.add_argument("--output-md", default="marketing/reports/global_velocity_audit_2026-09-08.md")
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
+    
+    if args.self_check:
+        sys.exit(_self_check())
     
     if not os.path.exists(args.input):
         print(f"Error: input file {args.input} not found!")
