@@ -23,6 +23,25 @@
 
 ---
 
+### ⚔️ Feature Comparison: Astro MCP vs `ios-aso-copilot`
+
+| Capability / Tool | Astro MCP (`tryastro.app`) | `ios-aso-copilot` (This Skill) | Status & Command |
+|---|:---:|:---:|:---:|
+| **Pricing & License** | **$108 / year** (closed-source) | **$0 Free Forever** (MIT open-source) | 🟢 **100% Free** |
+| **Architecture** | Proprietary Mac app running on `localhost:8089` | **Agent Skill (zero apps to run)** | 🟢 **CLI / Agent Native** |
+| **Rank Tracking** (`search_rankings`) | Tracked in local app DB | Live iTunes Search API (depth up to 200, 25+ markets) | 🟢 `python3 scripts/rank_audit.py` |
+| **Search Autocomplete Hints** (`get_keyword_suggestions`) | Proprietary Astro backend | Direct Apple Search Hints API (`MZSearchHints.woa`) | 🟢 `python3 scripts/harvest_keywords.py hints` |
+| **Live App Store Search** (`search_app_store`) | Returns 50–100 results | iTunes Search API across 25 regional storefronts | 🟢 `python3 scripts/rank_audit.py` |
+| **Competitor Extraction** (`extract_competitors_keywords`) | NLP keyword extraction from ranked apps | Competitor title/subtitle analysis across top apps | 🟢 `python3 scripts/global_velocity_audit.py` |
+| **Competitor Review Velocity** (`get_app_ratings`) | Simple average ratings by store | 30d & 90d velocity, recency, Soft Target classification | 🟢 **Superior** (RSS velocity + scoring) |
+| **Data Ownership & Portability** | Locked in proprietary SQLite DB | Plain text CSV & Markdown in `marketing/` under Git | 🟢 **Git-Versioned** |
+| **Money-at-Stake Opportunity Prioritization** | ❌ Not available | Net proceeds per sub × unclaimed gain × reach | 🚀 **Exclusive** (`scripts/ledger.py`) |
+| **ASO Hypothesis Lifecycle & Anti-Regression** | ❌ Not available | 21-day observation windows, paired before/after | 🚀 **Exclusive** (`scripts/ledger.py`) |
+| **Apple Ads Financial Modeling** | ❌ Not available | LTV/subscriber, LTV/trial, break-even CPT bid cap | 🚀 **Exclusive** (`scripts/economics.py`) |
+| **Metadata Character Pre-flight** | ❌ Not available | 30/30/100 limit validation, cross-locale rules | 🚀 **Exclusive** |
+
+---
+
 **This is a skill, not an application.** The product is instructions an AI agent follows.
 Scripts are tools the agent calls; they do nothing without the agent context.
 
@@ -72,21 +91,6 @@ In Claude Code, Cursor, or Antigravity, once installed:
 5. Drafts next keyword hypothesis from opportunity leaderboard
 6. Prepares App Store metadata changes up to the approval fence
 7. Queues anything requiring human approval to `marketing/queue.md`
-
-## Comparison with Astro MCP (tryastro.app)
-
-| Feature | Astro MCP ($108/yr) | `ios-aso-copilot` (Free & Open Source) |
-|---|:---:|:---:|
-| **Cost** | $108/year subscription | **$0 (Free forever)** |
-| **Architecture** | Proprietary Mac app running on port 8089 | **Native Agent Skill / CLI (Claude, Antigravity, Cursor)** |
-| **Keyword Rank Tracking** | ✅ Local DB query | ✅ **Live iTunes Search API (depth up to 200 across 25+ markets)** |
-| **Search Autocomplete Hints** | ✅ Astro backend | ✅ **Direct Apple Search Hints API (`MZSearchHints.woa`)** |
-| **Competitor Intelligence** | ✅ NLP on ranked apps | ✅ **Review velocity (30d/90d), recency & vulnerability scoring** |
-| **Historical Data Storage** | ⚠️ Locked in Astro app storage | ✅ **Version-controlled CSV & Markdown (`marketing/`)** |
-| **Money-at-Stake Opportunity Prioritization** | ❌ No | ✅ **Built-in (`Net proceeds × unclaimed gain × reach`)** |
-| **ASO Hypothesis Lifecycle & Anti-Regression** | ❌ No | ✅ **21-day observation windows, paired baseline vs after** |
-| **Apple Ads Unit Economics & LTV Break-Even** | ❌ No | ✅ **Built-in financial model (`scripts/economics.py`)** |
-| **Release & Metadata Pre-Submission Guard** | ❌ No | ✅ **Character counting, multi-locale indexing & compliance** |
 
 ## Scripts
 
