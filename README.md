@@ -12,8 +12,20 @@ Scripts are tools the agent calls; they do nothing without the agent context.
 
 ## Install
 
+### Via skills CLI (recommended for Claude Code, Cursor, Codex, Antigravity, etc.)
+
 ```bash
-# Via npx (symlinks into ~/.claude/skills/)
+# Project-level
+npx skills add rusel95/ios-marketing-ops
+
+# Global (across all projects)
+npx skills add rusel95/ios-marketing-ops -g
+```
+
+### Via npm package installer or symlink
+
+```bash
+# Symlinks into ~/.claude/skills/
 npx ios-marketing-ops install
 
 # For Kiro
