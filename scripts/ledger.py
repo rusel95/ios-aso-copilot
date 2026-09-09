@@ -160,6 +160,10 @@ def read_hypotheses(store: Path):
         if not (meta.get("id") or "").strip():
             problem(f"hypotheses/{path.name}", "frontmatter has no `id:` — NOT in the ledger")
             continue
+        if not (meta.get("markets") or "").strip():
+            problem(f"hypotheses/{meta['id']}", "frontmatter has no `markets:`; rank exposure cannot be joined")
+        if (meta.get("primary_signal") or "rank").strip() != "funnel" and not (meta.get("queries") or "").strip():
+            problem(f"hypotheses/{meta['id']}", "rank hypothesis has no `queries:` basket; it cannot be judged")
         out.append(meta)
     seen = {}
     for h in out:
@@ -664,11 +668,16 @@ def self_check():
             "a store that writes its provenance as prose must still pair"
         (store / "metrics" / "ranks.csv").write_text(keep, encoding="utf-8")
         (store / "hypotheses" / "H001-x.md").write_text(
-            "---\nid: H001\nmarkets: de\nwent_live: 2026-08-01\nwindow_days: 21\nverdict:\n---\n", encoding="utf-8")
+            "---\nid: H001\nmarkets: de\nqueries: fotos komprimieren\nwent_live: 2026-08-01\nwindow_days: 21\nverdict:\n---\n", encoding="utf-8")
         (store / "hypotheses" / "H002-x.md").write_text(
-            "---\nid: H002\nmarkets: de\nwent_live:\nwindow_days: 21\nverdict:\n---\n", encoding="utf-8")
+            "---\nid: H002\nwent_live:\nwindow_days: 21\nverdict:\n---\n", encoding="utf-8")
+        PROBLEMS.clear()
         hyps = read_hypotheses(store)
         assert [h["id"] for h in hyps] == ["H001", "H002"]
+        messages = " ".join(message for _, message in PROBLEMS)
+        assert "no `markets:`" in messages and "no `queries:`" in messages, \
+            "legacy hypotheses must be reported as malformed"
+        PROBLEMS.clear()
         by_market = {"de": [obs for (m, _), obs in pairs.items() if m == "de"]}
         counts = section_a(hyps, by_market, read_markets(store))
         assert counts["due"] == 1 and counts["not-shipped"] == 1, counts
@@ -697,7 +706,7 @@ def self_check():
             except SystemExit as exc:
                 assert "no successful observation" in str(exc), exc
     print("\nOK: stale positions, failed requests, dedupe, one-observation keys, unreadable positions,\n"
-          "    censored pairs, legacy free-text provenance, window states, proceeds-weighted order")
+          "    censored pairs, legacy provenance/schema warnings, window states, proceeds-weighted order")
 
 
 def main():

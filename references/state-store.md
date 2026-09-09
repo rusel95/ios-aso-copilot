@@ -68,6 +68,8 @@ guidance.
 | Field | Type | Rule |
 |---|---|---|
 | `id` | `H001`… | monotonic, never reused |
+| `markets` | comma-separated storefront codes | exact storefront exposure; required for rank hypotheses |
+| `queries` | semicolon-separated exact queries | prospective fixed basket; required when `primary_signal` is `rank` |
 | `status` | `idea` / `draft` / `queued` / `staged` / `live` / `judged` / `abandoned` | |
 | `phase_at_start` | a Phase value | which rigor applied — fixes how an old verdict should be read |
 | `change` | text | **what** is changing — one variable only when `phase_at_start` is `P3-measure` |
@@ -85,6 +87,8 @@ guidance.
 
 - `change`, `mechanism`, `prediction`, `kill_criterion` must all be present. Refuse a hypothesis
   missing any of them, name which is missing, and draft prospectively when requested; never backdate a criterion after seeing outcomes.
+- `markets` and, for rank hypotheses, `queries` must be explicit. A legacy file without them remains
+  visible in the ledger as malformed; do not infer experimental scope from free-form prose.
 - A criterion must be recorded before exposure. A retrospective correction is a dated amendment, not a preregistration. Keep the historical record and mark evaluation observational or withheld.
 - No verdict before `went_live + window_days` has elapsed. A window shorter or longer than the
   default is accepted, with the reason recorded in the file.

@@ -12,7 +12,7 @@ The practical teaching companion for Compresso is its `marketing/HANDBOOK.md`.
 | R-29 | RespectASO business tools verified end to end | Active licensed session; exact app identity; one Apple value, one fallback and one error saved with raw source detail | User's existing license/access; no purchase assumed |
 | R-23 | ASC Analytics import | Reuse existing request; paginate reports; ingest complete periods with source/territory/unit/timezone; reconcile totals to ASC | Account read access |
 | R-28 | Metric schema and corrections | Explicit unique/total units, territory, date window, report ID and corrected-row selection; never sum overlapping unique populations | R-23 |
-| R-30 | Hypothesis exposure reconciliation | Compare staged and live metadata to each hypothesis; persist public start, exact diff, locale exposure and confounds; partial implementation distinguishable | ASC metadata reads |
+| R-30 | Hypothesis exposure reconciliation | Compare staged and live metadata to each hypothesis; persist `markets`, prospective `queries`, public start, exact diff, locale exposure and confounds; partial implementation distinguishable | ASC metadata reads |
 | R-13 | Scheduled paired query history | Fixed basket, app identity, method/depth/source/status/timestamp per row; errors and unqueried terms excluded from deltas | Verified tracker method |
 | R-37 | Competitor observation quality | Exact app ID; preserve RSS error, pagination and coverage; written reviews distinct from ratings; no demand/velocity inference from missing feeds | Independent sample verification |
 
@@ -62,7 +62,7 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
 
 ## Operating order for Compresso
 
-First restore the evidence ledger and verify RespectASO access. Then reconcile H001-H021 with actual
+First populate the evidence ledger and verify RespectASO access. Then reconcile H001-H021 with actual
 release exposure and native-language quality. Select one or two high-relevance market/intent cells.
 Use creative or paid-query research only with an explicit measurable question. Expand locales and
 spend after those observations justify it. Every item above has a deliverable; none is an automatic

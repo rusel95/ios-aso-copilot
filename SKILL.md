@@ -15,7 +15,7 @@ description: >
   зовнішній трафік, реддіт, тредс, де запостити, кампанія, трафік з соцмереж, юджісі, тікток, рілс, сценарій відео.
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # iOS marketing operations
@@ -56,6 +56,9 @@ the ledger exists to make that state visible instead of comfortable.
   `not shipped`. `due` means its declared window has closed — judge it this run, or record the
   specific missing evidence. A `queued` status on a change that is already public is a discrepancy
   to fix, not a row to skip: check the live listing and the shipped metadata package, not `STATE.md`.
+  `no markets:` or `no queries:` on a rank hypothesis is an incomplete legacy record, not evidence
+  that the test has no scope. Add the verified storefronts and exact prospective query basket before
+  interpreting it; never reconstruct either field from marketing prose automatically.
   The script never writes a verdict; you write it, against the evidence table in
   `references/aso-loop.md`. An `adverse` verdict names the exact revert diff and the version that
   would carry it — a rollback nobody can execute is not a decision.
@@ -145,6 +148,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 7. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
    prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
 8. Update state, decisions and references consistently; report done, missing evidence and next action.
+9. **Schedule verification in TickTick.** When hypotheses are sent to release (or when an App Store version with staged hypotheses is submitted for review), automatically create a scheduled verification task in TickTick for the end of the measurement window (e.g. went_live + window_days). Multiple hypotheses from the same release or window are batched into a single task in project `🎛Hush White Noise` (`66bb310904da5140ff7af08a`) with target positions, baselines, and CLI command to run.
 
 ## Evidence rules that affect decisions
 

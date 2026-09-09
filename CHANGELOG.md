@@ -7,6 +7,17 @@ followed here. Changes are pushed to [github.com/rusel95/ios-marketing-ops](http
 
 ---
 
+## v1.3.1 — Evidence ledger hardening — 2026-09-08
+
+- Opens every run with a deterministic hypothesis/rank/value ledger and refuses fabricated outcomes,
+  stale carried ranks, request-error zeros, non-comparable deltas and unobserved draft baskets.
+- Replaced predictive opportunity and ROI claims with source-labelled observations and explicit
+  uncertainty; RespectASO, ASC, Apple Ads, PPO and CPP now have documented evidence boundaries.
+- Added validation for the `markets` and `queries` fields required to join a rank hypothesis to its
+  observations. Legacy records stay visible as malformed until their scope is verified.
+- Added the open capability roadmap for ASC imports, paired history, exposure reconciliation,
+  localization QA, creative tests, paid-query learning, cohorts and proceeds reconciliation.
+
 ## v0.4.0 — Market scale weighting, ASA Strike Zone, and instant JSON re-analysis — 2026-09-05
 
 - **Storefront Market Scale Weighting**: Differentiates relative local Search Popularity (0–100 or 1–5 dots) from estimated absolute search volume. Prevents small-market traps (e.g., Ukraine where native niche terms have high relative score but tiny absolute volume) by scaling traffic potential across Tier 1, Tier 2, and Tier 3 markets.
