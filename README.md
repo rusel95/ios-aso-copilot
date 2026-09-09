@@ -1,15 +1,30 @@
-# ios-aso-copilot
+# 🚀 ios-aso-copilot
 
-AI Copilot for iOS App Store Optimization (ASO) & Growth — designed for Claude, Cursor, Antigravity, and Codex.
+### The Free, Open-Source Alternative to Astro MCP ($108/yr) for Indie iOS Developers
 
-Handles the full ASO iteration cycle: live keyword search hints, rank auditing,
-competitor review velocity, hypothesis tracking, metadata optimization, and Apple Ads economics — for any iOS app.
+<p align="left">
+  <a href="https://tryastro.app"><img src="https://img.shields.io/badge/Free%20Alternative%20to-Astro%20MCP%20($108%2Fyr)-6f42c1?style=for-the-badge&logo=apple&logoColor=white" alt="Free Alternative to Astro MCP"></a>
+  <a href="https://github.com/rusel95/ios-aso-copilot"><img src="https://img.shields.io/badge/Cost-%240%20Free%20Forever-2ea44f?style=for-the-badge" alt="Free Forever"></a>
+  <a href="https://skills.sh"><img src="https://img.shields.io/badge/Install-npx%20skills%20add%20rusel95%2Fios--aso--copilot-0969da?style=for-the-badge" alt="Install via Skills"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+> [!IMPORTANT]
+> ## 💡 Why pay $108/year for Astro MCP when your AI agent can do it for free?
+> **`ios-aso-copilot`** delivers everything in Astro's keyword tracking & research plan — running agent-natively inside Claude Code, Cursor, Antigravity, or Codex:
+>
+> - 🔍 **Live Search Autocomplete Hints**: Real-time query suggestions directly from Apple's official App Store hints engine (`MZSearchHints.woa`).
+> - 📊 **Keyword Rank Auditing**: Tracks your app's rank depth (up to 200) across 25+ storefronts via live iTunes Search API.
+> - 🕵️ **Competitor Intelligence & Velocity**: Analyzes competitor 30d/90d review velocity, ratings, and days since last update via RSS feeds.
+> - 💵 **Money-at-Stake Prioritization**: Sorts keyword opportunities by actual expected proceeds, not vanity metrics.
+> - 🧪 **Hypothesis Testing & Unit Economics**: 21-day observation windows, anti-regression guards, and Apple Ads LTV/break-even models that proprietary tools don't offer.
+>
+> **Zero subscription fees. Zero closed-source Mac app lock-in. 100% open-source & git-versioned.**
+
+---
 
 **This is a skill, not an application.** The product is instructions an AI agent follows.
 Scripts are tools the agent calls; they do nothing without the agent context.
-
-> 💡 **Free, Open-Source Alternative to Astro MCP ($108/yr)**  
-> Everything in Astro's keyword tracking & research plan, running agent-natively with zero subscription fees, zero closed-source GUI lock-in, plus hypothesis tracking and unit economics that proprietary tools don't offer.
 
 ---
 
