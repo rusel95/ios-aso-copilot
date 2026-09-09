@@ -3,7 +3,7 @@
 global_velocity_audit.py — Global Audit of Competitor Review Velocity, Recency & Vulnerability across all 649 queries.
 
 Reads:
-  marketing/reports/compresso_global_audit_2026-09-05.json (all 649 query-market pairs)
+  marketing/reports/global_audit.json (query-market pairs)
 
 Audits:
   - Top 1, Top 2, Top 3 competitors per query via live iTunes Search API
@@ -175,8 +175,8 @@ def audit_query(country: str, term: str, base_meta: dict) -> dict:
     for idx, app in enumerate(results, 1):
         bundle = app.get("bundleId", "")
         track_id = app.get("trackId")
-        name = app.get("trackName", "")
-        if bundle == "com.ruslanpopesku.MediaCleaner" or track_id == 6748443904 or "compresso" in name.lower():
+        target_bundle = os.environ.get("TARGET_BUNDLE", "")
+        if target_bundle and (bundle == target_bundle or target_bundle.lower() in name.lower()):
             if our_rank is None:
                 our_rank = idx
         comp = analyze_app(country, app, idx)
@@ -248,8 +248,8 @@ def audit_query(country: str, term: str, base_meta: dict) -> dict:
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Global velocity and vulnerability audit across all 649 queries")
-    parser.add_argument("--input", default="marketing/reports/compresso_global_audit_2026-09-05.json")
+    parser = argparse.ArgumentParser(description="Global velocity and vulnerability audit across all queries")
+    parser.add_argument("--input", default="marketing/reports/global_audit.json")
     parser.add_argument("--output-json", default="marketing/reports/global_velocity_audit_2026-09-08.json")
     parser.add_argument("--output-md", default="marketing/reports/global_velocity_audit_2026-09-08.md")
     parser.add_argument("--workers", type=int, default=8)

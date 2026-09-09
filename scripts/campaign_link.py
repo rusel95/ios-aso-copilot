@@ -34,7 +34,7 @@ def resolve_app_id(store_dir, explicit_app):
                     return m.group(1)
         except Exception:
             pass
-    return "6790447224"
+    return "<APP_ID>"
 
 def load_existing_hypotheses(store_dir):
     hypo_dir = os.path.join(store_dir, "hypotheses")
@@ -122,25 +122,25 @@ High "System Data" or full iPhone storage is usually caused by iOS holding onto 
 3. Clear Safari website data (Settings > Safari > Clear History and Website Data).
 
 [Step 3: Solution]
-If your storage is still dominated by 4K camera roll videos and you want to avoid paying Apple for a larger iCloud plan ($2.99/mo), you can re-encode/compress them locally. I built a lightweight on-device app called Compresso specifically for this — it compresses 4K/1080p videos using native Apple Silicon hardware encoding without uploading anything to the cloud (100% private, free month cleanup included): {app_url}
+If you are looking for a focused on-device solution without recurring subscription traps, I built [App Name] for this — 100% private, native processing on Apple Silicon, no data leaves your device: {app_url}
 (Disclaimer: I'm the developer, hope it helps!)""",
             "uk": f"""[Крок 1: Причина]
-Переповнене сховище або гігабайти в "Системних даних" зазвичай виникають через кеш додатків (Telegram, Instagram) або буфери 4K відео, які iOS не скидає автоматично.
+Типові проблеми з пам'яттю часто спричинені кешем месенджерів або важкими медіафайлами.
 
 [Крок 2: Безкоштовні дії]
-1. Примусово перезавантажте iPhone (змушує систему скинути тимчасовий кеш).
-2. Очистіть "Недавно видалені" в Фото (вони тримаються 30 днів).
+1. Перезавантажте iPhone для очищення системного кешу.
+2. Перевірте "Недавно видалені" в Фото.
 3. Очистіть кеш Safari в Налаштуваннях.
 
 [Крок 3: Локальне рішення]
-Якщо основне місце займають власні 4K відео та фото, а платити за більший iCloud не хочеться — можна стиснути їх прямо на телефоні. Я створив для цього легкий застосунок Compresso: він стискає медіа локально за допомогою процесора iPhone, нікуди не завантажує ваші файли і має безкоштовний пробний місяць: {app_url}
+Якщо потрібен зручний нативний інструмент без підписок та хмарних сервісів — можете спробувати [App Name]: працює повністю локально на процесорі вашого iPhone: {app_url}
 (Звісно, як розробник я зацікавлений, але спершу обов'язково спробуйте ребут і очистку кешу!)"""
         }
     elif channel_type == "reddit_showcase":
         return {
-            "en": f"""Title: Compresso — On-device 4K video & photo compressor to reclaim iPhone storage [Freemium]
+            "en": f"""Title: [App Name] — Native on-device utility [Freemium]
 
-Hey r/iosapps! I'm the developer of Compresso. Like many of you, I hit the 128GB storage ceiling on my iPhone and refused to pay Apple monthly iCloud upgrade fees, so I built a native tool to solve it.
+Hey r/iosapps! I'm the developer of [App Name]. Built this native tool to solve a specific problem cleanly without predatory subscription models.
 
 **A - Answer (Problem solved):**
 4K 60fps videos quickly eat 40–80GB. Many "cleaner" apps secretly upload media to cloud servers or lock basic features behind $50/yr subscriptions.
@@ -153,13 +153,13 @@ Hey r/iosapps! I'm the developer of Compresso. Like many of you, I hit the 128GB
 **C - Cost & Link:**
 Freemium. Full unrestricted access to review and compress your first month for free to verify real GB savings. Lifetime & subscription available.
 App Store: {app_url}""",
-            "uk": f"""Заголовок: Compresso — локальний компресор 4K відео та фото для iPhone [Freemium]
+            "uk": f"""Заголовок: [App Name] — локальний нативний інструмент для iPhone [Freemium]
 
-Привіт! Я розробник Compresso. Набридло постійно впиратися в ліміт 128GB та платити Apple за iCloud, тому створив нативний інструмент для швидкого очищення пам'яті.
+Привіт! Я розробник [App Name]. Створив цей нативний інструмент, щоб розв'язати проблему без переплат і хмарних підписок.
 
-A - Проблема: 4K відео займають десятки гігабайтів, а сторонні клінери або вимагають інтернет, або коштують космічних грошей.
-B - Чому краще: 100% локальна обробка на процесорі iPhone (VideoToolbox), приватність без серверів, зручний інтерфейс зі свайпами по місяцях.
-C - Вартість: Freemium (перший місяць повністю безкоштовний для тесту).
+A - Проблема: сторонні альтернативи або вимагають інтернет, або коштують космічних грошей.
+B - Чому краще: 100% локальна обробка, приватність без серверів, швидкий та зручний інтерфейс.
+C - Вартість: Freemium / безкоштовний тест.
 App Store: {app_url}"""
         }
     elif channel_type in ("threads", "x"):
@@ -188,19 +188,19 @@ Audio: "Apple wants you to pay $3/mo for iCloud forever, but 90% of your storage
 Caption: Apple's $3/mo iCloud Trap 💸
 
 [0:08 - 0:18] SOLUTION:
-Visual: Phone in hand opening Compresso. Month-by-month swipe UI (swipe right keep, left compress).
-Audio: "I found this native app called Compresso. It compresses your 4K camera roll videos right on your phone without uploading anything to the cloud."
-Caption: 100% On-Device Compression 🔒
+Visual: Phone in hand opening [App Name]. Demonstrating core workflow.
+Audio: "I found this native app called [App Name]. It solves this cleanly right on your phone without uploading anything to the cloud."
+Caption: 100% On-Device Solution 🔒
 
 [0:18 - 0:24] PAYOFF:
-Visual: GB counter melts down: 18.4 GB -> 2.1 GB. Confetti screen: Reclaimed 36.3 GB! Settings bar turns blue/free.
-Audio: "It shrank this 2-minute 4K clip from 1.5 GB down to 180 megabytes, and the quality still looks identical."
-Caption: −36.3 GB FREED ⚡️ (Zero quality loss)
+Visual: Immediate payoff screen / problem solved.
+Audio: "Fast, private, and the quality is completely untouched."
+Caption: Instant Result ⚡️
 
 [0:24 - 0:30] CTA:
 Visual: Pointing to bio or showing App Store icon.
-Audio: "It's called Compresso on the App Store. Your first month is completely free to clean up. Link in bio!"
-Caption: Compresso in App Store 📲 (Link in Bio: {app_url})""",
+Audio: "It's called [App Name] on the App Store. Link in bio to try it!"
+Caption: [App Name] in App Store 📲 (Link in Bio: {app_url})""",
             "uk": f"""[0:00 - 0:03] ХУК:
 Візуал: Крупний план iPhone з червоною смугою пам'яті (126/128 GB) або поп-апом "Storage Almost Full".
 Озвучка: "Припини видаляти улюблені фото щоразу, коли на iPhone закінчується пам'ять."
@@ -212,19 +212,19 @@ Caption: Compresso in App Store 📲 (Link in Bio: {app_url})""",
 Субтитри: Пастка $3/міс за iCloud 💸
 
 [0:08 - 0:18] РІШЕННЯ:
-Візуал: Телефон у руках, відкривається Compresso. Свайпи по місяцях (вправо — залишити, вліво — стиснути).
-Озвучка: "Я знайшов нативний додаток Compresso. Він стискає 4K відео прямо на процесорі телефону без жодного інтернету чи серверів."
-Субтитри: 100% Локальне стиснення 🔒
+Візуал: Телефон у руках, відкривається [App Name]. Демонстрація ключової фічі.
+Озвучка: "Я знайшов нативний додаток [App Name]. Він працює прямо на процесорі телефону без жодного інтернету чи серверів."
+Субтитри: 100% Локальна робота 🔒
 
 [0:18 - 0:24] ДОФАМІН:
-Візуал: Лічильник тане з 18.4 GB до 2.1 GB. Салют конфеті: "Reclaimed 36.3 GB!". Смужка в Налаштуваннях стає вільною.
-Озвучка: "2-хвилинне відео схудло з 1.5 GB до 180 MB, а якість на екрані залишилась ідеальною."
-Субтитри: −36.3 GB ЗВІЛЬНЕНО ⚡️ (Без втрати якості)
+Візуал: Миттєве вирішення проблеми на екрані.
+Озвучка: "Швидко, без підписок і жодних зайвих рухів."
+Субтитри: Миттєвий результат ⚡️
 
 [0:24 - 0:30] ЗАКЛИК (CTA):
 Візуал: Показує іконку в App Store або жест "тицяй лінк".
-Озвучка: "Додаток називається Compresso в App Store. Перший місяць безкоштовний для чистки. Лінк у профілі!"
-Субтитри: Compresso в App Store 📲 (Лінк у профілі: {app_url})"""
+Озвучка: "Додаток називається [App Name] в App Store. Лінк у профілі!"
+Субтитри: [App Name] в App Store 📲 (Лінк у профілі: {app_url})"""
         }
     return {}
 

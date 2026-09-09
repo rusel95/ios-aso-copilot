@@ -23,7 +23,7 @@ supports a decision. See https://developer.apple.com/app-store/product-page-opti
 4. **Preview video** — present or absent
 5. Remaining screenshots
 
-For Compresso specifically, the first screenshot should show **a substantiated result** with the actual UI; any savings number must come from a reproducible example, not a universal promise.
+For utility apps specifically, the first screenshot should show **a substantiated result** with the actual UI; any savings or performance number must come from a reproducible example, not a universal promise.
 
 Up to 3 treatments against the original at once. Once a variant wins, it becomes the new original
 and the next test runs against it — treat this as a ladder, not a one-shot test.

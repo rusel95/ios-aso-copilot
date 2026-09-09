@@ -22,9 +22,9 @@
 |---|---|---|---|---|
 | **0:00 – 0:03** | **Hook (Гачок)** | Камера на обличчя творця з виразом шоку, або крупний план екрана iPhone з червоною смугою 126/128 GB чи системним поп-апом. | *"Stop deleting your favorite photos every time your iPhone says storage full."* | **DON'T DELETE PHOTOS 🛑** |
 | **0:03 – 0:08** | **Pain (Загострення)** | Швидкий показ налаштувань iPhone Storage: папка Фото важить 84 GB. Стрічка з 4K відео, які шкода видалити. | *"Apple wants you to pay $3 a month for iCloud forever, but 90% of your storage is just uncompressed 4K video clips."* | **Apple's $3/mo trap 💸** |
-| **0:08 – 0:18** | **Solution (Compresso в дії)** | Телефон у руках творця (UGC стиль). Відкривається Compresso. Швидкі свайпи по місяцях: вправо — залишити, вліво — стиснути/видалити. | *"I found this native on-device app called Compresso. It compresses your 4K camera roll videos right on your phone without uploading anything to the cloud."* | **100% On-Device Compression 🔒** |
-| **0:18 – 0:24** | **Payoff (Дофаміновий пік)** | Крупний план: лічильник Compresso тане: **18.4 GB → 2.1 GB**. Екран конфеті: "Reclaimed 36.3 GB!". Повернення в Налаштування iPhone: смужка стала напівпорожньою. | *"It shrank this 2-minute 4K clip from 1.5 GB down to 180 megabytes, and the quality still looks identical on the Retina screen."* | **−36.3 GB FREED ⚡️ (Zero quality loss)** |
-| **0:24 – 0:30** | **CTA (Заклик)** | Творець тримає телефон, показує іконку в App Store або жест "тицяй лінк". | *"It's called Compresso on the App Store. Your first month is completely free to clean up. Link in bio to try it!"* | **Compresso in App Store 📲 (Link in Bio)** |
+| **0:08 – 0:18** | **Solution (Додаток в дії)** | Телефон у руках творця (UGC стиль). Відкривається [Назва додатку]. Швидкі дії / демонстрація фічі. | *"I found this native on-device app called [App Name]. It solves [problem] right on your phone without uploading anything to the cloud."* | **100% On-Device Solution 🔒** |
+| **0:18 – 0:24** | **Payoff (Дофаміновий пік)** | Крупний план: результат у цифрах або візуальний тріумф (Reclaimed XX GB / Finished in 1 click). Екран успіху. | *"It solved the problem in seconds, and the result is clean and instant."* | **Instant Result ⚡️ (Zero hassle)** |
+| **0:24 – 0:30** | **CTA (Заклик)** | Творець тримає телефон, показує іконку в App Store або жест "тицяй лінк". | *"It's called [App Name] on the App Store. Link in bio to try it!"* | **[App Name] in App Store 📲 (Link in Bio)** |
 
 ---
 
@@ -35,46 +35,39 @@
 - **Хук**: Творець дивиться на екран: *"My 128GB iPhone was down to 800 MB. Watch this."*
 - **Дія**:
   - `0:05` Заходить у Налаштування → Сховище (червона смужка під самий край).
-  - `0:10` Відкриває Compresso. Показує червень 2024: 12 GB відео.
-  - `0:15` Одне натискання: вмикається компресія Apple Silicon.
-  - `0:20` Лічильник тане з 12 GB до 1.4 GB. Конфеті на екрані.
-  - `0:25` Повертається в Settings: з'явилося 10+ GB вільного місця.
-- **CTA**: *"Free up your phone before vacation: Compresso on App Store."*
-
----
+  - `0:10` Відкриває [Назва додатку]. Демонстрація ключової проблеми.
+  - `0:15` Одне натискання: вмикається обробка.
+  - `0:20` Миттєвий результат на екрані.
+  - `0:25` Повертається в огляд: проблема вирішена.
+- **CTA**: *"Try [App Name] on the App Store: link in bio."*
 
 ### Сценарій 2: «Анти-iCloud податок» (Економія грошей / Емоційний тригер)
 - **Стиль**: Розмовний, емоційний, творець говорить у фронтальну камеру.
 - **Хук**: *"Are you really going to pay Apple $36 a year just because your camera roll is bloated?"*
 - **Дія**:
   - `0:05` *"Every time I hit the 50GB iCloud limit, Apple pushed me to upgrade to 200GB. I refused."*
-  - `0:12` *"Instead of paying for cloud storage for random videos from 2 years ago, I use Compresso. It re-encodes your 4K clips locally on your iPhone."*
-  - `0:20` Показує телефон: *"Look at this: a 4K video went from 2.2 GB to 240 MB. Side by side, you can't tell the difference on a phone screen."*
-  - `0:25` *"Saved $3/month, and my media never left my phone. 100% private."*
-- **CTA**: *"Stop paying the iCloud tax. Search Compresso on the App Store."*
-
----
+  - `0:12` *"Instead of recurring subscriptions for basic tasks, I use [App Name]. It runs locally on your iPhone."*
+  - `0:20` Показує телефон: *"Look at this result: clean, fast, and works offline."*
+  - `0:25` *"100% private, no accounts needed."*
+- **CTA**: *"Search [App Name] on the App Store."*
 
 ### Сценарій 3: «Не видаляй фото» (Life Hack / Цікавість)
 - **Стиль**: Дружня порада, формат «секретний трюк».
 - **Хук**: *"Secret iPhone hack nobody talks about: how to get 30GB back WITHOUT deleting a single memory."*
 - **Дія**:
   - `0:05` *"Most cleaner apps ask you to delete photos or pay $10 a week. Don't do that."*
-  - `0:12` *"Download Compresso. It sorts your library month by month. You swipe through like Tinder to quickly keep what matters and compress heavy videos."*
-  - `0:20` *"The best part? It uses Apple's native hardware chip to compress videos on-device, so no internet or shady server needed."*
-- **CTA**: *"First month is completely free. Go save your storage: link in bio."*
-
----
+  - `0:12` *"Download [App Name]. It organizes everything cleanly with smooth swipe gestures."*
+  - `0:20` *"The best part? It runs native hardware processing on-device, so no internet or shady server needed."*
+- **CTA**: *"Link in bio to try it!"*
 
 ### Сценарій 4: «Студія компресії: Порівняння якості 4K» (Tech Proof / Скептики)
 - **Стиль**: Доказ якості для користувачів, які бояться втратити деталізацію.
 - **Хук**: *"Does compressing iPhone videos ruin the quality? Let's test it."*
 - **Дія**:
   - `0:05` Показує оригінальне 4K відео: важить 1.8 GB.
-  - `0:10` Відкриває Compression Studio в Compresso. Обирає пресет Balanced (HEVC).
-  - `0:18` Показує результат: 220 MB (стиснення на 88%).
-  - `0:22` Зум 200% на екрані: показує однакову чіткість деталей, плавність 60fps та кольори HDR.
-- **CTA**: *"Reclaim gigabytes without sacrificing quality. Compresso in the App Store."*
+  - `0:10` Відкриває [Назва додатку]. Обирає пресет або налаштування.
+  - `0:20` Демонструє сайд-бай-сайд результат.
+- **CTA**: *"Clean utility without subscriptions. [App Name] in the App Store."*
 
 ---
 
@@ -100,10 +93,10 @@
 Якщо зйомка делегується фрілансеру чи креатору (Fiverr, Twitter, TikTok Creator Marketplace, друзі):
 
 ```markdown
-# UGC Creator Brief: Compresso iPhone Storage Cleaner
+# UGC Creator Brief: [App Name] iOS App
 
 ### Project Overview:
-We need a 25–30 second native vertical TikTok/Reels video showing how Compresso reclaims 20–40 GB of iPhone storage by compressing 4K videos on-device.
+We need a 25–30 second native vertical TikTok/Reels video showing how [App Name] solves [problem] on iPhone.
 
 ### Deliverables:
 - 1x 9:16 Vertical Video (1080x1920, 30/60fps) in MP4.
@@ -112,15 +105,15 @@ We need a 25–30 second native vertical TikTok/Reels video showing how Compress
 - Raw footage files (talking head + screen recording).
 
 ### Key Messages (Must Mention):
-1. The Problem: iPhone storage full / "Storage Almost Full" popup / paying Apple $2.99/mo for iCloud.
-2. The Solution: Compresso — month-by-month swipe review + on-device 4K video compression.
-3. Privacy: 100% On-Device (Apple Silicon), no cloud upload, no servers.
-4. The Payoff: Show the GB counter drop dramatically (e.g. 15 GB down to 2 GB) and confetti screen.
-5. CTA: "Compresso on the App Store (First month free to clean up)".
+1. The Problem: Common frustration or limitation on iPhone.
+2. The Solution: [App Name] — native, smooth, on-device tool.
+3. Privacy: 100% On-Device, no cloud upload, no tracking.
+4. The Payoff: Show immediate positive result and delightful UX.
+5. CTA: "[App Name] on the App Store (link in bio)".
 
 ### Do's and Don'ts:
 - DO film on a real iPhone.
-- DO show the actual Compresso app interface on the screen.
+- DO show the actual [App Name] app interface on the screen.
 - DON'T use robotic AI text-to-speech.
 - DON'T make it look like a corporate TV commercial; make it look like an authentic recommendation.
 ```
@@ -133,9 +126,9 @@ We need a 25–30 second native vertical TikTok/Reels video showing how Compress
 
 | Канал | Де розміщується лінк | Формат токена кампанії | Приклад URL |
 |---|---|---|---|
-| **TikTok** | Bio Link (через Linktree/Direct) | `?ct=tiktok_ugc_<creator>_<date>` | `https://apps.apple.com/app/id6790447224?ct=tiktok_ugc_jenny_0907` |
-| **Instagram Reels** | Bio Link + Story Sticker | `?ct=reels_ugc_<creator>_<date>` | `https://apps.apple.com/app/id6790447224?ct=reels_ugc_alex_0907` |
-| **YouTube Shorts** | Закріплений коментар / Опис | `?ct=shorts_ugc_<creator>_<date>` | `https://apps.apple.com/app/id6790447224?ct=shorts_ugc_tech_0907` |
+| **TikTok** | Bio Link (через Linktree/Direct) | `?ct=tiktok_ugc_<creator>_<date>` | `https://apps.apple.com/app/id<APP_ID>?ct=tiktok_ugc_jenny_0907` |
+| **Instagram Reels** | Bio Link + Story Sticker | `?ct=reels_ugc_<creator>_<date>` | `https://apps.apple.com/app/id<APP_ID>?ct=reels_ugc_alex_0907` |
+| **YouTube Shorts** | Закріплений коментар / Опис | `?ct=shorts_ugc_<creator>_<date>` | `https://apps.apple.com/app/id<APP_ID>?ct=shorts_ugc_tech_0907` |
 
 ### Як аналізувати ефективність:
 1. Зайти в **App Store Connect → App Analytics → Sources → Campaigns**.

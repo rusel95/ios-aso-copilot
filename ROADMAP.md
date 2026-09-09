@@ -1,9 +1,9 @@
 # ASO capability roadmap
 
 Open work only. Completed changes belong in [CHANGELOG.md](CHANGELOG.md).
-Updated 2026-09-08 after the Compresso audit. A documented playbook is not an implemented integration.
+Updated 2026-09-08 after real-world app audits. A documented playbook is not an implemented integration.
 App IDs, credentials, prices and event names belong in each app's store, not this global roadmap.
-The practical teaching companion for Compresso is its `marketing/HANDBOOK.md`.
+The practical teaching companion for an app is its own `marketing/HANDBOOK.md`.
 
 ## P0 Make observations trustworthy
 
@@ -47,7 +47,7 @@ information; scale budgets require mature observed economics.
 | R-38 | Lifecycle and seasonal experiments | Real user need/event, eligible Apple surface, localized assets, baseline and stop rule; skip manufactured events |
 | R-39 | Bounded automated marketing runs | Use existing scheduler; saved inputs and partial failures; recheck live state; notify only actionable changes |
 
-For a compression utility, time to first successful compression and trust can be more informative
+For a utility app, time to first successful user outcome and trust can be more informative
 than daily use. Trial duration, plan price and retention assumptions must be refreshed per app.
 
 ## Lower priority engineering backlog retained
@@ -60,9 +60,9 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
 - R-20: additional progress UI only if existing per-market progress is insufficient.
 - R-22: review reply drafting; retain author approval for public responses.
 
-## Operating order for Compresso
+## Operating order for a target app
 
-First populate the evidence ledger and verify RespectASO access. Then reconcile H001-H021 with actual
+First populate the evidence ledger and verify tool access. Then reconcile open hypotheses with actual
 release exposure and native-language quality. Select one or two high-relevance market/intent cells.
 Use creative or paid-query research only with an explicit measurable question. Expand locales and
 spend after those observations justify it. Every item above has a deliverable; none is an automatic

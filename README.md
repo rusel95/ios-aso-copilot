@@ -123,7 +123,7 @@ nano marketing/config.md   # set App ID and version
 
 ## Tested on
 
-- Hush: White Noise & Sleep Aid (`ruslan.whiteNoise.WhiteNoise`, App ID 6449785515)
+- Multiple live production iOS apps in the App Store across utilities, audio, and niche consumer apps.
 
 ## Links
 

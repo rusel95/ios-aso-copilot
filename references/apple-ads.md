@@ -4,12 +4,10 @@ Historical app/account figures below are examples, not current configuration. Re
 
 
 **This playbook opens at account creation, not campaign setup.** Apple Ads is a separate account at
-ads.apple.com — not App Store Connect. Credentials are now live
-(`live:asc ads auth status@2026-08-19` → profile "Compresso Ads", validation ok; `live:asc ads
-me@2026-08-19` → `parentOrgId 23140040`) — Steps 1-3 below are done; pass `--org 23140040` (the
-active profile has no org selected by default) or run `asc ads auth switch` to persist it. Step 4
-(campaign structure) is next, whenever campaign work is actually wanted — nothing has been created
-yet (`asc ads campaigns list --org 23140040` → empty).
+ads.apple.com — not App Store Connect. Once credentials exist (e.g. profile configured, validation ok,
+org ID identified via `asc ads auth discover`) — Steps 1-3 below are done; pass `--org "<ORG_ID>"` or run
+`asc ads auth switch` to persist it. Step 4 (campaign structure) is next, whenever campaign work is
+actually wanted.
 
 ## Credential-state detection — never conflate the two stores (FR-031)
 

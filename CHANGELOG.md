@@ -72,7 +72,7 @@ at `~/Desktop/ios-marketing-ops/`, pushed to github.com/rusel95/ios-marketing-op
 
 ## v0.1.0 — initial skill extraction — 2026-08-19
 
-Initial extraction from Hush/WhiteNoise marketing work.
+Initial extraction from production iOS app marketing operations.
 
 **What shipped:**
 - `SKILL.md` — full ASO iteration cycle: status/manual/auto modes, phase detection,
@@ -83,5 +83,5 @@ Initial extraction from Hush/WhiteNoise marketing work.
   apple-ads.md, playbooks.md
 - `assets/store-template/` — seed files for marketing/ store initialization
 
-**Context:** born out of Hush White Noise ASO work (H001–H004 keyword hypotheses,
-39-locale screenshot pipeline, ASC metadata management).
+**Context:** born out of real-world App Store ASO work (early keyword hypotheses,
+multi-locale metadata pipelines, ASC metadata management).

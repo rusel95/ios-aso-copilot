@@ -11,7 +11,7 @@ an HTTP MCP endpoint. Do not add guessed `/mcp` routes or silently change user-w
 A protocol initialization and `ping` prove connectivity only. Call `get_pro_status` next. Record
 `no_license`, inactive status or missing AI configuration as a capability gap; never bypass a gate.
 
-The 2026-09-08 Compresso check returned `ping=ok`, no installed license, INACTIVE, and no AI provider.
+A baseline MCP check without an active license returns `ping=ok`, no installed license, INACTIVE, and no AI provider.
 `list_tracked_apps` and `get_popularity_source` returned an embedded `error: no_license` while outer
 MCP `isError` was false. Inspect BOTH the transport envelope and the returned content. No successful
 keyword research was obtained through MCP in that check. See the app's saved MCP evidence, not this
