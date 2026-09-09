@@ -8,6 +8,9 @@ hypothesis tracking, metadata management, and Apple Ads setup — for any iOS ap
 **This is a skill, not an application.** The product is instructions an AI agent follows.
 Scripts are tools the agent calls; they do nothing without the agent context.
 
+> 💡 **Free, Open-Source Alternative to Astro MCP ($108/yr)**  
+> Everything in Astro's keyword tracking & research plan, running agent-natively with zero subscription fees, zero closed-source GUI lock-in, plus hypothesis tracking and unit economics that proprietary tools don't offer.
+
 ---
 
 ## Install
@@ -54,6 +57,21 @@ In Claude Code or Kiro, once installed:
 5. Drafts next keyword hypothesis from opportunity leaderboard
 6. Prepares App Store metadata changes up to the approval fence
 7. Queues anything requiring human approval to `marketing/queue.md`
+
+## Comparison with Astro MCP (tryastro.app)
+
+| Feature | Astro MCP ($108/yr) | `ios-marketing-ops` (Free & Open Source) |
+|---|:---:|:---:|
+| **Cost** | $108/year subscription | **$0 (Free forever)** |
+| **Architecture** | Proprietary Mac app running on port 8089 | **Native Agent Skill / CLI (Claude, Antigravity, Cursor)** |
+| **Keyword Rank Tracking** | ✅ Local DB query | ✅ **Live iTunes Search API (depth up to 200 across 25+ markets)** |
+| **Search Autocomplete Hints** | ✅ Astro backend | ✅ **Direct Apple Search Hints API (`MZSearchHints.woa`)** |
+| **Competitor Intelligence** | ✅ NLP on ranked apps | ✅ **Review velocity (30d/90d), recency & vulnerability scoring** |
+| **Historical Data Storage** | ⚠️ Locked in Astro app storage | ✅ **Version-controlled CSV & Markdown (`marketing/`)** |
+| **Money-at-Stake Opportunity Prioritization** | ❌ No | ✅ **Built-in (`Net proceeds × unclaimed gain × reach`)** |
+| **ASO Hypothesis Lifecycle & Anti-Regression** | ❌ No | ✅ **21-day observation windows, paired baseline vs after** |
+| **Apple Ads Unit Economics & LTV Break-Even** | ❌ No | ✅ **Built-in financial model (`scripts/economics.py`)** |
+| **Release & Metadata Pre-Submission Guard** | ❌ No | ✅ **Character counting, multi-locale indexing & compliance** |
 
 ## Scripts
 

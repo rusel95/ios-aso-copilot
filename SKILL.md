@@ -1,12 +1,15 @@
 ---
 name: ios-marketing-ops
-description: "Post-launch marketing operations for this repo's App Store app: ASO / keyword iteration, App Store release readiness, Apple Ads setup and economics, product-page experiments, reviews, and content backlog. Reads a persistent state store from the current repo's own marketing/ directory and answers 'where am I, what's next' — never starts from zero."
+description: "Post-launch marketing operations and free alternative to Astro MCP for this repo's App Store app: keyword rank tracking, live search hints, competitor audit, ASO / keyword iteration, App Store release readiness, Apple Ads setup and economics, product-page experiments, reviews, and content backlog. Reads a persistent state store from the current repo's own marketing/ directory and answers 'where am I, what's next' — never starts from zero."
 triggers:
   - ASO
   - App Store keywords
   - App Store Connect status
   - Apple Ads
   - Search Ads
+  - Astro MCP
+  - Astro ASO
+  - tryastro
   - marketing hypothesis
   - weekly funnel numbers
   - keyword rank
@@ -42,7 +45,7 @@ triggers:
   - сценарій відео
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 1.3.2
+  version: 1.3.3
 ---
 
 # iOS marketing operations
