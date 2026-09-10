@@ -526,6 +526,8 @@ def validate_plurals(project_root: Path) -> int:
         locs = v.get("localizations", {})
         for lang, lval in locs.items():
             if "variations" not in lval:
+                print(f"❌ Key '{k}' for locale '{lang}' is defined as stringUnit, expected plural variations!")
+                errors += 1
                 continue
             pvars = lval["variations"].get("plural", {})
             categories = set(pvars.keys())
