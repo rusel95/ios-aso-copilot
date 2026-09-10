@@ -39,6 +39,7 @@
 | **ASO Hypothesis Lifecycle & Anti-Regression** | ❌ Not available | 21-day observation windows, paired before/after | 🚀 **Exclusive** (`scripts/ledger.py`) |
 | **Apple Ads Financial Modeling** | ❌ Not available | LTV/subscriber, LTV/trial, break-even CPT bid cap | 🚀 **Exclusive** (`scripts/economics.py`) |
 | **Metadata Character Pre-flight** | ❌ Not available | 30/30/100 limit validation, cross-locale rules | 🚀 **Exclusive** |
+| **Storefront Localization & CLDR Plural Engine** | ❌ Not available | Full in-app .xcstrings audit, CLDR plurals, zero-waste metadata & knownRegions | 🚀 **Exclusive** (`scripts/localization_tool.py`) |
 
 ---
 

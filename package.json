@@ -1,12 +1,16 @@
 {
   "name": "ios-aso-copilot",
-  "version": "2.1.0",
-  "description": "AI Copilot and free Astro MCP alternative for App Store Optimization (ASO), keyword rankings, and growth",
+  "version": "2.2.0",
+  "description": "AI Copilot and free Astro MCP alternative for App Store Optimization (ASO), storefront localization, keyword rankings, and growth",
   "keywords": [
     "aso",
     "app-store",
     "copilot",
     "astro-mcp",
+    "localization",
+    "xcstrings",
+    "i18n",
+    "storefront-expansion",
     "claude",
     "cursor",
     "antigravity",

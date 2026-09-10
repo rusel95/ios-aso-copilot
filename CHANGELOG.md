@@ -7,6 +7,18 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.2.0 — Modernized In-App & Storefront Localization Engine — 2026-09-10
+
+- **Modernized iOS Localization Integration**: Fuses in-app String Catalog (`.xcstrings`) engineering directly into the ASO growth engine (`references/localization-playbook.md`).
+- **Full CLDR Pluralization Rules Engine**: Implements strict CLDR plural category matrices across all 39 App Store Connect supported locales (1-form, standard 2-form, 4-form Slavic, 4-form West Slavic, 4-form Czech/Slovak, and 6-form Semitic).
+- **Top 30 Anti-Patterns Auditing**: Intercepts AI failure patterns including missing positional format specifiers (`%1$@`), string concatenation, unlocalized accessibility, unformatted currencies/dates, and hardcoded left/right constraints.
+- **Storefront Localization CLI (`scripts/localization_tool.py`)**:
+  - `audit`: Instant cross-audit of in-app `.xcstrings`, Xcode `knownRegions`, App Store Connect metadata limits, and zero-waste token overlap between Title, Subtitle, and Keywords.
+  - `validate-plurals`: Validates every plural key against exact language family requirements, catching missing inflection categories at compile-time.
+  - `scaffold`: Scaffolds end-to-end storefront expansion files (metadata, marketing launch hypotheses, and screenshot framing snippets).
+
+---
+
 ## v2.1.0 — In-App Product Funnel & Google Analytics 4 Telemetry — 2026-09-10
 
 - **In-App Funnel & Velocity Telemetry**: Bridge App Store Connect storefront acquisition (impressions, product page views, downloads) with in-app product activation via Google Analytics 4 / Firebase (`scripts/pull_ga.py`).

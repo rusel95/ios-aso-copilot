@@ -47,12 +47,21 @@ triggers:
   - сценарій відео
   - google analytics
   - firebase analytics
-  - in-app funnel
   - гугл аналітика
   - свайпи
-argument-hint: "[status | manual | auto] [free text]"
+  - локалізація
+  - нова мова
+  - новий ринок
+  - додай мову
+  - переклад
+  - localization
+  - storefront expansion
+  - add locale
+  - localize
+  - ios-localization
+argument-hint: "[status | manual | auto | localize] [free text]"
 metadata:
-  version: 2.1.0
+  version: 2.2.0
 ---
 
 # iOS ASO Copilot
@@ -223,6 +232,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | PPO, CPP, reviews and content | `references/playbooks.md` |
 | Off-store channels | `references/channel-playbooks.md` |
 | Short video scripts and briefs | `references/ugc-playbook.md` |
+| Storefront expansion, .xcstrings, CLDR plurals, screenshot cards | `references/localization-playbook.md` |
 | Per-app teaching and reasoning | `$STORE/HANDBOOK.md` |
 | Missing capabilities and acceptance criteria | `ROADMAP.md` |
 
@@ -230,6 +240,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 
 All use the Python standard library and provide `--self-check`. Run only what the task needs.
 
+- `localization_tool.py`: audits storefront coverage across in-app String Catalogs (.xcstrings), metadata, and Xcode knownRegions; validates CLDR plural rules; scaffolds new market expansion packages.
 - `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
   refuses any position deeper than the result list that query returned — a value carried over from an
   older snapshot is not an observation.
