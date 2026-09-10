@@ -3,6 +3,26 @@
 Read the app's handbook for context and `state-store.md` for records. Separate a sensible metadata
 change, an observed result and evidence that the change caused the result.
 
+## Why ASO exists
+
+ASO is not the pursuit of a rank as an end in itself. Its job is to help a person with a real problem
+find an app that can truthfully solve it, understand that promise on the product page, reach a first
+useful outcome, and become a sustainably valuable customer. A rank, an impression, a tap, a trial and
+a renewal each answer a different question; none can stand in for the whole chain.
+
+| Stage | Decision question | Honest evidence |
+|---|---|---|
+| Discovery | Do the right people encounter a relevant promise? | Query/storefront observations, complete source-defined ASC periods |
+| Choice | Does the listing make the right expectation clear? | Product-page outcome with denominators and a controlled creative test when feasible |
+| First value | Does the app deliver the promised job safely and understandably? | App-specific first-success, failure and trust events |
+| Sustainable value | Is the acquired cohort worth continuing or scaling? | Mature trial, paid, renewal, refund and proceeds cohorts |
+
+Before treating any tactic as an active experiment, pass four gates: a real user need, a shipped and
+truthful product capability, a baseline with a defined metric, and a rule to continue, stop or defer.
+This prevents keyword volume, a vendor score, a paid search term or a pretty creative from becoming a
+proxy for product-market fit. The app's handbook supplies its product context; this reference supplies
+the reusable decision discipline.
+
 ## Draft a prospective hypothesis
 
 Include change, mechanism, prediction, kill criterion, exact query basket, locale/storefront mapping,

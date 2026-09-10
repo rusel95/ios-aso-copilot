@@ -205,6 +205,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | Need | Read |
 |---|---|
 | Claim sources and uncertainty | `references/provenance.md` |
+| Why ASO matters and the outcome chain | `references/aso-loop.md` |
 | RespectASO tools and data boundaries | `references/respectaso.md` |
 | Formats and append rules | `references/state-store.md` |
 | Closing a window, rollback, priority order | `references/aso-loop.md` |
