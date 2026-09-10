@@ -7,6 +7,14 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.1.0 — In-App Product Funnel & Google Analytics 4 Telemetry — 2026-09-10
+
+- **In-App Funnel & Velocity Telemetry**: Bridge App Store Connect storefront acquisition (impressions, product page views, downloads) with in-app product activation via Google Analytics 4 / Firebase (`scripts/pull_ga.py`).
+- **Core Engagement Metrics**: Ingests `media_swiped` velocity, total swipes, unique swipers, and average swipes per user alongside `first_open`, `session_start`, `paywall_shown`, `cleanup_completed`, and `rating_prompt_requested`.
+- **Downstream Monetization Reconciliation**: Reconciles top-of-funnel downloads against real in-app product usage and paywall exposure to identify drop-off before paywall presentation.
+
+---
+
 ## v2.0.0 — Rename to ios-aso-copilot & Astro MCP Free Alternative — 2026-09-09
 
 - **Rebranded to `ios-aso-copilot`**: Clear, indie-focused name reflecting its role as an AI Copilot for App Store Optimization & Growth.

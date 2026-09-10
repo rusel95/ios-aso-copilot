@@ -67,6 +67,7 @@ approval or not; it drafts and the developer executes.
 | `asc reviews list` / `view` / `ratings` / `summarizations` | reads |
 | `asc ads reports *`, `asc ads campaigns list` / `view` | reads |
 | `asc subscriptions list` / `view`, `asc pricing list` | reads |
+| `python3 $STORE/scripts/pull_ga.py` | in-app GA4/Firebase funnel snapshot (read-only, local credentials) |
 | Astro MCP: `list_apps`, `get_app_keywords`, `search_rankings`, `get_app_ratings`, `extract_competitors_keywords`, `get_keyword_suggestions`, `search_app_store` | reads |
 | Astro MCP: `add_app`, `add_keywords`, `set_keyword_note`, `set_keyword_tag`, `manage_tag` | writes, but to a **local personal tool** — reversible, free, affects nobody else |
 | `$SKILL_DIR/scripts/harvest_keywords.py`, `$SKILL_DIR/scripts/economics.py` | local |

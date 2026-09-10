@@ -43,12 +43,16 @@ triggers:
   - тредс
   - де запостити
   - кампанія
-  - трафік з соцмереж
   - юджісі
   - сценарій відео
+  - google analytics
+  - firebase analytics
+  - in-app funnel
+  - гугл аналітика
+  - свайпи
 argument-hint: "[status | manual | auto] [free text]"
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # iOS ASO Copilot
@@ -165,8 +169,11 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 ## One execution cycle
 
 1. Verify identity and live/candidate versions. Reconcile stale state within the authorized edit scope.
-2. Fetch the weekly data that is accessible. Save source exports, complete periods, units, filters,
-   timezone and recording time. Missing fields stay blank with a reason. Never invent a baseline.
+2. Fetch the weekly data that is accessible (App Store Connect via `scripts/pull_funnel.py` and,
+   when configured, in-app Google Analytics / Firebase telemetry via `scripts/pull_ga.py`). Save source
+   exports, complete periods, units, filters, timezone and recording time. In-app metrics (active users,
+   session frequency, engagement time, `media_swiped` velocity, swipes per user, paywall impressions)
+   bridge acquisition into product activation. Missing fields stay blank with a reason. Never invent a baseline.
 3. Refresh a fixed query basket. Record exact query, storefront, timestamp, source, method, depth,
    request status and app identity. Keep new discovery queries separate from paired comparisons.
 4. Review hypotheses whose declared windows have closed. Use `references/aso-loop.md`. Early status

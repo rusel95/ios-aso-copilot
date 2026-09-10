@@ -23,6 +23,14 @@ ASC Search can include Apple Ads. Keep paid query reporting separate. Campaign l
 external attribution, subject to Apple's reporting eligibility and privacy limits; they do not expose
 organic installs by keyword. Browse is descriptive context, not an automatic causal control.
 
+## In-App Product Analytics (Google Analytics / Firebase)
+
+When `$STORE/scripts/pull_ga.py` is configured, in-app telemetry bridges the gap between App Store acquisition and downstream monetization:
+- **Engagement Depth:** `Avg Engagement Duration` (seconds), `Sessions per User`.
+- **Product Velocity:** `media_swiped` count and `swipes_per_user` (verdicts: kept, deleted, compressed) — measures whether users actually engage with the core mechanic before dropping off or converting.
+- **In-App Funnel:** `first_open` → `session_start` → `media_swiped` → `paywall_shown` → `cleanup_completed` → `rating_prompt_requested`.
+- **Reconciliation:** Storefront downloads (ASC) are acquisition; `first_open` / `session_start` (GA4) are activation. Comparing downloads to `first_open` measures the drop-off between store install and first launch. Comparing `media_swiped` to `paywall_shown` measures activation depth before monetization.
+
 ## Diagnosis
 
 There are no universal hardcoded TTR, page-CVR or paywall-CVR cutoffs in this skill. Read an eligible
