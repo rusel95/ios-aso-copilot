@@ -199,8 +199,13 @@ allow list above; nothing it does leaves your machine or costs money beyond the 
 
 ## Apple Ads reads
 
-`asc ads reports search-terms` and `asc ads reports keywords` — both read-only, both blocked today
-only by missing credentials (`references/apple-ads.md`), not by anything else.
+Platform API v1 reads via `asc ads` are allowed unattended when credentials are configured:
+- `asc ads reports apps search-terms` (harvesting real user search queries and conversion data)
+- `asc ads reports apps keywords` / `campaigns` / `ad-groups`
+- `asc ads suggestions keywords find` / `suggestions target-cpas find` (native Apple ML suggestions)
+- `asc ads campaigns find`, `ad-groups find`, `targeting-keywords find`, `negative-keywords find`
+
+Mutations (creating/updating campaigns, raising budgets, adding keywords) spend money and are strictly fenced with required user approval.
 
 ## RespectASO
 

@@ -85,13 +85,25 @@ is requested or available; discover its actual MCP tools before choosing a fallb
 - Keep one global skill installation. Project links may point to it; do not copy skill directories.
   Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 
-## Open every run with the ledger, before proposing anything
+## Unified CLI & opening every run
 
-The first command of any invocation — `status`, `manual` or `auto` — is:
+The primary entrypoint for any invocation — `status`, `manual` or `auto` — is the unified `copilot.py` CLI:
 
 ```bash
-python3 "$SKILL_DIR/scripts/ledger.py" --store "$STORE" report
+# Full automated iteration cycle (versions, reviews, funnel, GA4, ledger):
+python3 "$SKILL_DIR/scripts/copilot.py" cycle --store "$STORE"
+
+# Or quick status snapshot:
+python3 "$SKILL_DIR/scripts/copilot.py" status --store "$STORE"
 ```
+
+Subcommands available in `copilot.py`:
+- `cycle`: runs the complete end-to-end audit cycle in one pass.
+- `status`: quick snapshot of live versions, ratings, and hypothesis ledger.
+- `reviews`: audit App Store ratings histogram and list unresponded reviews (`copilot.py reviews unreplied`).
+- `funnel`: summarize or pull ASC analytics (`copilot.py funnel --pull`).
+- `ga`: extract GA4 / Firebase in-app telemetry (`copilot.py ga --days 14`).
+- `ledger`: pass-through to `ledger.py` (`report`, `refresh`, `draft`, `ingest`).
 
 Three sections in a fixed order: what is already live and what happened to it, what moved, what to
 do next. **Do not draft a new hypothesis before section A is on screen.** Proposing while live
@@ -178,26 +190,37 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 ## One execution cycle
 
 1. Verify identity and live/candidate versions. Reconcile stale state within the authorized edit scope.
-2. Fetch the weekly data that is accessible (App Store Connect via `scripts/pull_funnel.py` and,
-   when configured, in-app Google Analytics / Firebase telemetry via `scripts/pull_ga.py`). Save source
-   exports, complete periods, units, filters, timezone and recording time. In-app metrics (active users,
-   session frequency, engagement time, `media_swiped` velocity, swipes per user, paywall impressions)
-   bridge acquisition into product activation. Missing fields stay blank with a reason. Never invent a baseline.
-3. Refresh a fixed query basket. Record exact query, storefront, timestamp, source, method, depth,
+2. Fetch the weekly data that is accessible: App Store Connect via `scripts/pull_funnel.py` and
+   in-app Google Analytics 4 / Firebase telemetry via `.venv/bin/python marketing/scripts/pull_ga.py`
+   (see `references/google-analytics.md`). Save source exports, complete periods, units, filters,
+   timezone and recording time. In-app metrics (active users, session frequency, engagement time,
+   `media_swiped` velocity, swipes per user, paywall impressions) bridge acquisition into product
+   activation. Reconcile store downloads against `first_open` and country engagement. Missing fields
+   stay blank with a reason. Never invent a baseline.
+2b. Audit Apple Search Ads (when configured): check spend, impressions, and delivery via `asc ads campaigns find`
+    and `ad-groups find`. Run weekly search term harvesting via `asc ads reports apps search-terms` (see
+    `references/apple-ads.md`). Promote converting search terms (CVR >= 20%) into Exact category campaigns,
+    isolate them in Discovery with Exact Negatives, and nominate them for organic ASO metadata. Apply the
+    "Bid High to Learn" rule ($0.75–$1.25 CPT, $5/day cap) to break cold-start auction deadlocks.
+3. Audit App Store customer reviews and ratings: run `asc reviews ratings --app "$APP_ID" --all` and
+   `asc reviews --app "$APP_ID"` (see `references/reviews-and-ratings.md`). Report rating counts,
+   averages by country, star distribution, qualitative sentiment, praised features to amplify in
+   ASO metadata/creatives, and list unresponded reviews requiring developer replies.
+4. Refresh a fixed query basket. Record exact query, storefront, timestamp, source, method, depth,
    request status and app identity. Keep new discovery queries separate from paired comparisons.
-4. Review hypotheses whose declared windows have closed. Use `references/aso-loop.md`. Early status
+5. Review hypotheses whose declared windows have closed. Use `references/aso-loop.md`. Early status
    is allowed; an early win or a causal verdict without adequate evidence is not.
-5. Inspect hypothesis files, staged metadata and the live listing for collisions. Include queued
+6. Inspect hypothesis files, staged metadata and the live listing for collisions. Include queued
    changes that may already have shipped. Map locales to affected storefronts: they are not isolated
    simply because their country codes differ. Preserve the original prediction and add dated amendments.
-6. Prepare the next justified change. Read the exact live fields, specify which fields change, check
+7. Prepare the next justified change. Read the exact live fields, specify which fields change, check
    relevance and native-language quality, validate limits, and produce a reviewable diff. Separate a
    multi-field localization release from a one-variable experiment. Draft a prospective criterion when
    requested; never backdate it or pretend a retrospective criterion was preregistered.
-7. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
+8. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
    prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
-8. Update state, decisions and references consistently; report done, missing evidence and next action.
-9. **Schedule verification in TickTick.** When hypotheses are sent to release (or when an App Store version with staged hypotheses is submitted for review), automatically create a scheduled verification task in TickTick (if available) for the end of the measurement window (e.g. went_live + window_days). Multiple hypotheses from the same release or window are batched into a single task in the app's TickTick project (e.g. `🎛<App Name>` or configured project ID) with target positions, baselines, and CLI command to run.
+9. Update state, decisions and references consistently; report done, missing evidence and next action.
+10. **Schedule verification in TickTick.** When hypotheses are sent to release (or when an App Store version with staged hypotheses is submitted for review), automatically create a scheduled verification task in TickTick (if available) for the end of the measurement window (e.g. went_live + window_days). Multiple hypotheses from the same release or window are batched into a single task in the app's TickTick project (e.g. `🎛<App Name>` or configured project ID) with target positions, baselines, and CLI command to run.
 
 ## Evidence rules that affect decisions
 
@@ -228,7 +251,9 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | ASC commands and external actions | `references/commands.md` |
 | Keyword selection and experiment verdicts | `references/aso-loop.md` |
 | Metrics and denominators | `references/funnel-analytics.md` |
-| Paid acquisition scenarios | `references/apple-ads.md` |
+| In-app telemetry and GA4 extraction | `references/google-analytics.md` |
+| Reviews, ratings, and sentiment analysis | `references/reviews-and-ratings.md` |
+| Paid acquisition, auction dynamics, cold-start rules, harvesting | `references/apple-ads.md` |
 | PPO, CPP, reviews and content | `references/playbooks.md` |
 | Off-store channels | `references/channel-playbooks.md` |
 | Short video scripts and briefs | `references/ugc-playbook.md` |
@@ -240,6 +265,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 
 All use the Python standard library and provide `--self-check`. Run only what the task needs.
 
+- `copilot.py`: unified CLI orchestrating the end-to-end iteration (`cycle`), quick status checks (`status`), review management (`reviews`), funnel analysis (`funnel`), and GA4 extraction (`ga`).
 - `localization_tool.py`: audits storefront coverage across in-app String Catalogs (.xcstrings), metadata, and Xcode knownRegions; validates CLDR plural rules; scaffolds new market expansion packages.
 - `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
   refuses any position deeper than the result list that query returned — a value carried over from an

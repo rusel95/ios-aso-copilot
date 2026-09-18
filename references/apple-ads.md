@@ -1,171 +1,237 @@
-# Apple Ads — setup, structure, economics
+# Apple Ads — Strategy, Auction Dynamics, Economics & Operational Playbook
 
-Historical app/account figures below are examples, not current configuration. Resolve identity, price, proceeds, trial duration, attribution window and account access from the current app. All calculator outputs are scenarios; they do not justify scaling without mature cohort economics and a bounded loss budget. Paid installs have no guaranteed permanent organic-rank effect.
-
-
-**This playbook opens at account creation, not campaign setup.** Apple Ads is a separate account at
-ads.apple.com — not App Store Connect. Once credentials exist (e.g. profile configured, validation ok,
-org ID identified via `asc ads auth discover`) — Steps 1-3 below are done; pass `--org "<ORG_ID>"` or run
-`asc ads auth switch` to persist it. Step 4 (campaign structure) is next, whenever campaign work is
-actually wanted.
-
-## Credential-state detection — never conflate the two stores (FR-031)
-
-`asc` keeps **two independent credential stores**. Check both, report both, and never collapse them
-into one "asc is not set up" statement — that's simply wrong when only one is missing, and it's the
-first thing this playbook must get right before saying anything else:
-
-```bash
-asc auth status        # App Store Connect — configured, used by every other playbook in this skill
-asc ads auth status     # Apple Ads — separate account, separate keys
-```
-
-## Step 1 — Create the Apple Ads account (Developer's — needs web sign-in)
-
-Sign in at ads.apple.com with the Apple ID used for App Store Connect (or create the Apple Ads
-account if none exists there yet — read the live screen; Apple's own onboarding flow is the
-authority on the exact sequence, not this file). This step is fenced from the skill regardless of
-mode — it's an account creation under the developer's identity — so it's always the developer's to do, in every mode.
-
-## Step 2 — Get the "API Account Manager" role
-
-The account needs a user with the **API Account Manager** role before the public-key upload field
-even appears in the UI (Account Settings). Without it, there is nothing to generate a key against —
-if the field isn't there, this is why; it's not a bug in these instructions, check the role first.
-
-**Where this actually lives**, confirmed against Apple's own help pages
-[web:ads.apple.com/app-store/help/get-started/0011-invite-users-to-your-account@2026-08-19,
-web:ads.apple.com/app-store/help/campaigns/0022-use-the-campaign-management-api@2026-08-19]:
-
-- Account Settings → **User Management** tab. Two branches live there off the same single-select
-  role list (Account Admin / Account Finance / Account Read Only / API Account Manager / API
-  Account Read Only / Limited Access): **edit an existing user's row**, or **Invite User** for
-  someone new. Landing straight on the Invite User form is the "add a new person" branch — check
-  User Management's main listing for your own row first; don't assume a second identity is required
-  just because Invite User is what's on screen.
-- **Confirmed (2026-08-19, live walkthrough)**: roles genuinely are mutually exclusive per user, and
-  Apple explicitly does not let a sole Account Admin also hold API Account Manager on the same
-  login — the API tab / public-key field stays empty even for Account Admin. A **second identity**
-  is required, not optional. That second identity needs its own real Apple ID — a Gmail `+` alias
-  (e.g. `you+ads@gmail.com`) **does not work**; Apple ID creation rejects plus-addressed emails.
-  Use a genuinely separate inbox (a second Gmail account, an iCloud address, anything you can
-  receive mail at) instead. Invite it from User Management with the API Account Manager role,
-  accept the invite, sign in as that identity, and the **API** tab (Account Settings → API) then
-  shows the public-key upload field. It's a one-time-use identity — once the key is uploaded and
-  Client ID / Team ID / Key ID are captured, there's no need to sign into it again.
-- The public-key upload field is on a separate **API** tab in Account Settings that only appears
-  once you're signed in **as the API Account Manager identity** — not visible from User Management,
-  and not visible to the plain Account Admin login. This is the field Step 3 below refers to.
-
-## Step 3 — Generate the key pair and register it with `asc`
-
-There is no single paste-able token here — Apple Ads API auth is OAuth2 client-credentials with a
-**self-generated EC key pair** (curve `prime256v1`, i.e. P-256), not a downloaded secret. In broad
-strokes (confirm the exact field names against the live Account Settings → API screen, since Apple's
-UI wording shifts over time and this file is not the authority on it):
-
-1. Generate a private key locally, e.g. `openssl ecparam -genkey -name prime256v1 -noout -out
-   private-key.pem`, and its public counterpart.
-2. Upload the **public** key in the Apple Ads account's API settings. Apple returns a **Client ID**
-   and **Team ID** (both look like `SEARCHADS.xxxxxxxx-xxxx-...`) and a **Key ID** for that
-   registration.
-3. Register the credential set locally:
-
-   ```bash
-   asc ads auth login \
-     --name "Ads" \
-     --client-id "SEARCHADS..." \
-     --team-id "SEARCHADS..." \
-     --key-id "<KEY_ID>" \
-     --private-key ./private-key.pem
-   ```
-
-   Default storage is the macOS System Keychain — use that, not `--bypass-keychain --local`, which
-   writes the credential set to `.asc/config.json` inside the repo working tree instead.
-
-4. Find the organization ID rather than guessing it:
-
-   ```bash
-   asc ads auth discover --output json
-   ```
-
-   Then re-run `login` with `--org "<ORG_ID>"` if it wasn't already supplied, or use `asc ads auth
-   switch` if multiple orgs come back.
-
-5. Verify: `asc ads auth status`, and `asc ads auth doctor` if anything looks wrong.
-
-**After this one-time setup, `asc` signs the client-secret JWT and refreshes access tokens itself —
-no ongoing token management, no wrapper needed.** `asc ads auth token --confirm` will print a
-current access token on demand, but there is nothing to copy into anywhere by hand on a recurring
-basis; that's the point of the client-credentials flow over a plain API token.
-
-Once credentials exist, real query data arrives through tooling already installed —
-`asc ads reports search-terms` / `keywords` — no additional purchase needed for that part.
+Historical app/account figures below are examples, not current configuration. Resolve identity, price, proceeds, trial duration, attribution window, and account access from the current app. All calculator outputs are scenarios; they do not justify scaling without mature cohort economics and a bounded loss budget. Paid installs have no guaranteed permanent organic-rank effect.
 
 ---
 
-## Step 4 — Four-campaign architecture
+## 1. Quick Diagnostics: Why Are Impressions / Spend at Zero?
 
-Once credentials exist, the structure (`doc:HANDBOOK.md` Part 2.2 for the full reasoning):
+When a newly launched campaign or ad group shows **$0.00 spend and 0 impressions**, evaluate this checklist in order:
 
-| Campaign | Match type | Search Match | Role |
-|---|---|---|---|
-| Brand | exact | **off** | capture searches for the app's own name — cheap, defends the name |
-| Category | exact | off | head terms in the app's category ("photo compressor", etc.) |
-| Competitor | exact | off | competitor app names surfaced via `references/commands.md`'s iTunes Search API discovery |
-| Discovery | broad | **on** | everything else — where new query data comes from |
+| Cause | Mechanism | Verification & Fix |
+|---|---|---|
+| **1. Broad Negative Keywords Trap** | Setting a category word as a **BROAD** negative blocks **100% of queries** containing that word (e.g., negative `cleaner` blocks `storage cleaner`, `photo cleaner`). | Run `asc ads negative-keywords find`. Delete category root broad negatives immediately. Only use **EXACT** negatives (`[query]`) for category terms. |
+| **2. Cold-Start Auction Reserve Price** | Apple uses a second-price auction where $\text{Ad Rank} = \text{Bid} \times \text{Relevance} \times \text{Historical TTR}$. A new app has $0$ historical TTR. Bids under $0.30–$0.50 fail to clear Apple's reserve price against established incumbents. | Apply the **"Bid High to Learn"** rule: Raise default CPT bid ceiling to **$0.75–$1.25** while keeping a strict daily budget ($5.00/day). The second-price auction charges only the market clearing price ($Bid_{2nd} + \$0.01$). Step bids down after TTR is proven. |
+| **3. Search Match Disabled** | When Search Match is OFF and exact keywords are narrow, only exact query matches can trigger impressions. | In ad group settings, set `automatedKeywordsOptIn: true`. In early discovery, Search Match is the primary discovery engine. |
+| **4. Reporting Lag (3–6 Hours)** | Apple Ads analytics does **not** update in real time. Apple explicitly notes: *"Reporting is not in real time and may not reflect data received in the last three hours."* | Wait at least 3–6 hours before assuming auctions are stagnant. Check the timezone (ORTZ vs UTC). |
+| **5. Small Market Query Volume** | Niche phrases (e.g., `стиснути відео` in UA) may have only 10–30 searches/day nationwide. | Broaden keyword coverage to high-intent adjacent problems (e.g. `очистити пам'ять`, `звільнити місце`, `photo cleaner`). |
 
-**The negative-keyword wiring that matters**: every exact-match term live in Brand, Category or
-Competitor is added as a **negative** on Discovery. Without this, Discovery (broad, Search Match on)
-bids against your own exact-match campaigns for the same query, driving your own cost up for no
-gain. This is set up once and maintained every time a term graduates from Discovery (Step 6 below).
+---
 
-Campaign *creation* is fenced (`references/commands.md`) — this section is what to prepare and
-queue, never what to apply unattended.
+## 2. Authentication & Account State
 
-## Step 5 — Economics: is the spend paying for itself
-
-`$SKILL_DIR/scripts/economics.py` computes LTV per trial, the break-even trial rate, and a verdict
-against the observed cost per install — every output tagged `derived:` naming every input it used
-(FR-034, FR-039), because a scaling decision made from an untraceable number is a decision nobody
-can debug later.
+Apple Ads credentials are **independent** from App Store Connect. `asc` maintains two separate credential stores:
 
 ```bash
-python3 $SKILL_DIR/scripts/economics.py --price 49.99 --commission 0.15 --retention 0.221 --trial-to-paid-cvr 0.38 --cpi <observed>
+asc auth status        # App Store Connect (metadata, versions, reviews, analytics)
+asc ads auth status    # Apple Ads (campaigns, keywords, bids, reports)
 ```
 
-If the measured trial rate is **below** break-even: recommend fixing the trial rate before raising
-spend. This is product work (onboarding, paywall copy, trial length) and it is cheaper than bid
-optimization, because bidding harder to buy more installs at a trial rate that doesn't convert just
-buys more of the same loss (US5 acceptance scenario 3). State this as the recommendation, not as a
-foregone conclusion — it's an argument, not a citation, so it isn't itself provenance-tagged
-(`references/provenance.md`), only the figures it rests on are.
+Verify the active profile and account:
+```bash
+asc ads auth discover --output json
+asc ads acls list --output json
+```
 
-Every input that is an estimate rather than a measured figure is labelled as such, and the
-conclusion's sensitivity to it is stated (US5 acceptance scenario 5) — e.g. "retention is the
-21-day figure from RevenueCat as of `<date>`; if actual 12-month retention comes in lower, break-even
-rises and today's spend may already be under water."
+Platform API v1 leaf commands require `--ads-profile` and `--ad-account` (or `ASC_ADS_AD_ACCOUNT_ID`).
 
-## Step 6 — Harvesting from Discovery
+---
 
-Once Discovery has run long enough to produce query data:
+## 3. Auction Mechanics & The Cold-Start "Bid High to Learn" Rule
+
+### The Vickrey Second-Price Auction
+In Apple Search Ads:
+- Your **CPT Bid** is the maximum you are willing to pay per tap.
+- You do **NOT** pay your maximum bid. You pay **$0.01 more than the second-highest bidder's Ad Rank equivalent**.
+- The winning bidder is decided by:
+  $$\text{Ad Rank} = \text{CPT Bid} \times \text{Relevance Score} \times \text{Historical TTR}$$
+
+### Cold-Start Penalty
+For a brand new app (0 reviews, no historical tap-through rate):
+- $\text{Historical TTR}$ is assumed to be baseline or zero.
+- If incumbents bid $0.80 with a proven 8% TTR, their Ad Rank is significantly higher.
+- If you bid $0.15–$0.25, your Ad Rank fails to meet the minimum clearing threshold (Reserve Price) and you receive **zero impressions**.
+
+### The Cold-Start Playbook
+1. **Cap Risk with Daily Budget**: Set campaign daily budget strictly to **$5.00/day** (or your bounded loss limit). You can never lose more than this daily cap.
+2. **Set High CPT Bid Ceiling ($0.75 – $1.25)**:
+   - This unlocks auction liquidity, clears the reserve price, and wins initial impressions.
+   - The second-price auction prevents paying $1.00 unless an incumbent is bidding $0.99. In smaller markets (UA, PL), actual clearing CPT often settles at $0.08–$0.25.
+3. **Step Down Bids**: Once 50–100 impressions are logged and initial TTR is established (>5%), gradually lower keyword bids by 10–15% every 48 hours to find the optimal volume/cost equilibrium.
+
+---
+
+## 4. Negative Keyword Match Rules & Hazards
+
+Apple Ads supports two negative keyword match types. Confusing them can silently destroy campaign traffic:
+
+| Match Type | Behavior | Example Rule |
+|---|---|---|
+| **EXACT Negative** (`[word]`) | Blocks the ad **only** when the user searches the exact query, with no other words before or after. | **SAFE**: Use `[cleaner]` if you only want to avoid the isolated 1-word query "cleaner". |
+| **BROAD Negative** (`word`) | Blocks the ad if the user search contains the word **in any order or combination**, including with other words. | **HAZARD**: Adding `cleaner` as broad negative blocks `phone cleaner`, `storage cleaner`, `photo cleaner`, and `video cleaner`. |
+
+### Hard Negative Rules:
+1. **NEVER** use Broad Match Negative for category terms, action verbs, or core user problems (`cleaner`, `compress`, `photo`, `video`, `storage`).
+2. **Use Broad Negatives ONLY** for completely irrelevant industries or platforms (e.g. `android`, `windows`, `free movie`, `hack`, `torrent`).
+3. **Use EXACT Negatives for Campaign Cross-Isolation**:
+   - When a keyword lives in the Exact Category campaign, add it as an **Exact Negative** (`[query]`) in the Discovery campaign. This prevents Discovery from bidding against your own Category campaign.
+
+---
+
+## 5. Four-Campaign Architecture
+
+The standard industry structure for sustainable ASA management (`doc:HANDBOOK.md` Part 2.2):
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                   APPLE SEARCH ADS                      │
+├─────────────┬─────────────┬─────────────┬────────────────┤
+│    Brand    │  Category   │ Competitor  │   Discovery    │
+│ (Exact / NO)│ (Exact / NO)│ (Exact / NO)│(Broad+Match/YES│
+└──────┬──────┴──────┬──────┴──────┬──────┴───────┬────────┘
+       │             │             │              │
+       └─────────────┴─────────────┴──────────────┘
+              Cross-Negatives (Exact Match)
+              protect Discovery from cannibalism
+```
+
+| Campaign | Match Type | Search Match | Role | Negative Wiring |
+|---|---|---|---|---|
+| **1. Brand** | Exact | OFF | Defend app name & close variations at lowest CPT. | None. |
+| **2. Category** | Exact | OFF | High-intent problem terms (`стиснути відео`, `kompresor wideo`). | Brand terms as negative exact. |
+| **3. Competitor** | Exact | OFF | Competitor brand names surfaced via iTunes / Astro. | Brand terms as negative exact. |
+| **4. Discovery** | Broad | **ON** | Mine new unknown search terms and algorithm matches. | **All Exact terms from Brand, Category, Competitor added as EXACT negatives.** |
+
+---
+
+## 6. Search Term Harvesting Pipeline (ASA ↔ ASO Synergy)
+
+The true power of Apple Search Ads is providing **unfiltered query and conversion data** to feed organic ASO.
+
+### Step A: Pull Search Term Report
+Run weekly via `asc ads reports apps search-terms`:
+```bash
+asc ads reports apps search-terms \
+  --ads-profile "ProfileName" \
+  --ad-account "ACCOUNT_ID" \
+  --file report-query.json \
+  --output json
+```
+
+Query shape (`report-query.json`):
+```json
+{
+  "timeRange": {
+    "start": "2026-09-10",
+    "end": "2026-09-17",
+    "timeZone": "ORTZ",
+    "granularity": "DAILY"
+  },
+  "pagination": {"offset": 0, "pageSize": 50},
+  "filters": [
+    {"field": "campaignId", "operator": "EQUALS", "value": ["DISCOVERY_CAMPAIGN_ID"]}
+  ]
+}
+```
+
+### Step B: The Promotion / Pruning Engine
+
+1. **Winning Query ($\text{TTR} \ge 5\%$, $\text{CVR} \ge 20\%$, Installs $\ge 2$):**
+   - **Promote to Exact**: Add as Exact match targeting keyword in Category campaign (`asc ads targeting-keywords create-bulk`).
+   - **Isolate in Discovery**: Add as **Exact Match Negative** in Discovery campaign (`asc ads negative-keywords create-bulk`).
+   - **Feed Organic ASO**: Add the term to the organic candidate basket. Consider placing it in the **Subtitle** or **Keyword Field** for the next App Store version release.
+
+2. **Bleeding Query ($\ge 10$ Taps, 0 Installs):**
+   - User intent does not align with the product/paywall.
+   - Add immediately as **Exact Match Negative** in Discovery to stop budget leakage.
+
+---
+
+## 7. Native Apple Ads ML Suggestions API
+
+Apple provides first-party algorithmic keyword suggestions and target CPA benchmarks based on the App Store metadata:
+
+### Get Keyword Suggestions for an App
+```bash
+asc ads suggestions keywords find \
+  --ads-profile "ProfileName" \
+  --ad-account "ACCOUNT_ID" \
+  --file - << 'EOF'
+{
+  "filters": [
+    {"field": "promotedObjectId", "operator": "EQUALS", "value": ["YOUR_APP_ID"]},
+    {"field": "promotedObjectType", "operator": "EQUALS", "value": ["APPSTORE_APP"]}
+  ],
+  "pagination": {"offset": 0, "pageSize": 30}
+}
+EOF
+```
+
+### Get Target CPA Recommendations
+```bash
+asc ads suggestions target-cpas find \
+  --ads-profile "ProfileName" \
+  --ad-account "ACCOUNT_ID" \
+  --file - << 'EOF'
+{
+  "filters": [
+    {"field": "promotedObjectId", "operator": "EQUALS", "value": ["YOUR_APP_ID"]},
+    {"field": "promotedObjectType", "operator": "EQUALS", "value": ["APPSTORE_APP"]}
+  ],
+  "pagination": {"offset": 0, "pageSize": 10}
+}
+EOF
+```
+
+---
+
+## 8. Economics & LTV / CAC Guardrails
+
+Use `$SKILL_DIR/scripts/economics.py` to evaluate whether paid traffic can achieve profitability:
 
 ```bash
-asc ads reports search-terms --campaign <discovery-campaign-id>
+python3 $SKILL_DIR/scripts/economics.py \
+  --price 49.99 \
+  --commission 0.15 \
+  --retention 0.221 \
+  --trial-to-paid-cvr 0.38 \
+  --cpi <observed_cpi>
 ```
 
-For each winning query (converts, and passes the same conversion-veto reasoning as organic keyword
-candidates — `references/aso-loop.md`): propose it for **promotion** to the matching exact-match
-campaign **and** as a **negative keyword** on Discovery, in the same queue entry. Both together, not
-one — promoting without the negative just recreates the campaigns-bidding-against-each-other problem
-Step 4's wiring exists to prevent (US5 acceptance scenario 4). Both are prepared and queued, never
-applied unattended (`asc ads targeting-keywords create-bulk`/`update-bulk` and the negative-keyword
-write commands are both fenced — `references/commands.md`).
+### Core Equations:
+- $\text{Tap-to-Install CVR} = \frac{\text{Installs}}{\text{Taps}}$
+- $\text{Cost Per Install (CPI)} = \frac{\text{CPT}}{\text{CVR}}$
+- $\text{Customer Acquisition Cost (CAC)} = \frac{\text{CPI}}{\text{Install-to-Paid CVR}}$
+- **Scale Rule**: Only scale budget beyond discovery ($5/day) when $\text{LTV} \ge 2.5 \times \text{CAC}$ on a mature 30-day cohort.
 
-## Degraded path — no credentials yet (today's actual state, and S5)
+---
 
-Asked to "run ads" / "запусти рекламу" before Step 1–3 are done: open at **Step 1**, not campaign
-work, name the missing credential state precisely (distinguish `asc auth` from `asc ads auth` per
-the detection rule above), and do not attempt any `asc ads` write. Nothing past Step 3 can be shown,
-because there is nothing to show — say that plainly rather than describing a hypothetical campaign
-structure as if it were ready to launch.
+## 9. ASA Hypotheses Format (`marketing/hypotheses/H0xx-*.md`)
+
+When testing a paid acquisition hypothesis, maintain the same rigorous standard as organic ASO hypotheses:
+
+```markdown
+---
+id: H0xx
+markets: ua
+queries: стиснути відео; зменшити розмір відео
+status: live
+phase_at_start: P2-cold
+change: >
+  Launched targeted 7-day Apple Search Ads campaign in Ukraine (ua) at $5.00/day.
+  Exact match ($0.75 bid ceiling) and Search Match ON ($0.75 default).
+mechanism: >
+  1. Buying clean in-app conversion telemetry in GA4 (install -> permissions -> paywall -> trial).
+  2. Injecting 72-hour download velocity into Ukrainian exact queries to move organic rank from #9 to Top 3.
+prediction: >
+  1. 100+ downloads delivered at CPT <= $0.25, CVR >= 35%.
+  2. Organic rank for 'стиснути відео' advances into Top 5 by Day 7.
+kill_criterion: >
+  Average CPT exceeds $0.40 or Tap-to-Install CVR falls below 25% after 30 taps.
+kill_criterion_written: 2026-09-18
+went_live: 2026-09-18
+window_days: 7
+primary_signal: rank
+verdict:
+---
+```
