@@ -177,15 +177,16 @@ nano marketing/config.md   # set App ID and version
     - `compresser vidéo gratuit` → **#49**
     - *FR net proceeds per paying subscriber: $29.63.*
   - 🇺🇦 **Ukraine (`ua`)**: Captured **Top-10** positions:
-    - `стиснути відео` → **#6 – #9**
-    - `зменшити розмір відео` → **#8 – #12**
-    - `очистити пам'ять` → **#33**
+    - `стиснути відео` → **#6**
+    - `зменшити розмір відео` → **#8**
+    - `очистити пам'ять` → **#33** (entered from >200)
+  - 🇵🇱 **Poland (`pl`)**: Ranked **#4** for `kompresja zdjęć`.
   - 🇳🇴 **Norway (`no`)** & 🇷🇴 **Romania (`ro`)**: Ranked **#11** (`komprimer bilder`, `comprimare video`).
-  - 🇵🇱 **Poland (`pl`)**: Ranked **#4** (`kompresja zdjęć`) and **#6** (`compresso`).
+  - 🇸🇬 **Singapore (`sg`)**: Ranked **#74** for `shrink video` ($25.86 net proceeds per subscriber).
 - **Money-at-Stake Opportunity Prioritization**:
   - Evaluated keyword opportunities weighted by net subscriber proceeds: France ($29.63/sub) and Singapore ($25.86/sub) vs. low-yield high-volume queries.
 - **Funnel & Telemetry Integration**:
-  - Correlating ASC impressions (850+), product page views (22.7% view rate), and downloads with on-device GA4 paywall exposure signals to diagnose conversion bottlenecks.
+  - Correlating ASC impressions (850+), product page views (22.7% view rate), and downloads with on-device GA4 telemetry to optimize user onboarding and activation.
 
 ---
 
