@@ -159,9 +159,52 @@ nano marketing/config.md   # set App ID and version
 - `asc` CLI configured with App Store Connect API key ([rork.app/asc](https://rork.app/asc))
 - For Apple Ads popularity scores: `asc ads` configured with Apple Search Ads credentials
 
-## Tested on
+## 📱 Battle-Tested in Production: Real-World Case Studies
 
-- Multiple live production iOS apps in the App Store across utilities, audio, and niche consumer apps.
+`ios-aso-copilot` is not a theoretical playground or prompt demo — it is the active, git-versioned operating system managing ASO, rank auditing, and metadata deployments for live consumer apps on the App Store:
+
+### 1. [Compresso: Shrink Video Photo](https://apps.apple.com/us/app/compresso-shrink-video-photo/id6790447224) ([App Store](https://apps.apple.com/us/app/compresso-shrink-video-photo/id6790447224))
+*On-device photo & video compression (HEIC/HEVC), month-by-month swipe cleanup, 34+ localized languages.*  
+*App ID: `6790447224` · Bundle ID: `com.ruslanpopesku.MediaCleaner`*
+
+- **33 Tracked Hypotheses across 37 Storefronts (`H001`–`H033`)**:
+  - Full lifecycle managed from P0 pre-launch baseline through version 1.1.5 live distribution and 1.1.6 App Store submission.
+- **Measurable Rank Breakthroughs**:
+  - 🇫🇷 **France (`fr`)**: Jumped into **Top-25** from unranked beyond depth 200:
+    - `compresser video` → **#23**
+    - `compresser vidéo` → **#29**
+    - `compresser vidéo & photo` → **#36**
+    - `compresser vidéo gratuit` → **#49**
+    - *FR net proceeds per paying subscriber: $29.63.*
+  - 🇺🇦 **Ukraine (`ua`)**: Captured **Top-10** positions:
+    - `стиснути відео` → **#6 – #9**
+    - `зменшити розмір відео` → **#8 – #12**
+    - `очистити пам'ять` → **#33**
+  - 🇳🇴 **Norway (`no`)** & 🇷🇴 **Romania (`ro`)**: Ranked **#11** (`komprimer bilder`, `comprimare video`).
+  - 🇵🇱 **Poland (`pl`)**: Ranked **#4** (`kompresja zdjęć`) and **#6** (`compresso`).
+- **Money-at-Stake Opportunity Prioritization**:
+  - Evaluated keyword opportunities weighted by net subscriber proceeds: France ($29.63/sub) and Singapore ($25.86/sub) vs. low-yield high-volume queries.
+- **Funnel & Telemetry Integration**:
+  - Correlating ASC impressions (850+), product page views (22.7% view rate), and downloads with on-device GA4 paywall exposure signals to diagnose conversion bottlenecks.
+
+---
+
+### 2. [Hush: White Noise & Sleep Aid](https://apps.apple.com/us/app/hush-white-noise-sleep-aid/id6449785515) ([App Store](https://apps.apple.com/us/app/hush-white-noise-sleep-aid/id6449785515))
+*Ambient sleep sound mixer with 30+ layered audio loops, smart timer, lock-screen controls, 49 localized languages.*  
+*App ID: `6449785515` · Bundle ID: `ruslan.whiteNoise.WhiteNoise`*
+
+- **44 Tracked Hypotheses across 39 Storefronts (`H001`–`H044`)**:
+  - Governed by strict 21-day observation windows, paired before/after rank delta, and anti-regression guards.
+- **Measurable Rank Breakthroughs**:
+  - 🇯🇵 **Japan (`ja`)**: Surged +109 positions to **#59** for `ホワイトノイズ`.
+  - 🇩🇪 **Germany (`de`)**: All-Time High **#33** for `weißes rauschen`, entered **#107** for `einschlafhilfe`.
+  - 🇳🇱 **Netherlands (`nl`)** & 🇳🇴 **Norway (`no`)**: Captured Top-3 and Top-5 positions (`bruine ruis`, `hvit støy`) by targeting low-difficulty storefronts.
+- **Live Search Autocomplete Harvesting (`MZSearchHints.woa`)**:
+  - Extracted high-intent, uncompetitive color-noise search queries (`braunes rauschen`, `ruído marrom`, `rumore marrone`, `أصوات نوم`) ahead of competitors.
+- **Apple Search Ads Unit Economics**:
+  - Formulated LTV per subscriber, trial conversion models, and break-even CPT bid caps for targeted discovery campaigns ($50 micro-synergy campaigns).
+
+🍎 *Both apps are actively built and maintained by [Ruslan Popesku](https://apps.apple.com/us/developer/ruslan-popesku/id1627013326).*
 
 ## Links
 
