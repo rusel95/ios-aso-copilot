@@ -61,6 +61,41 @@ For a brand new app (0 reviews, no historical tap-through rate):
 
 ---
 
+## 3b. Discovery Batch Size — Never Expand a Keyword List All at Once
+
+**The failure mode**: on 2026-09-19, a Compresso UA campaign went from 12 to 47 active keywords and
+a PL campaign from 18 to 46 in a single batch — 29 and 28 new BROAD terms added at once, on a
+$5.00/day budget each. A `reports/apps/search-terms` pull 24–48 hours later showed every added term
+carrying 0–2 impressions — no usable signal in the campaign's 7-day window — while the one keyword
+that already had traction (`video compressor`, EXACT) still carried the majority of all impressions.
+Worse, the PL BROAD batch auto-discovered the query **"immich"** (an unrelated open-source
+self-hosted photo-backup app) with real impressions before anyone caught it — a bleeding query per
+§6 Step B.2, sitting live because no one had reviewed search terms since the batch shipped.
+
+**Root cause**: a fixed daily budget divided across N keywords gives each keyword roughly
+`budget / N` of auction liquidity per day. At N=5–10 that's enough to clear a cold-start reserve
+price occasionally. At N=40+, most keywords never see enough auction participation in a 4–7 day
+window to produce a judgeable sample — this is budget atomization, not discovery breadth. Broad
+match makes it worse: each additional broad seed doesn't just split the budget, it also grows the
+query-matching surface Apple's algorithm can wander into unsupervised.
+
+**The rule**: a single Discovery-campaign expansion is capped at **5–10 new BROAD seeds** per
+campaign per batch, never the full harvested basket at once. After any expansion:
+1. Pull `reports/apps/search-terms` within 48 hours of the batch going live — not at the end of the
+   test window — specifically to catch off-topic auto-discovery (like "immich") while spend is still
+   near $0, per the Quick Diagnostics table in §1.
+2. Do not add a second batch of seeds until the first batch has either produced a promotable winner
+   (§6 Step B.1) or been judged a dead end and paused. Seeds compete for the same fixed daily budget;
+   stacking unjudged batches is the same mistake as stacking unjudged ASO hypotheses.
+3. A keyword added to a live campaign with **zero measured impressions** after 3–4 days in a
+   `$5/day` test is not "still gathering data" — it never cleared the auction. Pause it; it is not
+   occupying budget, but it is diluting the operator's ability to read the report at a glance.
+
+**The connection to organic ASO discipline**: this is the same failure the hypothesis ledger exists
+to prevent (see the opening of this SKILL.md — "do not draft a new hypothesis before section A is on
+screen"). A keyword-list expansion is a hypothesis with a batch size; treat oversized batches as a
+`due` ledger row that never got a verdict, not as free exploration.
+
 ## 4. Negative Keyword Match Rules & Hazards
 
 Apple Ads supports two negative keyword match types. Confusing them can silently destroy campaign traffic:

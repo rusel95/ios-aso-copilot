@@ -201,7 +201,13 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
     and `ad-groups find`. Run weekly search term harvesting via `asc ads reports apps search-terms` (see
     `references/apple-ads.md`). Promote converting search terms (CVR >= 20%) into Exact category campaigns,
     isolate them in Discovery with Exact Negatives, and nominate them for organic ASO metadata. Apply the
-    "Bid High to Learn" rule ($0.75–$1.25 CPT, $5/day cap) to break cold-start auction deadlocks.
+    "Bid High to Learn" rule ($0.75–$1.25 CPT, $5/day cap) to break cold-start auction deadlocks. **Never
+    expand a keyword list by more than 5–10 new BROAD seeds in a single batch** (`references/apple-ads.md`
+    §3b) — a fixed daily budget split across dozens of unproven seeds produces no judgeable sample per seed
+    within a normal test window, and broad match on an oversized batch can auto-discover off-topic queries
+    (verified case: "immich", an unrelated photo-backup app, picked up real impressions before the next
+    search-terms pull caught it). After any batch, pull search-terms within 48 hours, not at window close,
+    specifically to catch that failure mode while spend is still near $0.
 3. Audit App Store customer reviews and ratings: run `asc reviews ratings --app "$APP_ID" --all` and
    `asc reviews --app "$APP_ID"` (see `references/reviews-and-ratings.md`). Report rating counts,
    averages by country, star distribution, qualitative sentiment, praised features to amplify in
