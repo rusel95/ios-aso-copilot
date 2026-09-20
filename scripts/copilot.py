@@ -231,12 +231,22 @@ def cmd_cycle(args):
     # Step 3: Funnel metrics
     print("\n▶ [3/5] Syncing Funnel Analytics...")
     pull_script = store / "scripts" / "pull_funnel.py"
+    if not pull_script.exists():
+        pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
     if pull_script.exists() and not args.skip_pull:
-        print("  Running pull_funnel.py...")
-        subprocess.run([sys.executable, str(pull_script), "--out", str(store / "metrics")], stdout=subprocess.DEVNULL)
-        print("  ✓ Funnel metrics updated.")
+        print("  Running pull_funnel.py (ASC analytics reporting is not real-time — this can take "
+              "several minutes for a storefront with many tracked keywords)...")
+        # Previously this used stdout=subprocess.DEVNULL, which suppressed ALL output — including
+        # progress — until the whole (genuinely slow) ASC pull finished. That made a normal,
+        # multi-minute pull indistinguishable from a frozen process; an operator watching the cycle
+        # had no signal to tell the two apart except killing it and finding out the hard way.
+        rc = subprocess.run([sys.executable, str(pull_script), "--out", str(store / "metrics")]).returncode
+        if rc == 0:
+            print("  ✓ Funnel metrics updated.")
+        else:
+            print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale.")
     else:
-        print("  (Skipping remote funnel pull)")
+        print("  (Skipping remote funnel pull — pull_funnel.py not found in store or skill scripts/)")
 
     # Step 4: GA4 Telemetry
     print("\n▶ [4/5] Pulling In-App Telemetry (GA4)...")

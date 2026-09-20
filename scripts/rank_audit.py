@@ -63,19 +63,19 @@ MARKET_WEIGHT: dict[str, float] = {
     "mx": 5,   "nl": 4,   "tr": 4,   "pl": 4,   "sa": 4,
     "se": 3,   "hk": 3,   "sg": 3,   "ua": 2,   "il": 2,
 }
+# Any storefront not listed above (e.g. ro, no, fi, hu — real markets this skill has run ASO/ASA
+# hypotheses against) falls back to this weight in `_query_budget` rather than silently defaulting
+# to the smallest tier only through a `.get(..., 3)` call scattered across the file.
+DEFAULT_MARKET_WEIGHT = 3
 
-# Apple storefront header values for autocomplete hints endpoint
-STOREFRONTS: dict[str, str] = {
-    "us": "143441-1,29", "gb": "143444-1,29", "de": "143443-1,29",
-    "fr": "143442-1,29", "jp": "143462-1,29", "kr": "143466-1,29",
-    "cn": "143465-1,29", "tw": "143470-1,29", "br": "143503-1,29",
-    "ru": "143469-1,29", "ua": "143492-1,29", "es": "143454-1,29",
-    "mx": "143468-1,29", "it": "143450-1,29", "pl": "143478-1,29",
-    "nl": "143452-1,29", "se": "143456-1,29", "tr": "143480-1,29",
-    "in": "143467-1,29", "sa": "143479-1,29", "il": "143491-1,29",
-    "au": "143460-1,29", "ca": "143455-1,29", "sg": "143464-1,29",
-    "hk": "143463-1,29",
-}
+# Apple storefront header values for the MZSearchHints autocomplete endpoint — imported from the
+# single shared source (storefronts.py) covering all 155 App Store storefronts. Previously this
+# dict hard-coded only 24 markets and was missing `ro`, `no`, and others that this skill actually
+# tracks hypotheses for (marketing/hypotheses/H007-*.md targets `no`, H013 targets `ro`) — meaning
+# `--expand-from-hints` silently produced 0 queries for any market outside this list, with no error,
+# because `country in STOREFRONTS` in `run_audit()` just fell through to the fallback branch.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from storefronts import STOREFRONTS  # noqa: E402
 
 FLAGS: dict[str, str] = {
     "us":"🇺🇸","gb":"🇬🇧","de":"🇩🇪","fr":"🇫🇷","jp":"🇯🇵","kr":"🇰🇷",
@@ -85,6 +85,12 @@ FLAGS: dict[str, str] = {
     "hk":"🇭🇰",
 }
 
+# `--markets all` scans this curated, pre-weighted set — not all 155 STOREFRONTS — because a full
+# sweep at 155 markets × ~20-90 queries each with the mandatory 3s delay (DEFAULT_DELAY in
+# ledger.py) would take hours and query markets with no live hypothesis. Any storefront NOT in this
+# list is still fully queryable by naming it explicitly (`--markets ro,no,se`); STOREFRONTS above
+# now covers all 155, so that no longer silently produces 0 queries the way it did for `ro`/`no`
+# before this file's STOREFRONTS dict was unified with storefronts.py.
 ALL_MARKETS = list(MARKET_WEIGHT.keys())
 
 # ── Seed terms per market (used as starting points for hint expansion) ─────────
@@ -484,11 +490,11 @@ FALLBACK_KEYWORDS: dict[str, list[str]] = {
 
 def _query_budget(country: str) -> int:
     """Return appropriate query count for a market, proportional to its weight."""
-    w = MARKET_WEIGHT.get(country, 3)
+    w = MARKET_WEIGHT.get(country, DEFAULT_MARKET_WEIGHT)
     if w >= 50:   return 90    # US, JP, CN
     if w >= 20:   return 50    # DE, GB, FR, KR, IT, ES, AU, CA
     if w >= 10:   return 30    # BR, RU, NL, MX, IN, TR, PL
-    return 20                  # UA, SA, IL, SE, HK, SG, TW
+    return 20                  # UA, SA, IL, SE, HK, SG, TW, and every unweighted storefront
 
 
 def _get(url: str, headers: dict | None = None, timeout: float = 8.0) -> bytes:

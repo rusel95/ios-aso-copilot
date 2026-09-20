@@ -21,15 +21,14 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import timezone, datetime
+from pathlib import Path
 
-# US/GB/DE/UA — the four markets this skill tracks weekly (marketing/README.md).
-# Values are the storefront header Apple expects; confirmed live 2026-08-19.
-STOREFRONTS = {
-    "us": "143441-1,29",
-    "gb": "143444-1,29",
-    "de": "143443-1,29",
-    "ua": "143492-1,29",
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from storefronts import STOREFRONTS  # noqa: E402 — single source of truth for all 155 storefronts.
+# Previously this file hard-coded only us/gb/de/ua; a market like ro or il passed to `--storefront`
+# failed with "invalid choice" even though Apple runs a real App Store there and rank_audit.py's
+# (separately hard-coded, and incomplete in its own right) dict could reach it. Both files now read
+# from storefronts.py so a market added once is available everywhere.
 
 HINTS_URL = "https://search.itunes.apple.com/WebObjects/MZSearchHints.woa/wa/hints"
 SEARCH_URL = "https://itunes.apple.com/search"
@@ -158,9 +157,12 @@ def self_check() -> None:
         else:
             raise AssertionError(f"expected ShapeChanged for malformed body: {bad_body!r}")
 
-    # 3. Unknown storefront is rejected before any network call.
+    # 3. Unknown storefront is rejected before any network call. Use a code no Apple App Store
+    # storefront has ever used (`xx` is not an assigned ISO-3166 code) rather than a real market
+    # like the former "fr" — after storefronts.py unified coverage to all 155 real storefronts,
+    # `fr` became valid input and asserting it fails would silently start testing the wrong thing.
     try:
-        fetch_hints("x", "fr")
+        fetch_hints("x", "xx")
     except ValueError:
         pass
     else:

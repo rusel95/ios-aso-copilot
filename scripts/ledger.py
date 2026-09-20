@@ -373,6 +373,26 @@ def section_b(pairs, markets, limit):
     return numeric, censored
 
 
+# A market counts as genuinely dominant only at true top-3 for a small storefront or true top-5 for
+# a large one — not merely "an open hypothesis exists there." Before this fix, "covered by an open
+# hypothesis" meant only that the market appeared in some hypothesis's `markets:` field, so a
+# position like #11 (no), #26 (se), or #6 in a market too small to call top-3 (il) all read as
+# "covered" even though none of them are anywhere near dominant. An open hypothesis in progress does
+# not mean the position is defended; only the position itself does. `LARGE_MARKET_DOMINANCE_THRESHOLD`
+# markets get the more forgiving top-5 bar because a large storefront's result page shows more
+# competing apps before the fold; every other market uses top-3.
+LARGE_MARKETS = {"us", "gb", "de", "fr", "jp", "cn"}
+
+
+def is_dominant(market: str, pos) -> bool:
+    """True only if `pos` is a real top-3 (small market) or top-5 (large market) position.
+    `None` (beyond depth) is never dominant."""
+    if pos is None:
+        return False
+    threshold = 5 if market in LARGE_MARKETS else 3
+    return pos <= threshold
+
+
 def section_c(pairs, markets, hyps, limit, brand):
     print("\n## C · What to do next, ordered by money at stake\n")
     print("_Order = net proceeds per paying subscriber in that storefront (live ASC price record) "
@@ -381,7 +401,11 @@ def section_c(pairs, markets, hyps, limit, brand):
           "measured tap share. No currency total is implied: this ranks WHAT FIRST, it does not "
           "forecast revenue. A key whose last observation was a failed request is absent here — an "
           "outage is not an opportunity._\n")
-    covered = {m for h in hyps if not (h.get("verdict") or "").strip() for m in hyp_markets(h)}
+    print("_\"Dominant\" below means a verified top-3 position (top-5 for us/gb/de/fr/jp/cn) as of "
+          "the LATEST observation — not merely that an open hypothesis targets that market. A "
+          "hypothesis in flight with the key still outside that band is still open ground: it is "
+          "labelled `open hypothesis, not yet dominant`, not `covered`._\n")
+    open_hyp_markets = {m for h in hyps if not (h.get("verdict") or "").strip() for m in hyp_markets(h)}
     scored, unpriced, brand_skipped = [], 0, 0
     for (market, keyword), obs in pairs.items():
         if any(token in keyword.lower() for token in brand):
@@ -394,12 +418,17 @@ def section_c(pairs, markets, hyps, limit, brand):
         if obs[-1]["status"] == "error":
             continue                                # last look failed: unknown, not an opportunity
         pos = obs[-1]["position"]
+        if is_dominant(market, pos):
+            continue                                # verified top-3/top-5: defend, don't attack
         name, gain, reach = band(pos)
         if gain <= 0:
-            continue                                # already top3: defend, don't attack
+            continue                                # band() already says top3: nothing left to claim
+        if market in open_hyp_markets:
+            status = "open hypothesis, not yet dominant"
+        else:
+            status = "UNCLAIMED"
         scored.append((round(proceeds * gain * reach, 2), market, keyword, pos, name,
-                       proceeds, f"{gain}×{reach}",
-                       "covered by an open hypothesis" if market in covered else "UNCLAIMED"))
+                       proceeds, f"{gain}×{reach}", status))
     scored.sort(reverse=True)
     print("| Score | Market | Key | Position now | Band | Net proceeds/sub | Gain×Reach | Status |")
     print("|---:|---|---|---:|---|---:|---:|---|")
