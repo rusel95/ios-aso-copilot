@@ -7,6 +7,49 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.3.0 — `refresh` stopped losing keywords silently — 2026-09-20
+
+Closes R-12 (bounded, error-visible retries) and R-20 (per-market progress) for `ledger.py refresh`
+and `rank_audit.py`. Found while running a full 725-pair basket refresh on a live app: the command
+reported success every time while three separate mechanisms quietly kept part of the basket stale,
+each with a clean exit code and no error line anywhere.
+
+- **Fixed: an explicit `--keywords` list was silently sliced to a per-market query budget.**
+  `rank_audit.py`'s market-weight budget exists to cap autocomplete/hint fan-out; applied to a
+  caller-supplied keyword list it dropped whatever came after the cap with no message. Measured
+  impact on one app's basket before the fix: 34 keyword observations across 14 markets (including
+  three storefronts with a live paid campaign) would have gone unrefreshed on every single
+  `refresh` run, indefinitely, while the command reported `N queries…` for the pre-slice count. An
+  explicit list past the budget is no longer truncated; a still-larger hard ceiling exists and logs
+  exactly which keywords it drops if one is ever hit.
+- **Fixed: `refresh` never checked whether every requested keyword actually came back.**
+  A clean subprocess exit was treated as a complete market. It printed the *requested* count, not
+  the *returned* count, so the truncation above (and the comma bug below) had no visible symptom.
+  `refresh` now diffs requested against returned per market, names every missing keyword in a `⚠
+  MISSING` line the moment it happens, and the final line either states cleanly that every requested
+  keyword in every requested storefront returned a response, or prints `⚠⚠ INCOMPLETE REFRESH` with
+  the full per-market list — it cannot go unnoticed in normal output.
+- **Fixed: a keyword containing a comma broke on the comma-joined `--keywords` CLI argument.**
+  Terms like `compress photos, resize image` or `клінер: очищення пам'яті, кешу` were silently
+  split into two shorter strings at the point where they crossed process boundaries, so the real
+  term was never requeried — six such keywords across five storefronts (cn, hk, tw, ua, us) had sat
+  stale since 2026-09-05 with no error ever logged, only found once the previous fix made the
+  discrepancy visible. `rank_audit.py` gained `--keywords-file` (newline-delimited, comma-safe);
+  `refresh` now writes the basket to a temp file for every subprocess call instead of joining it
+  with the delimiter it is trying to preserve.
+- **Added: live per-query progress inside a market batch.** A 50-90 query market at the mandatory
+  ~3s Apple rate limit ran for several minutes with zero output — indistinguishable from a hang.
+  `rank_audit.py` now prints one marker per completed query (`.` ok, `x` errored, a running count
+  every 10) as it happens. `refresh` used to buffer the whole subprocess's stdout via
+  `capture_output=True` and only show it after the market finished, defeating the point; it now
+  streams the child process's output line by line while still capturing it for the failure-tail
+  message on a non-zero exit.
+- Verified end to end: re-ran the full 725-pair basket after each fix landed. Final state: 725/725
+  pairs carry a 2026-09-20 observation, zero missing, zero truncated, self-checks green on both
+  scripts.
+
+---
+
 ## v2.2.0 — Modernized In-App & Storefront Localization Engine — 2026-09-10
 
 - **Modernized iOS Localization Integration**: Fuses in-app String Catalog (`.xcstrings`) engineering directly into the ASO growth engine (`references/localization-playbook.md`).

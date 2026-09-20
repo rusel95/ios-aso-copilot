@@ -603,27 +603,74 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     script = Path(__file__).resolve().parent / "rank_audit.py"
     out_dir.mkdir(parents=True, exist_ok=True)
     merged, ok, err = {}, 0, 0
+    failed_markets: list[str] = []
+    missing_by_market: dict[str, list[str]] = {}
     for market in sorted(basket):
         target = out_dir / f"{market}.json"
         print(f"  {market}: {len(basket[market])} queries…", flush=True)
-        done = subprocess.run([sys.executable, str(script), "--bundle", bundle, "--markets", market,
-                               "--keywords", ",".join(basket[market]), "--output", str(target),
-                               "--delay", str(delay)], capture_output=True, text=True)
-        if done.returncode or not target.exists():
-            tail = (done.stderr or done.stdout or "").strip().splitlines()[-4:]
-            print(f"  {market}: FAILED (exit {done.returncode}) — this storefront is unrefreshed, its "
+        # A comma-joined --keywords string cannot round-trip a keyword that itself contains a
+        # comma (e.g. "compress photos, resize image") — it silently splits into two shorter
+        # terms that never match anything in the tracked basket, so the real term is never
+        # requeried and stays stale with no error anywhere. A newline-delimited file has no such
+        # collision with the query text itself.
+        kw_file = out_dir / f"{market}.keywords.txt"
+        kw_file.write_text("\n".join(basket[market]) + "\n", encoding="utf-8")
+        # A market with 50-90 queries at the mandatory ~3s Apple rate limit runs for several
+        # minutes. subprocess.run(capture_output=True) buffers rank_audit.py's own per-query
+        # progress dots until the whole market finishes, which looks identical to a hang from
+        # this process's stdout — stream it through live instead, while still keeping every line
+        # to report on a non-zero exit.
+        proc = subprocess.Popen([sys.executable, str(script), "--bundle", bundle, "--markets", market,
+                                 "--keywords-file", str(kw_file), "--output", str(target),
+                                 "--delay", str(delay)], stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
+        captured_lines: list[str] = []
+        for line in proc.stdout:
+            print(line, end="", flush=True)
+            captured_lines.append(line)
+        returncode = proc.wait()
+        kw_file.unlink(missing_ok=True)
+        if returncode or not target.exists():
+            tail = "".join(captured_lines).strip().splitlines()[-4:]
+            print(f"  {market}: FAILED (exit {returncode}) — this storefront is unrefreshed, its "
                   f"keys keep their previous observation:\n      " + "\n      ".join(tail),
                   file=sys.stderr, flush=True)
+            failed_markets.append(market)
             continue
+        # A clean exit code is not proof every requested keyword came back — rank_audit.py applies
+        # its own per-market query budget and can return fewer rows than were requested with no
+        # non-zero exit. Name exactly which keywords never got a response, per market, every run.
+        requested = set(basket[market])
+        returned_terms = set()
         for country, entries in json.loads(target.read_text(encoding="utf-8")).items():
             merged.setdefault(country, []).extend(entries)
             ok += sum(e.get("query_status") == "ok" for e in entries)
             err += sum(e.get("query_status") == "error" for e in entries)
+            returned_terms.update(e.get("term") for e in entries if e.get("term"))
+        missing = requested - returned_terms
+        if missing:
+            missing_by_market[market] = sorted(missing)
+            print(f"  ⚠ {market}: MISSING {len(missing)} of {len(requested)} requested keywords — "
+                  f"no response at all (not even 'error'), previous observation kept unchanged: "
+                  f"{sorted(missing)}", file=sys.stderr, flush=True)
     snapshot = out_dir / f"snapshot_{TODAY}.json"
     snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
     for market in basket:                      # the per-market files are inputs to the merge above
         (out_dir / f"{market}.json").unlink(missing_ok=True)
+    total_missing = sum(len(v) for v in missing_by_market.values())
     print(f"{ok} observed · {err} failed → {snapshot}")
+    if failed_markets or missing_by_market:
+        print(f"\n⚠⚠ INCOMPLETE REFRESH — do not read this as a full basket update:", file=sys.stderr)
+        if failed_markets:
+            print(f"   {len(failed_markets)} storefront(s) entirely FAILED: {failed_markets}",
+                  file=sys.stderr)
+        if missing_by_market:
+            print(f"   {total_missing} keyword(s) MISSING across {len(missing_by_market)} "
+                  f"storefront(s): {missing_by_market}", file=sys.stderr)
+        print(f"   Every listed key kept its prior observation unchanged — it was NOT refreshed "
+              f"today, whatever `ledger.py report` prints for it next.", file=sys.stderr)
+    else:
+        print("Every requested keyword in every requested storefront returned a response.")
     if err and not ok:
         sys.exit(f"every query failed — Apple returns 429 above ~20 calls/minute, so --delay must "
                  f"stay >= 3.0 (this run used {delay}). Nothing ingested.")

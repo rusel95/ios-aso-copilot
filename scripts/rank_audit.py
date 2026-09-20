@@ -674,7 +674,20 @@ def run_audit(
 
         hint_ranks: dict[str, int] = {}
         if manual_keywords and country in manual_keywords:
-            queries = manual_keywords[country][:budget]
+            # An explicit --keywords list is the caller's basket, not a hint-expansion candidate
+            # pool — the market-weight budget below exists to cap autocomplete fan-out, and
+            # silently slicing an explicit list to that same cap drops real, already-tracked
+            # keywords with no signal anywhere in stdout/stderr. Take the full explicit list; if a
+            # future caller passes something larger than a sane hard ceiling, say so instead of
+            # quietly truncating.
+            requested = manual_keywords[country]
+            hard_ceiling = max(budget, 200)
+            queries = requested[:hard_ceiling]
+            if len(queries) < len(requested):
+                dropped = requested[len(queries):]
+                print(f"\n  ⚠ TRUNCATED {country.upper()}: {len(dropped)} of {len(requested)} "
+                      f"explicit keywords dropped (hard ceiling {hard_ceiling}): {dropped}",
+                      file=sys.stderr, flush=True)
             hint_ranks = {q: None for q in queries}
             src = "manual"
         elif expand_hints and country in STOREFRONTS:
@@ -698,12 +711,21 @@ def run_audit(
         print(f"  {flag} {country.upper():3} [{src}] {len(queries)} queries…", end=" ", flush=True)
 
         rows = []
-        for term in queries:
+        # A market with 50-90 queries at a mandatory 3s delay runs for several minutes with no
+        # output at all otherwise — indistinguishable from a hang. One dot per completed query
+        # (a distinct marker on error) keeps this CLI honest about being alive mid-market, without
+        # cluttering the one-line-per-market summary the rest of the pipeline greps/reads.
+        for i, term in enumerate(queries, 1):
             h_rank = hint_ranks.get(term)
             row = audit_keyword(term, country, bundle_id, hint_rank=h_rank)
             scores = compute_scores(row, country)
             rows.append({**row, **scores})
+            marker = "x" if row.get("query_status") == "error" else "."
+            print(marker, end="", flush=True)
+            if i % 10 == 0:
+                print(f"{i}", end="", flush=True)
             time.sleep(delay)
+        print(" ", end="", flush=True)
 
         found = sum(1 for r in rows if r["our_rank"])
         best  = min((r["our_rank"] for r in rows if r["our_rank"]), default=None)
@@ -765,7 +787,14 @@ def main() -> None:
     p.add_argument("--expand-from-hints", action="store_true",
                    help="Use Apple autocomplete to generate queries (recommended)")
     p.add_argument("--keywords", default=None,
-                   help="Manual comma-separated keywords (bypasses hint expansion)")
+                   help="Manual comma-separated keywords (bypasses hint expansion). A keyword "
+                        "that itself contains a comma cannot round-trip through this flag — it "
+                        "will be split at that comma like any other separator. Use "
+                        "--keywords-file for a basket where that matters.")
+    p.add_argument("--keywords-file", default=None,
+                   help="Path to a newline-delimited keyword list (UTF-8, one keyword per line, "
+                        "blank lines ignored). Safe for keywords that contain commas; "
+                        "takes precedence over --keywords if both are given.")
     p.add_argument("--seeds", default=None,
                    help="Custom comma-separated seed terms for hint expansion")
     p.add_argument("--niche", default="whitenoise", choices=["whitenoise", "baby", "compress", "media"],
@@ -822,7 +851,13 @@ def main() -> None:
         print("  Mode: fallback keyword lists (use --expand-from-hints for better coverage)\n")
 
     manual_kw: Optional[dict] = None
-    if args.keywords:
+    if args.keywords_file:
+        kws_path = Path(args.keywords_file)
+        if not kws_path.exists():
+            p.error(f"--keywords-file not found: {kws_path}")
+        kws = [line.strip() for line in kws_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        manual_kw = {m: kws for m in markets}
+    elif args.keywords:
         kws = [k.strip() for k in args.keywords.split(",")]
         manual_kw = {m: kws for m in markets}
 
