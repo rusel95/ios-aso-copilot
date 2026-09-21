@@ -162,3 +162,11 @@ Before proposing any external traffic action or running `campaign_link.py`:
 ### 3. Campaign Token Uniqueness
 Every `campaign_token` (`ct`) is strictly unique across all time. Reusing a token cross-contaminates App Store Connect attribution data and is rejected by `campaign_link.py`.
 
+---
+
+## 7. Directory & Launchpad Indexing Strategy (94 Platforms)
+
+For off-store web directory submissions, see the dedicated reference:
+- **[directory-launch-strategy.md](directory-launch-strategy.md)** — Master matrix of 94 startup directories, launchpads, and product indexing platforms evaluated by Domain Rating (DR), relevance to Compresso, copy angles, and a 3-wave execution plan.
+
+
