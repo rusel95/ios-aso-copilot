@@ -18,6 +18,55 @@ When a newly launched campaign or ad group shows **$0.00 spend and 0 impressions
 
 ---
 
+## 1b. A Weak Competitor Field Is Not the Same Claim as Real Demand
+
+An organic keyword can sit at a strong position (top-10, even top-5) with `total_results` in the
+single or low double digits and every visible competitor holding zero or near-zero ratings. This
+reads as "an unclaimed, easy market" — and it might be. It might just as easily be a market nobody
+searches, where the low competitor count is an effect of the same cause as our own uncontested rank:
+there is nothing there to compete for. iTunes Search API order and `total_results` measure **who
+else is trying**, never **how many people are looking**. The two produce an identical-looking result
+(few, weak competitors) for opposite underlying reasons, and neither `rank_audit.py` nor any Apple
+API used in this skill currently distinguishes them (see `references/provenance.md` — no working
+Apple endpoint returns per-keyword, per-country search volume as of 2026-09; `KeywordSuggestionV6`
+rejects a term/country filter, the legacy v5 popularity endpoint 404s).
+
+**The MediaCleaner precedent this generalizes from** (`docs/closed-questions.md`, "Should Compresso
+ship a macOS port?", researched 2026-08-01): a genuinely unfilled competitive gap existed — no macOS
+tool compressed the Photos library in place — but the analysis did not stop at "no competitors,
+therefore opportunity." It asked *why* the gap might be empty of demand rather than just of
+competitors: a free first-party alternative already solved most of the underlying anxiety (Optimise
+Mac Storage), the forcing event was weakening (bigger default storage), and the target platform's
+users skewed toward the opposite of the product's core promise (preservation-minded, not
+delete-averse). None of those are competitor-count signals; all of them bear on whether the job the
+product solves is one people in that segment actually have. The port was shelved not because a
+competitor analysis said no, but because independent demand-adjacent signals did, while the
+competitive-gap finding stayed true and recorded.
+
+**The independent signals worth checking before reading a thin competitor field as opportunity**,
+none of which come from the rank/competitor pull itself:
+
+1. **A free or already-bundled alternative solving the same anxiety.** If the OS, a dominant free
+   app, or the user's existing habit already resolves the pain point at zero cost, a thin paid/organic
+   field may reflect that solved problem, not an open one.
+2. **A weakening or absent forcing event.** Does something concrete push this segment toward the
+   product's job right now (storage pressure, a platform change, a price change), or is the need
+   chronic-background rather than acute?
+3. **Segment fit with the product's actual promise**, not just the platform/language. A market can
+   have the right language and country code and still skew toward the opposite psychological
+   disposition the product needs (e.g. preservation-minded users being sold a "delete less, compress
+   instead" pitch — see the macOS precedent — versus a segment that is actively anxious about running
+   out of space).
+4. **Direct behavioral evidence from a bounded paid test** (§6 below) — the one signal this skill can
+   actually produce today, because it observes real people issuing real queries rather than inferring
+   intent from an absence of competitors.
+
+**Do not** promote a thin competitor field into an "easy win" or "high ROI" claim on its own — that
+repeats exactly the fabricated-confidence failure `provenance.md` and the SKILL.md evidence rules
+exist to block. Frame it as **unresolved**: a real competitive opening whose demand is currently
+`absent:no popularity source available` until a demand-adjacent signal (above) or a bounded ASA test
+narrows that gap.
+
 ## 2. Authentication & Account State
 
 Apple Ads credentials are **independent** from App Store Connect. `asc` maintains two separate credential stores:

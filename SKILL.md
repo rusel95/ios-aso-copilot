@@ -236,8 +236,14 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
   a basis for an "easy Top 3" or "high ROI" claim. The bundled rank script no longer fabricates these scores.
 - Sparse written reviews, RSS recency, app age and lifetime ratings cannot establish query demand,
   download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
-- Brand terms, competitor brands and relevant generic terms belong to different research groups.
-  Rank for our own name does not prove generic demand or brand awareness.
+- **NEVER use brand-name rank as evidence of market demand, competitive advantage, or launch opportunity.**
+  Rank on our own app name (e.g. `compresso` or similar brand tokens) is merely trivial indexation by Apple
+  — it proves zero organic search volume, zero user demand, and zero competitive moat. In unserved, cold,
+  or newly localized storefronts, nobody is searching for our brand name; citing "Compresso is #2 or #3 for
+  brand query" as competitive standing or market validation is meaningless vanity noise (хуйня) that distorts
+  strategic decisions. Never include own-brand rank as a positive baseline or competitive reason to prioritize
+  a storefront. Only generic high-intent category queries (e.g. `video compressor`, `free up space`) represent
+  real user search volume and genuine market competition.
 - Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
   exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
 - Product claims must match shipped behavior. Reject keywords implying unsupported features. Use

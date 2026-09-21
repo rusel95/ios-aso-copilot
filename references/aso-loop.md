@@ -40,7 +40,9 @@ localization can be useful, but its effects cannot be assigned to one keyword or
 Use live metadata, real user language, visible competitor positioning, autocomplete and RespectASO.
 A suggestion is a candidate, not measured volume. Match exact native term, country, provider and
 observation date. Separate brand, generic, use-case and unsupported-feature terms. The app must solve
-the requested job; a popular irrelevant term fails this test.
+the requested job; a popular irrelevant term fails this test. Own-brand rank is never market evidence:
+being indexed on our own name ('compresso') in a territory is an artifact of app submission, not user
+demand or competitive advantage; never cite brand rank to justify a market or claim traction.
 
 Validate title/subtitle/keyword limits in ASC. Remove unnecessary repetition following Apple's
 metadata guidance, but do not assert exact tokenizer behavior for every language. Compounds, inflected

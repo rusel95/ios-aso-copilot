@@ -67,6 +67,7 @@ ASC_LOCALES = {
     "ro": {"family": "standard_2", "name": "Romanian"},
     "ru": {"family": "slavic_4", "name": "Russian"},
     "sk": {"family": "west_slavic_4", "name": "Slovak"},
+    "sl-SI": {"family": "slovenian_4", "name": "Slovenian"},
     "sv": {"family": "standard_2", "name": "Swedish"},
     "th": {"family": "asian_1", "name": "Thai"},
     "tr": {"family": "asian_1", "name": "Turkish"},
@@ -82,6 +83,7 @@ REQUIRED_PLURAL_CATEGORIES = {
     "slavic_4": ["one", "few", "many", "other"],
     "polish_4": ["one", "few", "many", "other"],
     "west_slavic_4": ["one", "few", "many", "other"],
+    "slovenian_4": ["one", "two", "few", "other"],
     "semitic_6": ["zero", "one", "two", "few", "many", "other"],
     "semitic_he": ["one", "two", "many", "other"],
 }
