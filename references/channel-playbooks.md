@@ -119,6 +119,52 @@ No network requests for processing, completely private. Would love your feedback
 
 ---
 
+## 3B. Developer & Tech Community Playbooks (LinkedIn, DOU, dev.ua, GitHub)
+
+When marketing as software engineers to other software engineers, never use consumer marketing speak or generic claims. The winning angle is **engineering transparency, technical hurdles, architecture choices, and honest founder journey**.
+
+### 1. LinkedIn: The Founder & Engineering Craft Story
+- **Audience**: Peers, engineering leaders, tech early adopters.
+- **Narrative Archetype**: *"Why I built a native iOS utility on Swift 6 with zero backend"*.
+- **Key Talking Points**:
+  - Almost every "phone cleaner" in the App Store is a scam: they upload media to remote servers, compress with lossy web-grade codecs, and charge predatory $6.99/week subscriptions.
+  - Engineering challenge: How to achieve hardware-accelerated 4K HEVC compression locally using VideoToolbox and Metal without blowing through iOS memory limits (OOM jetsam).
+  - Preserving 10-bit HDR Gain Maps and lossless audio passthrough bit-for-bit.
+  - Transparent business model: free trial month, localized one-time/monthly pricing.
+- **Attribution**: Use `?ct=linkedin_founder_post`.
+
+### 2. DOU.ua: Community Forum & Engineering Blog
+- **Audience**: Ukrainian developer community (highly critical, tech-savvy, strong iOS representation).
+- **Formats**:
+  1. **DOU Forum (Розділ «Свій бізнес / Стартапи» або «iOS»)**:
+     - Title: *"Створив Compresso — офлайн-компресор відео та фото для iOS на Swift 6: як це влаштовано зсередини"*.
+     - Focus: Open discussion of architectural choices, SwiftData challenges, memory management, App Store Review battles. Ask for feedback on UX and edge-case device performance.
+  2. **DOU Tech Article / Blog**:
+     - Deep dive: *"Як стискати 4K відео на iOS без хмари: VideoToolbox, оптимізація пам'яті та строга паралельність у Swift 6"*.
+- **Attribution**: Use `?ct=dou_ua`.
+
+### 3. dev.ua: Pet-Project & Startup Spotlight
+- **Audience**: Broader Ukrainian tech ecosystem (engineers, PMs, tech journalists).
+- **Format**: Editorial pitch or blog submission to dev.ua's regular *"Стартапи / Pet-проєкти"* column.
+- **Angle**: *"Український iOS-розробник створив утиліту для збереження пам'яті iPhone без підписок за $7/тиждень"*. Emphasize independence, privacy, on-device execution, and European launch.
+- **Attribution**: Use `?ct=dev_ua`.
+
+### 4. The Unobvious Play: GitHub Companion Benchmark Repository
+- **Concept**: Publish a clean, standalone open-source repository: `ios-video-compression-benchmarks`.
+- **Content**:
+  - Benchmark code comparing `AVAssetExportSession` vs raw `VTCompressionSession` (VideoToolbox).
+  - Implementation sample of Laplacian variance edge detection for photo sharpness scoring.
+  - Memory usage and bitrate charts.
+  - Header badge: *"Used in production by [Compresso on the App Store](https://apps.apple.com/app/id6790447224?ct=github_benchmarks)"*.
+- **Why it works**: Engineers searching Google/GitHub for iOS video compression techniques discover the repo, star it, and download the App Store app as proof-of-concept. Creates perpetual, high-trust organic referral traffic.
+
+### 5. Telegram & Slack iOS Communities
+- Channels: *iOS Dev UA*, *CocoaHeads Ukraine*, *iOS Developers Slack* (channel `#showcase`).
+- Tone: Humble peer review request: *"Привіт усім! Написав на чистому Swift 6 утиліту для локального стиснення відео. Буду дуже вдячний за тест на ваших медіатеках і фідбек по UX/перформансу"*.
+
+
+---
+
 ## 4. Apple Search Ads (ASA): Beachhead Strategy
 
 Do not spend high bids on broad keywords in the US ($2.50+ CPT). Instead:
