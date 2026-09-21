@@ -1,33 +1,54 @@
-# Directory Launch Strategy & Platform Matrix (94 Platforms)
+# Directory Launch Strategy & Rolling Momentum Matrix (94 Platforms)
 
 A rigorous, market-researched evaluation of 94 startup directories, launchpads, and product indexing platforms for **Compresso** (iOS On-Device Media Cleaner & Compressor).
 
 ---
 
-## 1. Executive Summary & Strategic Realism
+## 1. Executive Summary & Strategic Realism: The "Rolling Momentum" Model
 
-Submitting an app to 94 directories can easily consume 40+ hours. Without a structured filtering model, 70% of that effort is wasted on dead link farms, enterprise B2B review portals (where consumer iOS apps do not convert), or paid AI aggregator cash-grabs.
+The original marketing roadmap hypothesized a "Momentum Blast" (simultaneous 24-hour push across all channels). Practical analysis of platform-specific review queues, moderation rules, and App Store attribution reveals that a 24-hour blast is counterproductive:
+1. **Maker Attention Bottleneck**: Product Hunt, Hacker News, and Reddit all require the solo founder to be actively answering comments, debugging edge cases, and replying in real time. Running them simultaneously forces high-value channels to compete for your attention.
+2. **Review Queue Realities**: Directories have radically different review pipelines. AlternativeTo and Uneed free backlogs take weeks or months. BetaList requires "recently launched" status. Syncing them to a single day is technically impossible.
+3. **The Funnel-Optimization Compounding Loop**: Launching sequentially allows early waves (Reddit/HN) to surface crashes, paywall friction, and onboarding drop-offs *before* burning the massive Product Hunt day.
 
-### Key Strategic Realities for Compresso:
-1. **The Intent Rule (Direct Downloads vs SEO Backlinks)**:
-   - Only **5–8 platforms** in this list will ever drive direct, high-intent consumer app installs (primarily **AlternativeTo**, **Product Hunt**, **Hacker News**, and **SaaSHub**).
-   - Another **25–30 platforms** provide high-authority dofollow/nofollow backlinks (DR 70+) that build domain rating and organic search visibility for Compresso's web presence.
-   - The remaining ~55 are either niche AI aggregators, B2B SaaS review platforms, or low-tier clones.
-2. **The "Zero Paid Submission" Law**:
-   - Many of these directories introduce paywalls ($19 to $99 for "Featured" or "Skip the Queue").
-   - **Never pay for directory submissions for Compresso.** Paid directory CAC exceeds $25 per click with near-zero conversion to iOS subscription. Free tiers only.
-3. **Consumer iOS vs SaaS Disconnect**:
-   - Compresso is a **consumer iOS mobile utility (B2C)** with on-device hardware acceleration, privacy, and freemium subscription. It is **not** a B2B SaaS, not an API, not an open-source library, and not a ChatGPT/Midjourney wrapper.
+> **The New Momentum Law**:
+> **Momentum is not simultaneity across channels. Momentum is a series of focused, local peaks with cumulative social proof and funnel optimization between waves.**
+
+```text
+Attention / Installs
+       ╭────╮
+       │ PH │          ╭──────╮
+ ╭─────╯    ╰──╮ ╭─────╯      ╰───╮
+ │  Reddit/HN  │ │   Peerlist     │
+─┴─────────────┴─┴────────────────┴─────── directories (background) ───>
+Day 0          3 6                10      14
+```
 
 ---
 
-## 2. The 4-Tier Strategic Classification
+## 2. Directory Mechanics & Reality Check
+
+### A. The Discovery Engines (Real Humans Searching) vs SEO Backlinks
+- **Google Link Spam Reality**: Google's Search Essentials explicitly classify mass directory/bookmark listings as link spam. Domain Rating (DR) is an Ahrefs commercial metric, not Google PageRank.
+- **The True Objective**: We do not submit to build "DR 80 link authority". We submit to **be indexed in human discovery databases** where users with acute pain points search for alternatives (AlternativeTo, SaaSHub, Product Hunt).
+
+### B. Platform Queue & Moderation Specifics
+- **AlternativeTo (DR 80)**: Free queue backlog is 1–2 months. Priority review ($5) is 1–2 days. **Strategy**: Submit Day 0 immediately so the listing is in review. Do not wait for launch week.
+- **BetaList (DR 76)**: Strictly requires unreleased, private beta, or *recently launched* apps. Submitting after weeks of public traction leads to rejection. **Strategy**: Submit Day 0 immediately.
+- **Uneed (DR 75)**: Runs daily launch slots (30/day), but free queue stretches up to 5 months. **Strategy**: Submit Day 0 for the free backlog.
+- **Peerlist Launchpad (DR 77)**: Runs on a **weekly cycle starting every Monday**. **Strategy**: Do not collide with Product Hunt; dedicate a separate Monday launch to capture the Peerlist weekly leaderboard.
+- **Hacker News (Show HN, DR 91)**: Algorithmic front page based on points/gravity `points / (time + 2)^1.8`. Forbids vote asking. Requires technical, humble narrative (Swift 6, VideoToolbox, Metal, zero cloud).
+- **Product Hunt (DR 91)**: 24-hour cycle (00:01 PST – 23:59 PST). Requires full-day dedication. Launch only *after* initial Reddit/HN user feedback has calibrated the onboarding and paywall.
+
+---
+
+## 3. The 4-Tier Strategic Classification
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TIER 1: CORE VALUE ENGINES (10 Platforms)                              │
 │ High intent, direct consumer downloads, community engagement.          │
-│ Action: Manual, deeply tailored submissions + launch day focus.        │
+│ Action: Dedicated launch days or immediate queue submissions.          │
 ├────────────────────────────────────────────────────────────────────────┤
 │ TIER 2: HIGH-AUTHORITY BACKLINK BUILDERS (22 Platforms)                │
 │ DR 70+, software/startup general directories.                          │
@@ -45,147 +66,135 @@ Submitting an app to 94 directories can easily consume 40+ hours. Without a stru
 
 ---
 
-## 3. Tier 1: Core Value Engines (Top 10 — Must Execute)
+## 4. Tier 1: Core Value Engines (Top 10 — Detailed Strategy)
 
-These platforms provide legitimate user acquisition, community buzz, or high-intent competitor comparison.
-
-| # | Platform | DR | Compresso Fit | Why It Matters & Actionable Strategy |
+| # | Platform | DR | Queue Type | Strategy & Actionable Playbook |
 |---|---|---|---|---|
-| 1 | **AlternativeTo** | 80 | **Critical (P0)** | **Highest conversion channel on the web.** Users explicitly search: *"Alternative to CleanMyPhone"*, *"Alternative to Gemini Photos"*, *"Free video compressor for iPhone"*. Create profile, list Compresso as an alternative to CleanMyPhone, Smart Cleaner, and Google Photos. Emphasize: *100% on-device, zero cloud, private, one-time/monthly*. |
-| 2 | **Product Hunt** | 91 | **P0 (Dedicated Day)** | Gold standard tech launchpad. Requires scheduled Tuesday–Thursday 00:01 PST push. Do not mix with Reddit day. Pre-package 5 media assets, maker first comment, and mobilize existing community for Product of the Day. |
-| 3 | **Hacker News (Show HN)** | 91 | **P0 (Technical Focus)** | Deeply technical and privacy-conscious audience. Do not market as a "cleaner app" (seen as scammy). Pitch as: *"Show HN: Compresso – Swift 6, hardware-accelerated on-device media compressor for iOS, zero cloud"*. Highlight VideoToolbox, Metal, Laplacian sharpness detection, zero analytics on photos. |
-| 4 | **SaaSHub** | 80 | **P1 (High Intent)** | Ranks high on Google for competitor comparisons. Automatically creates "Compresso vs CleanMyPhone" comparison pages. Add full pricing and feature specs. |
-| 5 | **BetaList** | 76 | **P1 (Early Adopters)** | Great for polished consumer mobile apps. Thousands of early tech enthusiasts browse for sleek iOS utilities. Submit for free queue. |
-| 6 | **Indie Hackers** | 81 | **P1 (Community Backlink)** | Create a Product Page + Milestone Post: *"Building an offline iOS video compressor with Swift 6"*. Indie hackers love bootstrapped iOS success stories and give valuable UX critiques. |
-| 7 | **Peerlist** | 77 | **P1 (Design & Tech)** | Highly active community of designers and developers. Focus on UI craftsmanship: *"Split-screen comparison slider, fluid card swiping, dark mode aesthetics"*. Launch in Peerlist Project Spotlight. |
-| 8 | **Uneed** | 75 | **P1 (Curated Tools)** | One of the highest quality modern curated tool directories. Has a daily upvote leaderboard with real tech early adopters. Free submission available. |
-| 9 | **Fazier** | 83 | **P1 (Product Hunt Alt)** | Very active alternative launch platform with daily awards and strong domain authority (DR 83). High backlink value. |
-| 10 | **Microlaunch** | 64 | **P1 (Indie Launchpad)** | Rapidly growing indie launch platform with daily and monthly voting. Great community engagement for solo developers. |
+| 1 | **AlternativeTo** | 80 | Long Queue (Weeks/Months) | **Submit Day 0 immediately.** List Compresso as an alternative to CleanMyPhone, Gemini Photos, and Smart Cleaner. Emphasize: *100% on-device, zero cloud, private, one-time/monthly*. (Optional: $5 priority review if immediate visibility desired). |
+| 2 | **BetaList** | 76 | Time-Sensitive (New Apps Only) | **Submit Day 0 immediately.** Requires "recently launched" status. Free queue. Highlights polished iOS mobile utilities to early tech adopters. |
+| 3 | **Uneed** | 75 | Long Queue (Months) | **Submit Day 0 immediately.** Put into free queue. Do not try to sync with launch day. |
+| 4 | **Hacker News (Show HN)** | 91 | Real-time (Day 4–5) | **Dedicated Day 1 spike.** Title: *"Show HN: Compresso – Swift 6, hardware-accelerated on-device media compressor for iOS, zero cloud"*. Focus on technical depth: VideoToolbox, Laplacian edge preservation, 10-bit HEVC, zero analytics on photos. Be active in comments for 8 hours. |
+| 5 | **Product Hunt** | 91 | 24h Event (Week 2, Day 8–10) | **The Main Momentum Day.** Launch 00:01 PST. Mobilize network, share maker first comment. Run *after* fixing initial bugs reported from HN/Reddit. |
+| 6 | **Peerlist Launchpad** | 77 | Weekly (Week 2, Monday) | **Dedicated Weekly Spike.** Starts Monday. Submit to Peerlist Project Spotlight. Focus on UX & interaction design: split-screen slider, fluid card swiping, haptics. |
+| 7 | **SaaSHub** | 80 | Evergreen | Submit Day 1. Automatically creates comparison tables (Compresso vs CleanMyPhone). |
+| 8 | **Indie Hackers** | 81 | Community Post | Post during Week 1: *"How I built an on-device iOS video compressor with Swift 6"*. Great for founder credibility and early reviews. |
+| 9 | **Fazier** | 83 | Daily Competition | Submit Week 2 alongside Peerlist. Growing PH alternative with high authority. |
+| 10 | **Microlaunch** | 64 | Weekly/Monthly | Active indie community. Submit Week 2. Good for sustained discovery. |
 
 ---
 
-## 4. Tier 2: High-Authority Backlink Builders (DR 70+ Startup Directories)
+## 5. Tier 2: General Startup & Discovery Directories (22 Platforms, DR 70+)
 
-These sites rarely produce direct paying mobile subscribers, but their high Domain Rating passes significant SEO authority to Compresso's App Store and landing pages, helping Google index Compresso for external web searches.
+Submit in a single 90-minute batch during Week 1 to establish Compresso's web footprint:
 
-| # | Platform | DR | Strategy & Recommendation |
+| # | Platform | DR | Notes |
 |---|---|---|---|
-| 11 | **Startup Fame** | 83 | DR 83. Great backlink. Submit standard 100-word startup blurb and screenshot. |
+| 11 | **Startup Fame** | 83 | DR 83. Standard 100-word blurb and screenshot. |
 | 12 | **Findly Tools** | 81 | DR 81. Curated tool discovery platform. Free standard submission. |
-| 13 | **Smol Launch** | 74 | DR 74. Clean micro-launchpad. Submit via free tier for a daily spotlight. |
-| 14 | **LaunchIgniter** | 74 | DR 74. Startup launch aggregator. Quick 5-minute submit. |
-| 15 | **StartupBase** | 73 | DR 73. Early-stage product community. Submit with maker profile. |
-| 16 | **Tiny Launch** | 73 | DR 73. Lightweight directory for indie apps. High DR backlink. |
+| 13 | **Smol Launch** | 74 | DR 74. Clean micro-launchpad. Submit via free tier for daily spotlight. |
+| 14 | **LaunchIgniter** | 74 | DR 74. Startup launch aggregator. Quick submit. |
+| 15 | **StartupBase** | 73 | DR 73. Early-stage product community. |
+| 16 | **Tiny Launch** | 73 | DR 73. Lightweight directory for indie apps. |
 | 17 | **Aura++** | 73 | DR 73. Directory of modern web and mobile utilities. |
-| 18 | **Software World** | 73 | DR 73. Software directory. Add under "Mobile Utilities / Multimedia". |
-| 19 | **Neeed Directory** | 73 | DR 73. Design-centric tool directory. High aesthetic bar (Compresso fits well). |
+| 18 | **Software World** | 73 | DR 73. Add under "Mobile Utilities / Multimedia". |
+| 19 | **Neeed Directory** | 73 | DR 73. Design-centric tool directory. High aesthetic bar. |
 | 20 | **Startup Fast** | 72 | DR 72. Startup index. Standard submission. |
 | 21 | **Open Launch** | 72 | DR 72. Open submission launchpad. |
-| 22 | **FoundrList** | 72 | DR 72. Directory curated for founders and creators. |
-| 23 | **StartupBlink** | 72 | DR 72. Global startup ecosystem directory. Register app under Kyiv/Ukraine ecosystem. |
-| 24 | **TrustMRR** | 71 | DR 71. Focused on bootstrapped revenue projects. Great credibility if sharing metrics. |
-| 25 | **Tiny Startups** | 71 | DR 71. Directory of indie, bootstrapped apps. Free submission. |
-| 26 | **SideProjectors** | 71 | DR 71. Community for side projects. Good for indie maker backlinks. |
-| 27 | **OpenHunts** | 71 | DR 71. Product Hunt-style directory. Quick submit. |
-| 28 | **Scroll Launch** | 70 | DR 70. Modern launch feed. Submit via web form. |
-| 29 | **ToolFame** | 75 | DR 75. High authority tool directory. |
+| 22 | **FoundrList** | 72 | DR 72. Directory for founders and creators. |
+| 23 | **StartupBlink** | 72 | DR 72. Global startup ecosystem map (list under Ukraine/Kyiv ecosystem). |
+| 24 | **TrustMRR** | 71 | DR 71. Bootstrapped indie tech directory. |
+| 25 | **Tiny Startups** | 71 | DR 71. Directory of bootstrapped indie tools. |
+| 26 | **SideProjectors** | 71 | DR 71. Marketplace & community for side projects. |
+| 27 | **OpenHunts** | 71 | DR 71. Community upvote directory. |
+| 28 | **Scroll Launch** | 70 | DR 70. Modern launch feed. |
+| 29 | **ToolFame** | 75 | DR 75. Tool discovery directory. |
 | 30 | **PeerPush** | 75 | DR 75. Community directory and upvoting site. |
-| 31 | **PitchWall** | 69 | DR 69. Startup pitch wall. Submit clean visual cards. |
-| 32 | **Startup Stash** | 65 | DR 65. Long-standing directory for tools. List under Photo/Video resources. |
+| 31 | **PitchWall** | 69 | DR 69. Startup showcase cards. |
+| 32 | **Startup Stash** | 65 | DR 65. Directory of resources and tools. |
 
 ---
 
-## 5. Tier 3: AI & Algorithmic Aggregators (Positioning Required)
+## 6. Tier 3: Algorithmic & AI Aggregators (25 Platforms — Free Queue Only)
 
-**Warning**: Compresso is **not** a generative AI tool. If submitted as a generic app, these directories will reject it. However, because many have DR 65–85, Compresso can be legitimately positioned around **"Algorithmic Quality-Preserving Visual Compression & On-Device Vision Processing"** (Laplacian edge preservation, smart bit-rate adaptation).
+**Angle required**: Reposition from "cleaner" to **"Smart Algorithmic Visual Compression & On-Device Vision Processing"** (Laplacian texture preservation, adaptive bitrates, perceptual fidelity).
 
-| # | Platform | DR | Repositioning Strategy |
+| # | Platform | DR | Positioning Angle |
 |---|---|---|---|
-| 33 | **There's an AI for That** | 77 | DR 77. Massive traffic. Tag: *AI Photo Compression / Media Optimization*. Highlight smart edge detection. |
-| 34 | **Toolify** | 73 | DR 73. Huge directory. Submit under *Image Processing / Video Tools*. Free queue only. |
-| 35 | **Futurepedia** | 72 | DR 72. High traffic. Focus on smart algorithmic storage optimization. |
-| 36 | **Future Tools** | 69 | DR 69. Curated by Matt Wolfe. Requires clean utility pitch. Skip if paid. |
-| 37 | **Dang AI** | 82 | DR 82. High authority backlink. Submit free if available. |
-| 38 | **Twelve Tools** | 82 | DR 82. Powerful backlink. Standard tool submission. |
-| 39 | **Turbo0** | 80 | DR 80. AI & smart tool search engine. |
-| 40 | **Tool Pilot** | 78 | DR 78. Curated tool database. |
-| 41 | **Show Me Best AI** | 76 | DR 76. Submit under Media Tools. |
-| 42 | **Open Tools** | 69 | DR 69. Open AI & software directory. |
-| 43 | **NxGn Tools** | 69 | DR 69. Next-gen tool directory. |
-| 44 | **Versily** | 68 | DR 68. AI and automated tools index. |
-| 45 | **AI Tools (aitools.inc)**| 67 | DR 67. Standard algorithmic media utility submission. |
-| 46 | **UNO Directory** | 66 | DR 66. General & smart tech directory. |
-| 47 | **Top AI Tools** | 64 | DR 64. Media compression category. |
-| 48 | **Huzzler** | 64 | DR 64. Tech tools directory. |
-| 49 | **Dev Hunt** | 63 | DR 63. Developer-focused product hunt. Pitch the Swift 6 architecture. |
-| 50 | **Startup Ranking** | 61 | DR 61. Global ranking index. |
-| 51 | **AIxploria** | 56 | DR 56. French/international AI directory. |
-| 52 | **AI Tool Directory** | 52 | DR 52. Directory backlink. |
-| 53 | **Euro Alternative** | 38 | DR 38. **Strategic Niche**: Position as the *European Privacy Alternative* to US cloud photo hoarders. 100% on-device, GDPR compliant. |
+| 33 | **There's an AI for That** | 77 | Tag: *AI Photo Compression / Media Optimization*. Highlight smart edge detection. |
+| 34 | **Toolify** | 73 | Category: *Image Processing / Video Tools*. Free queue only. |
+| 35 | **Futurepedia** | 72 | Smart on-device visual storage optimization. |
+| 36 | **Future Tools** | 69 | Curated by Matt Wolfe. Free queue only. |
+| 37 | **Dang AI** | 82 | High authority directory. Submit free if available. |
+| 38 | **Twelve Tools** | 82 | Media optimization tool category. |
+| 39 | **Turbo0** | 80 | AI & smart tool search engine. |
+| 40 | **Tool Pilot** | 78 | Smart media utility. |
+| 41 | **Show Me Best AI** | 76 | Media Tools category. |
+| 42 | **Open Tools** | 69 | Open AI & utility directory. |
+| 43 | **NxGn Tools** | 69 | Next-gen tool directory. |
+| 44 | **Versily** | 68 | Automated visual tools. |
+| 45 | **AI Tools (aitools.inc)**| 67 | Media processing category. |
+| 46 | **UNO Directory** | 66 | Utility apps. |
+| 47 | **Top AI Tools** | 64 | Media compression category. |
+| 48 | **Huzzler** | 64 | Tech tools directory. |
+| 49 | **Dev Hunt** | 63 | Pitch the Swift 6 / Metal / VideoToolbox architecture. |
+| 50 | **Startup Ranking** | 61 | Global ranking index. |
+| 51 | **AIxploria** | 56 | French/international directory. |
+| 52 | **AI Tool Directory** | 52 | Directory backlink. |
+| 53 | **Euro Alternative** | 38 | **European Privacy Alternative** to US cloud photo hoarders. 100% on-device, GDPR compliant. |
 
 ---
 
-## 6. Tier 4: Misaligned or Low-Value Platforms (SKIP or Deprioritize)
+## 7. Tier 4: Misaligned or Low-Value Platforms (SKIP)
 
-These platforms either have zero relevance to an iOS consumer utility, represent B2B enterprise SaaS marketplaces, or have very low authority (DR < 45) with negligible organic traffic.
-
-### A. Completely Misaligned (Do Not Submit)
-- **Clutch (DR 91)**: Exclusively for B2B digital agencies, dev shops, and enterprise consultants. An iOS app listing is invalid and rejected.
-- **Public APIs (DR 46)**: For public developer APIs and endpoints. Compresso is a local mobile client with no public API.
-- **GetApp (DR 85)** & **Software Suggest (DR 77)** & **SaaS Genius (DR 57)**: Gartner-owned or B2B enterprise software review sites (CRMs, ERPs, HR software). Waste of time for a $2.99 consumer iOS compression tool.
-- **SourceForge (DR 92)**: Desktop/server open-source software. Mobile iOS consumer apps look completely out of place.
-- **OpenAlternative (DR 52)**: Exclusively for open-source alternatives. Compresso is proprietary.
-- **AI for Developers (DR 21)** & **Dev Resources (DR 40)**: For developer SDKs and code tools.
-
-### B. Low Authority / Low Traffic Link Farms (Submit only if automated/free)
-- **SEO Wins (DR 32)**, **Startup Buffer (DR 43)**, **Toolfolio (DR 35)**, **TinyHunt (DR 43)**, **Altern (DR 49)**, **Resource FYI (DR 31)**, **AI Valley (DR 33)**, **AI Tools Club (DR 35)**, **AI Parabellum (DR 34)**, **MakerHunt (DR 45)**, **SideHunt (DR 44)**, **Firsto (DR 56)**, **Daily Pings (DR 56)**, **Micro SaaS Examples (DR 49)**, **Build Voyage (DR 43)**, **Product Burst (DR 40)**, **Try Launch (DR 56)**, **Find Your SaaS (DR 44)**, **SaaS Hunt (DR 60)**, **Startup Listing (DR 40)**, **Promote Project (DR 50)**, **Idea Kiln (DR 51)**, **IndieHub (DR 40)**, **Appscribed (DR 41)**, **SEOFAI (DR 19)**, **Powerusers AI (DR 33)**, **ShipBoost (DR 50)**, **Launch Vault (DR 56)**.
+Do not spend time on these 37 platforms:
+- **Clutch (DR 91)**: Strictly for B2B IT agencies and software dev consultancies.
+- **Public APIs (DR 46)**: For public developer APIs. Compresso has no public API.
+- **GetApp (DR 85)**, **Software Suggest (DR 77)**, **SaaS Genius (DR 57)**: B2B enterprise software (CRM/ERP).
+- **SourceForge (DR 92)** & **OpenAlternative (DR 52)**: Open-source desktop software focus.
+- **AI for Developers (DR 21)** & **Dev Resources (DR 40)**: Developer SDKs.
+- **Low DR (<45) or Dead Link Farms**: SEO Wins, Startup Buffer, Toolfolio, TinyHunt, Altern, Resource FYI, AI Valley, AI Tools Club, AI Parabellum, MakerHunt, SideHunt, Firsto, Daily Pings, Micro SaaS Examples, Build Voyage, Product Burst, Try Launch, Find Your SaaS, SaaS Hunt, Startup Listing, Promote Project, Idea Kiln, IndieHub, Appscribed, SEOFAI, Powerusers AI, ShipBoost, Launch Vault.
 
 ---
 
-## 7. Submission Master Copy & Assets Kit
+## 8. Attribution Protocol: App Store Campaign Links (`ct`)
 
-To execute Tier 1 & Tier 2 submissions in under 2 hours without context switching, use these standardized copy templates:
+Never send untracked external traffic to a raw App Store link. Generate separate campaign tokens using `scripts/campaign_link.py`:
 
-### 1. Elevator Pitch (Under 60 chars)
-> Compresso — Shrink iPhone videos & photos by up to 80%
-
-### 2. Short Description (Under 150 chars)
-> Fast, 100% on-device photo and video compressor for iOS. Free up gigabytes of iPhone storage without losing visual quality or uploading to the cloud.
-
-### 3. Key Differentiators / Bullets
-- **100% On-Device Privacy**: Zero cloud uploads. All video and photo processing runs natively using Apple Silicon hardware acceleration.
-- **Lossless Visual Fidelity**: Intelligent Laplacian edge preservation and perceptual compression — shrinks 4K video from 1 GB to 150 MB with no visible degradation.
-- **Side-by-Side Comparison Slider**: Inspect full-resolution frames before and after compression in real time.
-- **Tinder-Style Review Flow**: Clean up forgotten media with quick, effortless left/right swipe gestures.
-- **Privacy First**: No account required, zero tracking, works 100% offline (Airplane mode compatible).
-
-### 4. Primary Categories & Tags
-- Categories: `iOS Utilities`, `Mobile Photography`, `Photo & Video`, `Productivity`, `Storage Cleaner`
-- Tags: `ios`, `iphone`, `compression`, `video-compression`, `photo-cleaner`, `storage`, `privacy`, `swift`
-
-### 5. Competitor Mapping (For AlternativeTo / SaaSHub)
-- **Alternative to**: CleanMyPhone, Gemini Photos, Smart Cleaner, Google Photos, HandBrake.
-
----
-
-## 8. Execution Timeline & Batching Plan
-
-Do not attempt all 94 at once. Execute in 3 distinct, manageable waves:
-
-```mermaid
-graph TD
-    A[Wave 1: High-Intent Engines] -->|Days 1-3| B[AlternativeTo + SaaSHub + Peerlist + Uneed + Fazier]
-    B -->|Scheduled Launch Day| C[Product Hunt + Hacker News Show HN]
-    C -->|Wave 2: Week 2| D[22 Tier-2 High-DR Directories]
-    D -->|Wave 3: Week 3| E[Selected Algorithmic & Privacy Aggregators]
+```bash
+# Example campaign token generation:
+python3 .agents/skills/ios-marketing-ops/scripts/campaign_link.py \
+  --channel reddit \
+  --campaign-name "reddit_sideproject" \
+  --destination "https://apps.apple.com/app/id6790447224"
 ```
 
-1. **Wave 1 (High Intent — Days 1–3)**:
-   - Setup profile on **AlternativeTo** (immediately generates organic search traffic).
-   - Setup **SaaSHub**, **Peerlist**, **Uneed**, and **Fazier**.
-2. **Dedicated Launch Day**:
-   - Execute **Product Hunt** (full day commitment) and **Hacker News (Show HN)**.
-3. **Wave 2 (SEO Authority — Week 2)**:
-   - Batch-submit to the 22 Tier-2 directories with DR 70+ using the Copy Kit above (approx. 10 minutes per 3 directories).
-4. **Wave 3 (Niche / Privacy — Week 3)**:
-   - Submit to European/Privacy directories (**Euro Alternative**) and select algorithmic tool directories. Skip Tier 4 entirely.
+### Dedicated Tokens for the Rolling Launch:
+- `?ct=ph_launch` → Product Hunt
+- `?ct=hn_show` → Hacker News Show HN
+- `?ct=reddit_iosapps` → r/iosapps
+- `?ct=reddit_sideproject` → r/SideProject
+- `?ct=peerlist` → Peerlist Launchpad
+- `?ct=alternativeto` → AlternativeTo
+
+In **App Store Connect Analytics → Acquisition → Campaigns**, evaluate:
+`Channel → Impressions → Product Page Views → Downloads → Sessions/User → Paywall Views → Trial Starts`.
+
+---
+
+## 9. The 14-Day Rolling Momentum Schedule
+
+```text
+Week 1: Foundations, Queues & First Spikes
+├── Day 0: Submit AlternativeTo, BetaList, Uneed (start their long review queues)
+├── Day 1-2: Batch submit Tier-2 directories (22 sites, 90 mins)
+├── Day 3: Reddit Test #1 (r/SideProject or r/ios) — monitor crash reports & first UX friction
+├── Day 4-5: Hacker News Show HN (Dedicated Spike) — technical discussion, founder active in thread
+└── Day 6: Analyze HN/Reddit telemetry in GA4 + ASC. Patch any onboarding/paywall blocker.
+
+Week 2: The Main Event & Design Showcase
+├── Monday (Day 8): Peerlist Launchpad (Dedicated Weekly Spike)
+├── Tuesday or Thursday (Day 9/11): PRODUCT HUNT LAUNCH (The 24h Momentum Day)
+│   └── Mobilize network, update X/Threads, answer every comment live.
+├── Day 12: Reddit Test #2 (r/iosapps with mandatory ABC format & 30-day cooldown)
+└── Day 14: Comprehensive Funnel Audit across all `ct` tokens.
+```
