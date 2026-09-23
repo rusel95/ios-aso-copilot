@@ -21,6 +21,7 @@ import argparse
 import csv
 import datetime as dt
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -30,8 +31,7 @@ RANK_HEADER = ["date", "market", "keyword", "group", "position", "popularity",
 # status vocabulary: ok = found at `position`; beyond-depth = queried, absent within `depth`;
 # error = request failed. A keyword never queried has no row at all — that is not the same thing.
 TODAY = dt.date.today()
-# Apple documents the iTunes Search API at "approximately 20 calls per minute"; over it, 429.
-# https://performance-partners.apple.com/search-api
+# Apple documents an approximate, changeable limit; this 3s minimum is a local guard, not a guarantee.
 DEFAULT_DELAY = 3.0
 
 # Every input this run could not use. A store file that cannot be parsed must never be skipped
@@ -577,12 +577,13 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     The basket is whatever `ranks.csv` already contains — never a list retyped by hand, which is
     how a query silently leaves the basket and a window closes on a different set than it opened on.
 
-    Apple documents the Search API at "approximately 20 calls per minute", and over it returns 429
-    (https://performance-partners.apple.com/search-api). Hence DEFAULT_DELAY = 3.0s. Measured here
-    on 2026-09-08: 6 workers at 0.1s lost 478 of 649 queries; one worker at 1.0s still lost 135 of
-    261. Apple says "approximately", so a legal rate can still 429 in a burst: run the command again
-    with --failed-only to pick up what it lost.
+    Apple currently documents an approximate limit of 20 calls/minute, subject to change
+    (https://performance-partners.apple.com/search-api). DEFAULT_DELAY = 3.0s is a local minimum,
+    not a guarantee of success. Measured here on 2026-09-08: 6 workers at 0.1s lost 478 of 649
+    queries; one worker at 1.0s still lost 135 of 261. Use --failed-only to retry missing observations.
     """
+    if not math.isfinite(delay) or delay < DEFAULT_DELAY:
+        sys.exit(f"--delay must be at least {DEFAULT_DELAY:.1f} seconds; lower delays are refused")
     import subprocess
     rows = read_ranks(store)
     if not rows:
@@ -672,12 +673,13 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     else:
         print("Every requested keyword in every requested storefront returned a response.")
     if err and not ok:
-        sys.exit(f"every query failed — Apple returns 429 above ~20 calls/minute, so --delay must "
-                 f"stay >= 3.0 (this run used {delay}). Nothing ingested.")
+        sys.exit(f"every query failed (this run used --delay {delay}). Nothing ingested; inspect "
+                 "the per-query errors and retry only after correcting the cause.")
     return ingest(store, snapshot, str(TODAY), "itunes-search-api", 200, "target")
 
 # ---------------------------------------------------------------- self-check
 def self_check():
+    global TODAY
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         store = Path(tmp)
@@ -781,17 +783,48 @@ def self_check():
                 raise AssertionError(f"must refuse a basket it cannot measure: {bad}")
             except SystemExit as exc:
                 assert "no successful observation" in str(exc), exc
+
+        try:
+            refresh(store, "test.bundle", [], False, 1.0, store / "snapshots")
+            raise AssertionError("refresh must refuse delays below its local minimum")
+        except SystemExit as exc:
+            assert "--delay must be at least 3.0 seconds" in str(exc), exc
+
+        import contextlib, io
+        from unittest.mock import patch
+        original_today = TODAY
+        try:
+            with patch.object(sys, "argv", ["ledger.py", "--store", str(store), "report",
+                                             "--as-of", "2025-01-02"]):
+                with contextlib.redirect_stdout(io.StringIO()) as report_output:
+                    main()
+            assert "# Marketing ledger · 2025-01-02" in report_output.getvalue()
+            with patch.object(sys, "argv", ["ledger.py", "--store", str(store), "refresh",
+                                             "--bundle", "test.bundle", "--as-of", "2025-01-02"]):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    try:
+                        main()
+                        raise AssertionError("refresh must reject --as-of before any network call")
+                    except SystemExit as exc:
+                        assert exc.code == 2
+        finally:
+            TODAY = original_today
     print("\nOK: stale positions, failed requests, dedupe, one-observation keys, unreadable positions,\n"
-          "    censored pairs, legacy provenance/schema warnings, window states, proceeds-weighted order")
+          "    censored pairs, legacy provenance/schema warnings, date replay, delay guard,\n"
+          "    window states, proceeds-weighted order")
 
 
 def main():
+    global TODAY
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh"], default="report")
     p.add_argument("snapshot", nargs="?")
     p.add_argument("--store", type=Path)
+    p.add_argument("--as-of", type=dt.date.fromisoformat,
+                   help="evaluation date for report/draft (YYYY-MM-DD); fixes time-dependent ledger state")
     p.add_argument("--date", default=str(TODAY))
-    p.add_argument("--delay", type=float)
+    p.add_argument("--delay", type=float,
+                   help="seconds between Search API requests (minimum 3.0; default 3.0)")
     p.add_argument("--source", default="itunes-search-api")
     p.add_argument("--depth", type=int)
     p.add_argument("--group", default="target")
@@ -808,6 +841,10 @@ def main():
     args = p.parse_args()
     if args.self_check:
         return self_check()
+    if args.as_of:
+        if args.command not in ("report", "draft"):
+            p.error("--as-of applies only to report and draft; ingest/refresh record observation dates")
+        TODAY = args.as_of
     if not args.store or not args.store.exists():
         p.error("--store must point at the app repo's marketing/ directory")
     PROBLEMS.clear()

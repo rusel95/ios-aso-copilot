@@ -15,7 +15,7 @@ below, and this list is the authority, not the category description.
 
 Apply the user's existing authorization across turns. Unlisted read-only or reversible local commands can proceed after checking their help; do not invent a permission gate. For external mutations outside the authorized scope, prepare the concrete artifact before asking.
 
-**Version note.** This list was transcribed against `asc` 3.1.1 (`specs/013-marketing-ops-skill/contracts/approval-fence.md`, 2026-08-19) and spot-checked against the installed `asc --version` before this file was written — still 3.1.1. If a future run sees a different version, diff this list against that version's `--help` output before trusting it: a major bump can rename or restructure a write subcommand, and a renamed command missing from this list is invisible to the deny rule, not denied by it.
+**Version note.** This list was transcribed against `asc` 3.1.1 (`specs/013-marketing-ops-skill/contracts/approval-fence.md`, 2026-08-19). The audit host reported `asc` 5.1.0 on 2026-09-23; help was checked for the read/local commands used in that audit, but the external-write fence below has not been revalidated against 5.1.0. Before any external write, inspect that exact command's current `--help` and confirm it remains fenced. A renamed write missing from this list is not implicitly allowed.
 
 In `auto` mode, hitting a fenced command does **not** abort the cycle (FR-021): write it to
 `marketing/queue.md` with its exact command, its plain-language effect, and its preconditions, and

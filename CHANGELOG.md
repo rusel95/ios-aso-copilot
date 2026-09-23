@@ -7,6 +7,26 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.4.0 — App identity and partial-run correctness — 2026-09-23
+
+Partially closes R-12; automatic bounded retries and persistent run manifests remain open.
+
+- `copilot.py` now requires a numeric configured App Store ID and working version instead of silently
+  using another app's fallback identity. It verifies the funnel helper's literal App ID, checks support
+  for `--raw-dir`, writes each pull to a unique app-scoped temporary directory, and refuses the helper's
+  shared destructive default. GA4 uses only the configured property or an explicit one-off override;
+  environment/state/app mappings and broad credential-file discovery are removed.
+- Full cycles now return a partial/failure exit status when collection is incomplete, distinguish
+  unavailable review evidence from zero reviews, treat empty GA output as unknown, and retain the full
+  bounded GA output for diagnosis. ASC version/rating/review payloads are reduced to bounded summaries;
+  review bodies stay out of the cycle output.
+- `ledger.py` supports an explicit `--as-of` for replayable reports/drafts and rejects refresh delays
+  below its local minimum. These controls improve consistency; live provider responses can still change.
+- Verified against MediaCleaner with isolated before/after cycles and a same-input ledger comparison.
+  The same-input report was identical; live timing was not comparable because the source export sizes differed.
+
+---
+
 ## v2.3.0 — `refresh` stopped losing keywords silently — 2026-09-20
 
 Closes R-12 (bounded, error-visible retries) and R-20 (per-market progress) for `ledger.py refresh`

@@ -60,9 +60,11 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
 - R-11: calibrate any future search proxy against a suitable reference. Until then label it discovery;
   retire unsupported claims such as a known “±300%” accuracy range.
 - R-12: rate limits and bounded retries with explicit partial-run/error records; no success-shaped
-  empty data. Partially closed 2026-09-20 (see CHANGELOG v2.3.0) — `refresh` now names every
-  missing/truncated keyword instead of a silent success line. Still open: automatic bounded retry;
-  today a partial failure requires a manual `--failed-only` re-run.
+  empty data. Partially closed 2026-09-20 and 2026-09-23 (see CHANGELOG v2.3.0/v2.4.0): `refresh`
+  names missing/truncated keywords and enforces its local delay floor; `cycle` validates the configured
+  app identity, isolates funnel raw files, and returns a partial/failure status when a stage is
+  incomplete. Still open: automatic bounded retry and a persistent run manifest; retry failures with
+  `--failed-only` and retain explicit replay limits.
 - R-17: wire verified observations into the cycle after R-13/R-29; do not restore forecast leaderboards.
 - R-18/R-19: npm publication or additional packaging only when distribution demand exists.
 - R-22: review reply drafting; retain author approval for public responses.

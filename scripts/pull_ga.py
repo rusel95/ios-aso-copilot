@@ -2,8 +2,8 @@
 """Universal Google Analytics 4 / Firebase In-App Telemetry & Funnel Puller.
 
 Part of the global ios-marketing-ops / ios-aso-copilot skill.
-Works universally across any iOS project (WhiteNoise/Hush, MediaCleaner/Compresso, etc.)
-to pull engagement metrics, user event counts, and monetization funnel conversions.
+Reads only the selected app store's configured GA4 property and credentials, and reports
+engagement metrics, event counts, and monetization funnel observations.
 
 Usage:
     # 1. Install dependency:
@@ -20,7 +20,6 @@ Usage:
 
 import argparse
 import csv
-import glob
 import json
 import os
 import sys
@@ -89,12 +88,6 @@ KNOWN_EVENTS = {
     "purchase_restored": ("Відновлення покупок", "purchase"),
 }
 
-# Known App ID -> Default GA4 Property ID mappings
-KNOWN_APP_PROPERTIES = {
-    "6790447224": "552518102",   # MediaCleaner / Compresso
-}
-
-
 # MARK: - Table Formatting
 
 def format_table(headers, rows):
@@ -118,7 +111,7 @@ def format_table(headers, rows):
 # MARK: - Config & Discovery Helpers
 
 def resolve_app_info(store: Path):
-    """Read App ID, version, brand and GA4 configuration from store/config.md or STATE.md."""
+    """Read app identity and GA4 configuration from the selected store only."""
     app_id = ""
     brand = ""
     ga4_property_id = ""
@@ -138,21 +131,12 @@ def resolve_app_info(store: Path):
                     brand = val.split(",")[0].strip().lower()
             elif line.startswith("**GA4 Property ID**:") or line.startswith("**Firebase Property ID**:"):
                 val = line.split(":", 1)[1].strip()
-                if val and val != "TODO":
+                if val and val.split(maxsplit=1)[0].upper() != "TODO":
                     ga4_property_id = val.split()[0]
             elif line.startswith("**GA4 Credentials**:"):
                 val = line.split(":", 1)[1].strip()
-                if val and val != "TODO":
-                    ga4_creds = val
-
-    state_file = store / "STATE.md"
-    if state_file.exists() and not ga4_property_id:
-        for line in state_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("ga4_property_id:"):
-                val = line.split(":", 1)[1].strip().strip('"\'')
-                if val:
-                    ga4_property_id = val
+                if val and val.split(maxsplit=1)[0].upper() != "TODO":
+                    ga4_creds = val.strip("\"'")
 
     return {
         "app_id": app_id,
@@ -162,35 +146,11 @@ def resolve_app_info(store: Path):
     }
 
 
-def find_default_credentials(app_info: dict, store: Path):
-    """Search for GA4 / Google Application Credentials in standard paths."""
-    env_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if env_creds and os.path.exists(env_creds):
-        return env_creds
-
-    if app_info.get("ga4_creds") and os.path.exists(os.path.expanduser(app_info["ga4_creds"])):
+def find_default_credentials(app_info: dict):
+    """Prefer this app's explicit credential path, then a configured runtime credential."""
+    if app_info.get("ga4_creds"):
         return os.path.expanduser(app_info["ga4_creds"])
-
-    brand = app_info.get("brand", "")
-    candidates = []
-    if brand:
-        candidates.append(os.path.expanduser(f"~/.config/{brand}-analytics-key.json"))
-    candidates.extend([
-        os.path.expanduser("~/.config/analytics-key.json"),
-        os.path.expanduser("~/.config/mediacleaner-analytics-key.json"),
-        os.path.expanduser("~/.config/whitenoise-analytics-key.json"),
-        os.path.expanduser("~/.config/firebase-analytics-key.json"),
-    ])
-
-    repo_root = store.parent
-    candidates.extend(glob.glob(str(repo_root / "*analytics*.json")))
-    candidates.extend(glob.glob(str(repo_root / "*firebase*adminsdk*.json")))
-
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-
-    return None
+    return os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
 
 def get_version_filter(exclude_debug: bool = True):
@@ -432,23 +392,23 @@ def main():
     app_info = resolve_app_info(store)
 
     # 1. Resolve Property ID
-    property_id = args.property_id or os.environ.get("GA4_PROPERTY_ID") or app_info.get("ga4_property_id")
-    if not property_id and app_info.get("app_id") in KNOWN_APP_PROPERTIES:
-        property_id = KNOWN_APP_PROPERTIES[app_info["app_id"]]
+    if not app_info.get("app_id", "").isdigit():
+        sys.exit(f"Set a numeric **App ID** in {store / 'config.md'} before querying GA4.")
+
+    property_id = args.property_id or app_info.get("ga4_property_id")
+    if property_id and not property_id.isdigit():
+        sys.exit("GA4 Property ID must be numeric; set it in the selected store config or pass --property-id.")
 
     if not property_id:
         sys.exit(
             "⚠️  GA4 Property ID не знайдено.\n"
-            "Вкажіть його одним із способів:\n"
-            "  1. Через прапорець: --property-id <ID>\n"
-            "  2. Через змінну оточення: export GA4_PROPERTY_ID='<ID>'\n"
-            "  3. Додайте у marketing/config.md рядок:\n"
-            "     **GA4 Property ID**: <ID>\n"
+            "Додайте у вибраний marketing/config.md рядок **GA4 Property ID**: <ID> "
+            "або передайте --property-id <ID>. Значення з environment, STATE.md та інших apps не використовуються.\n"
             "  (Знайти Property ID можна в Google Analytics Console → Admin → Property Settings → Property ID)."
         )
 
     # 2. Resolve Credentials
-    credentials_path = args.credentials or find_default_credentials(app_info, store)
+    credentials_path = args.credentials or find_default_credentials(app_info)
     if credentials_path:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 

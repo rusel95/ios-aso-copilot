@@ -1,95 +1,64 @@
-# Google Analytics 4 / Firebase In-App Product Analytics
+# Google Analytics 4 / Firebase product analytics
 
-In-app telemetry connects top-of-funnel App Store acquisition (impressions and downloads) with downstream product activation, engagement, and monetization. An ASO iteration that only looks at downloads cannot tell whether acquired users ever opened the app, engaged with core mechanics, encountered the paywall, or dropped off.
+Use this reference only when the app has configured GA4/Firebase access and the requested question needs
+in-app behavior. Treat GA4 as an observation source, not as proof of attribution or causality.
 
----
+## Identity, credentials and collection
 
-## 1. Environment & Setup
-
-The project includes a ready-to-run extraction script at `marketing/scripts/pull_ga.py`.
-
-### Requirements & Credentials
-* **Python Environment**: Run via the project's virtual environment:
-  ```bash
-  .venv/bin/python marketing/scripts/pull_ga.py [options]
-  ```
-  *(Package `google-analytics-data` is pre-installed in `.venv`)*.
-* **Credentials**: Service account key JSON is located at:
-  ```
-  ~/.config/mediacleaner-analytics-key.json
-  ```
-  *(Automatically picked up by default)*.
-* **GA4 Property ID**: `552518102` *(pre-configured as default)*.
-
----
-
-## 2. Extraction Commands
-
-Run during the weekly audit or when diagnosing hypothesis performance:
+- `STORE/config.md` must name the numeric `**GA4 Property ID**` for this app. A one-off query may pass
+  `--property-id <ID>`. Property selection never comes from environment variables, `STATE.md`, or an
+  App ID mapping. `copilot cycle` uses only the configured property and marks the stage unavailable if
+  it is missing.
+- Credentials resolve in this order: explicit `--credentials`, then the app-specific
+  `**GA4 Credentials**` path in `STORE/config.md`, then `GOOGLE_APPLICATION_CREDENTIALS`. Do not search another app's config,
+  credential files, or cached state. Keep credential values out of reports and model context.
+- The `google-analytics-data` Python package must already be available in the selected environment.
+  Do not install dependencies or create credentials during a status check.
 
 ```bash
-# Standard weekly pull (last 7 days, release traffic only)
-.venv/bin/python marketing/scripts/pull_ga.py --days 7
-
-# Two-week / cohort view (last 14 days)
-.venv/bin/python marketing/scripts/pull_ga.py --days 14
-
-# Real-time traffic check (last 30 minutes, useful after a release or marketing push)
-.venv/bin/python marketing/scripts/pull_ga.py --realtime
-
-# Include local debug / simulator traffic (appVersion == '0')
-.venv/bin/python marketing/scripts/pull_ga.py --days 7 --include-debug
+GA="$SKILL_DIR/scripts/pull_ga.py"
+python3 "$GA" --store "$STORE" --days 7
+python3 "$GA" --store "$STORE" --days 14 --export-csv
+python3 "$GA" --store "$STORE" --realtime
+python3 "$GA" --store "$STORE" --days 7 --include-debug
 ```
 
----
+`--include-debug` changes the population by including app version `0`; label that explicitly. The report
+uses its declared date range and version filter. Preserve those with the capture time when recording
+results. A successful command or a blank table does not establish that tracking is complete.
 
-## 3. In-App Metrics & Funnel Mapping
+## Event and metric interpretation
 
-| Step | Metric / Event | Source | Meaning & Denominator |
-|:---|:---|:---:|:---|
-| **Acquisition** | First-time Downloads | ASC Analytics | Users who downloaded the app from the App Store. |
-| **First Open** | `first_open` / `newUsers` | GA4 / Firebase | Devices opening the app for the first time. **Install-to-Open Rate** = `first_open` / `First-time Downloads`. |
-| **Permission Gate** | `photo_access_gate_shown`<br>`photo_access_answered` | GA4 (v1.1.4+) | User encounters the system photo permission dialog and answers (granted / limited / denied). Critical onboarding bottleneck. |
-| **Activation** | `session_start`<br>`user_engagement` | GA4 / Firebase | User launches a session. **Session Frequency** = `sessions` / `activeUsers`. **Engagement** = `userEngagementDuration` / `activeUsers`. |
-| **Core Engagement** | `media_swiped` | GA4 / Firebase | User reviews photos/videos (keep, delete, compress). **Swipes/User** = `media_swiped` / users. |
-| **Action / Value** | `cleanup_completed` | GA4 / Firebase | User successfully executes batch deletion or compression. |
-| **Monetization Gate** | `paywall_shown` | GA4 / Firebase | User encounters the paywall (e.g. hitting the free monthly limit or tapping Pro features). |
-| **Conversion** | `trial_starts`<br>`in_app_purchase` | ASC / GA4 | Subscription trial started or purchased. |
-| **App Store Feedback** | `rating_prompt_requested` | GA4 / Firebase | System review prompt requested (governed by 3-per-year ceiling). |
+These are examples only. Confirm that this app emits each event, uses the same definition, and has
+complete instrumentation before using it. Do not infer a missing event from another app's taxonomy.
 
----
+| Funnel area | Example signals | Interpretation constraint |
+|---|---|---|
+| Acquisition | ASC impressions, product page views, downloads | Store metrics and GA users are different populations and may use different attribution windows. |
+| First use | `first_open`, `newUsers`, `session_start` | Validate event meaning, consent, install attribution, reporting delay and market alignment. |
+| Activation | App-specific core-action events | Define the action and eligible user denominator for this app. |
+| Monetization | `paywall_shown`, trial, purchase events | Check event definitions, billing source, test traffic and attribution before interpreting conversion. |
+| Feedback | App-specific rating prompt events | A prompt request is not a submitted App Store rating. |
 
-## 4. How to Use GA4 Data in Weekly Audits & Recommendations
+For rates, state numerator, denominator, source, filters, time window and timezone. Compare the same
+storefronts and compatible periods; GA4 country dimensions may not equal ASC storefronts. Small counts,
+privacy thresholds, consent loss, event delays and instrumentation changes can make an apparent zero
+inconclusive. ASC downloads with no observed `first_open` is a measurement gap unless coverage, window,
+country and denominator have been reconciled; it does not prove that each downloader never opened the app.
 
-### Rule 1: Reconcile Storefront Acquisition with Real App Openings
-* Compare ASC downloads by country against GA4 `activeUsers` and `first_open` by country.
-* If a country shows downloads in ASC (e.g. 2 downloads in Japan) but 0 `first_open` events, users downloaded but never launched the app.
-* If `first_open` is high but `photo_access_answered` is low or denied, onboarding friction is losing users before they see the library.
+## Diagnosis and recommendations
 
-### Rule 2: Distinguish Organic Users from Internal Test Confounds
-* As documented in `marketing/decisions.md` (2026-09-10), internal testers (e.g. Ruslan and family) can heavily skew activation and trial numbers in Ukraine (`ua`).
-* Always verify whether `paywall_shown` or `trial_starts` come from test devices or genuine organic storefronts before claiming monetization traction.
+- Separate internal/test cohorts from customer traffic when the source supports it. If cohort identity is
+  unavailable, say the mix is unknown rather than calling the observed users organic.
+- Low observed paywall events can reflect exposure, eligibility, event instrumentation, traffic volume or
+  filtering. Do not diagnose a quota or product issue from the count alone.
+- Zero observed trials or purchases can reflect low exposure, delays, event loss, store billing records,
+  or insufficient volume. Verify the purchase source and comparable window before recommending paywall,
+  pricing or product changes.
+- Use the evidence to form a testable hypothesis with a baseline, primary metric, guardrails, window and
+  confounds. Do not turn generic benchmarks or unjoined totals into a causal diagnosis.
 
-### Rule 3: Diagnose the Monetization Bottleneck
-* **Scenario A: High downloads, low paywall exposure**
-  * Users are downloading and swiping, but `paywall_shown` count is near zero.
-  * **Diagnosis**: Users never exhaust the free monthly quota (the paywall trigger is too permissive or users drop off before reaching it).
-  * **Recommendation**: Introduce earlier value hooks, contextual Pro feature indicators, or refine the free quota model.
-* **Scenario B: Paywall shown, zero conversion**
-  * Users reach `paywall_shown`, but zero trials start.
-  * **Diagnosis**: Paywall creative, pricing, or value proposition is unconvincing in that market.
-  * **Recommendation**: Test paywall copy, local PPP pricing (`asc-ppp-pricing`), or alternative billing periods.
-* **Scenario C: High engagement, low downloads**
-  * Existing users have high average engagement (>10 minutes/user, multiple sessions), but new user acquisition is low.
-  * **Diagnosis**: Product value and retention are strong; top-of-funnel ASO reach and keywords are the growth constraint.
-  * **Recommendation**: Expand keyword baskets, iterate screenshots, or explore Apple Search Ads / external channels.
-
----
-
-## 5. Integrating with the Weekly Routine
-
-On every weekly audit or status review:
-1. Run `marketing/scripts/pull_funnel.py` to get the latest App Store Connect analytics.
-2. Run `.venv/bin/python marketing/scripts/pull_ga.py --days 7` (or `--days 14`) to get in-app activation metrics.
-3. Cross-reference country breakdown: compare ASC download countries with GA4 active user countries.
-4. Record both acquisition and activation figures in `marketing/STATE.md` and report to the user.
+Record only fields the source provides: app/property identity, date range, `captured_at`, filters,
+timezone, units, completeness and source export path. Keep `captured_at` distinct from the measured
+period. If a field or history is unavailable, label it unavailable; do not invent a baseline or backdate
+an observation.
