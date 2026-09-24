@@ -121,6 +121,7 @@ def resolve_app_info(store: Path):
     brand = ""
     ga4_property_id = ""
     ga4_creds = ""
+    ga4_funnel_steps = []
 
     config_file = store / "config.md"
     if config_file.exists():
@@ -142,12 +143,18 @@ def resolve_app_info(store: Path):
                 val = line.split(":", 1)[1].strip()
                 if val and val.split(maxsplit=1)[0].upper() != "TODO":
                     ga4_creds = val.strip("\"'")
+            elif line.startswith("**GA4 Funnel Steps**:"):
+                val = line.split(":", 1)[1].strip()
+                ga4_funnel_steps = [
+                    step.strip() for step in val.replace("→", ",").split(",") if step.strip()
+                ]
 
     return {
         "app_id": app_id,
         "brand": brand,
         "ga4_property_id": ga4_property_id,
         "ga4_creds": ga4_creds,
+        "ga4_funnel_steps": ga4_funnel_steps,
     }
 
 
@@ -189,7 +196,7 @@ def run_summary_report(client, property_id, days, exclude_debug: bool = True):
             Metric(name="userEngagementDuration"),
         ],
         dimension_filter=get_version_filter(exclude_debug),
-        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="yesterday")],
     )
     response = client.run_report(request)
     if not response.rows:
@@ -226,7 +233,7 @@ def run_funnel_report(client, property_id, days, exclude_debug: bool = True, exp
             Metric(name="totalUsers"),
         ],
         dimension_filter=get_version_filter(exclude_debug),
-        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="yesterday")],
     )
     response = client.run_report(request)
 
@@ -282,7 +289,7 @@ def run_funnel_report(client, property_id, days, exclude_debug: bool = True, exp
         print(format_table(headers, other_rows[:10]))
 
     print("\n📈 [Послідовна конверсія]")
-    print("  Не обчислюється з eventName totals: ці рядки не з'єднують тих самих користувачів і порядок подій. Використайте GA4 Funnel Exploration або runFunnelReport.")
+    print("  Нижче наведено окремий user-level Funnel Report; ці eventName totals самі по собі не є послідовною конверсією.")
 
     if export_path:
         export_path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,6 +299,113 @@ def run_funnel_report(client, property_id, days, exclude_debug: bool = True, exp
             for item in sorted(all_rows, key=lambda x: -x["count"]):
                 writer.writerow([item["name"], item["count"], item["users"], item["category"], item["desc"]])
         print(f"\n  ✓ Вирву експортовано у: {export_path}")
+
+
+def run_sequential_funnel_report(property_id, event_names, days, exclude_debug: bool = True):
+    """Report ordered in-app conversion using the GA4 Data API v1alpha funnel method."""
+    if not event_names:
+        print("\n⚠️ Послідовна вирва недоступна: у вибраному STORE/config.md не задано GA4 Funnel Steps.")
+        return False
+    if len(event_names) < 2:
+        print("\n⚠️ Послідовна вирва потребує щонайменше двох GA4 Funnel Steps.")
+        return False
+
+    try:
+        from google.analytics.data_v1alpha import AlphaAnalyticsDataClient
+        from google.analytics.data_v1alpha.types import (
+            DateRange as AlphaDateRange,
+            Filter as AlphaFilter,
+            FilterExpression as AlphaFilterExpression,
+            Funnel as AnalyticsFunnel,
+            FunnelEventFilter,
+            FunnelFilterExpression,
+            FunnelStep,
+            RunFunnelReportRequest,
+            StringFilter as AlphaStringFilter,
+        )
+    except ImportError as error:
+        print(f"\n⚠️ Послідовна вирва недоступна: бібліотека v1alpha відсутня ({error}).")
+        return False
+
+    event_steps = [(name, name) for name in event_names]
+    version_filter = None
+    if exclude_debug:
+        version_filter = AlphaFilterExpression(
+            not_expression=AlphaFilterExpression(
+                filter=AlphaFilter(
+                    field_name="appVersion",
+                    string_filter=AlphaStringFilter(
+                        match_type=AlphaStringFilter.MatchType.EXACT,
+                        value="0",
+                    ),
+                )
+            )
+        )
+
+    request = RunFunnelReportRequest(
+        property=f"properties/{property_id}",
+        date_ranges=[
+            AlphaDateRange(start_date=f"{days}daysAgo", end_date="yesterday")
+        ],
+        dimension_filter=version_filter,
+        funnel=AnalyticsFunnel(
+            is_open_funnel=False,
+            steps=[
+                FunnelStep(
+                    name=name,
+                    filter_expression=FunnelFilterExpression(
+                        funnel_event_filter=FunnelEventFilter(event_name=event_name)
+                    ),
+                )
+                for name, event_name in event_steps
+            ],
+        ),
+    )
+
+    print(f"\n🧭 [Послідовна вирва GA4 · v1alpha · {days} повних днів]")
+    try:
+        with AlphaAnalyticsDataClient() as client:
+            response = client.run_funnel_report(request=request)
+    except Exception as error:
+        print(f"  ⚠️ Звіт не отримано: {type(error).__name__}: {str(error)[:240]}")
+        return False
+
+    report = response.funnel_table
+    rows = []
+    reached_steps = set()
+    for row in report.rows:
+        if len(row.dimension_values) < 1 or len(row.metric_values) < 4:
+            print("  ⚠️ GA4 повернув рядок із неочікуваною схемою.")
+            return False
+        step_label = row.dimension_values[0].value
+        step_name = step_label.split(". ", 1)[-1]
+        reached_steps.add(step_name)
+        active_users = int(row.metric_values[0].value or 0)
+        completion = float(row.metric_values[1].value or 0)
+        abandonments = int(row.metric_values[2].value or 0)
+        abandonment_rate = float(row.metric_values[3].value or 0)
+        rows.append([
+            step_label,
+            active_users,
+            f"{completion:.1%}",
+            abandonments,
+            f"{abandonment_rate:.1%}",
+        ])
+
+    if not rows:
+        print("  Немає рядків послідовної вирви за цей період.")
+        return False
+
+    print(format_table(
+        ["Крок", "Користувачі", "Перехід до наступного", "Відсів", "Частка відсіву"],
+        rows,
+    ))
+    missing_steps = [name for name, _ in event_steps if name not in reached_steps]
+    if missing_steps:
+        print("  Наступні кроки не мають рядка у цій закритій вирві: " + ", ".join(missing_steps))
+    sampling = report.metadata.sampling_metadatas
+    print("  Sampling: " + ("reported" if sampling else "not reported"))
+    return True
 
 
 def run_country_report(client, property_id, days, exclude_debug: bool = True):
@@ -305,7 +419,7 @@ def run_country_report(client, property_id, days, exclude_debug: bool = True):
             Metric(name="sessions"),
         ],
         dimension_filter=get_version_filter(exclude_debug),
-        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+        date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="yesterday")],
     )
     response = client.run_report(request)
     rows = []
@@ -387,9 +501,9 @@ def main():
     except Exception as e:
         sys.exit(
             f"❌ Не вдалося ініціалізувати Google Analytics клієнт: {e}\n"
-            "Переконайтеся, що файл сервісного акаунта існує і доступний:\n"
-            f"  Поточний шлях: {credentials_path or '(не вказано)'}\n"
-            "Вкажіть через --credentials або export GOOGLE_APPLICATION_CREDENTIALS='...'"
+            "Перевірте локальні Application Default Credentials або переданий файл облікових даних:\n"
+            f"  Поточний шлях файлу: {credentials_path or '(не задано; використовується ADC)'}\n"
+            "Файл можна передати через --credentials або GOOGLE_APPLICATION_CREDENTIALS."
         )
 
     exclude_debug = not args.include_debug
@@ -411,6 +525,17 @@ def main():
     run_funnel_report(client, property_id, args.days, exclude_debug=exclude_debug, export_path=export_file)
 
     run_country_report(client, property_id, args.days, exclude_debug=exclude_debug)
+
+    sequential_funnel_ok = run_sequential_funnel_report(
+        property_id,
+        app_info.get("ga4_funnel_steps", []),
+        args.days,
+        exclude_debug=exclude_debug,
+    )
+
+    if not sequential_funnel_ok:
+        print("\n⚠️ Збір частковий: послідовну вирву GA4 не підтверджено.")
+        sys.exit(2)
 
     print("\n=================================================================")
     print("✅ Збір аналітики успішно завершено.")

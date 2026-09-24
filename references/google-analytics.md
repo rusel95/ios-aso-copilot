@@ -40,14 +40,20 @@ unset TOKEN
   property. If a token lacks the scope, stop on the 403 and record the missing scope; do not report an
   empty funnel or zero events. `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly`
   creates or refreshes persistent local ADC credentials and requires explicit authorization before use.
+- Enable `analyticsdata.googleapis.com` in the Google Cloud project that owns the OAuth client before
+  calling the Data API. Firebase CLI login does not enable it or grant Analytics access. With a user-owned
+  OAuth client in Testing, add only the approved account as a test user; hand the browser to the user at
+  Google's app-verification/security warning instead of bypassing it. Keep the downloaded client JSON and
+  ADC credential local; never put the client secret in the app, Firebase Remote Config, or the repository.
 - `firebase login` and Firebase CLI project commands do not grant `analytics.readonly`. On some hosts,
   Google's default gcloud OAuth client is blocked from this Analytics scope and the browser shows “This
   app is blocked.” Do not bypass that warning. Use a user-owned OAuth client with
   `gcloud auth application-default login --client-id-file <client.json> --scopes=...` or approved service
   account impersonation; treat creating a client or expanding IAM access as a separate, explicit setup.
-- Credentials resolve in this order: explicit `--credentials`, then the app-specific
-  `**GA4 Credentials**` path in `STORE/config.md`, then `GOOGLE_APPLICATION_CREDENTIALS`. Do not search another app's config,
-  credential files, or cached state. Keep credential values out of reports and model context.
+- Credentials resolve from explicit `--credentials`, the app-specific `**GA4 Credentials**` path in
+  `STORE/config.md`, or `GOOGLE_APPLICATION_CREDENTIALS`; if none is set, the Google client library uses
+  the current user's ADC. Do not search another app's config, credential files, or cached state. Keep
+  credential values out of reports and model context.
 - The `google-analytics-data` Python package must already be available in the selected environment.
   Do not install dependencies or create credentials during a status check.
 
@@ -59,15 +65,17 @@ python3 "$GA" --store "$STORE" --realtime
 python3 "$GA" --store "$STORE" --days 7 --include-debug
 ```
 
-`--include-debug` changes the population by including app version `0`; label that explicitly. The report
-uses its declared date range and version filter. Preserve those with the capture time when recording
-results. A successful command or a blank table does not establish that tracking is complete.
+`--include-debug` changes the population by including app version `0`; label that explicitly. `--days N`
+queries `NdaysAgo` through `yesterday`, interpreted in the GA4 property's timezone (N complete days).
+Preserve the resolved dates and version filter with the capture time when recording results. A successful
+command or a blank table does not establish that tracking is complete.
 
 `pull_ga.py` returns separate event counts and per-event users; those are not a sequential user funnel.
-Never divide one event's users by another event's users and label the result a step conversion unless a
-user-level funnel report explicitly links the same cohort. GA4's `runFunnelReport` is currently v1alpha;
-label its preview status if used. Retention requires a cohort report using `cohortActiveUsers` and
-`cohortTotalUsers` over the same defined cohort; a 14-day event snapshot is not a retention measure.
+When the selected app's `config.md` declares `**GA4 Funnel Steps**`, the script also runs a closed,
+ordered user funnel for exactly those events. Never reuse another app's event sequence. GA4's
+`runFunnelReport` is currently v1alpha and may change; label its preview status. Retention requires a
+cohort report using `cohortActiveUsers` and `cohortTotalUsers` over the same defined cohort; a 14-day
+event snapshot is not a retention measure.
 
 ## Event and metric interpretation
 

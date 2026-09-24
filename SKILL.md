@@ -100,12 +100,15 @@ does not write a run manifest or input hashes; state that replay limit instead o
   and property; funnel helper `APP_ID` must match the store, and GA4 property must come from that store's
   `config.md` or an explicit one-off override. Never use an environment property, `STATE.md`, or a
   cross-app mapping. If identity is missing, stop rather than reusing another app's values. Credentials
-  come only from an explicit argument, `GOOGLE_APPLICATION_CREDENTIALS`, or this app's config path. If
+  come only from an explicit argument, `GOOGLE_APPLICATION_CREDENTIALS`, this app's config path, or
+  local Application Default Credentials loaded by the Google client library. If
   the installed CLI differs, inspect its `--help` and code before running; never accept an undocumented
   fallback identity. For Firebase apps, resolve project and iOS app with Firebase CLI, then verify the
   numeric GA4 Property ID via Firebase Management API `projects.getAnalyticsDetails`; require its stream
   to map to the selected Firebase App ID. Firebase CLI reads project/app SDK config but does not fetch
   historical GA4 event reports; see `references/google-analytics.md` for the Data API and OAuth scope.
+  If the selected app defines `**GA4 Funnel Steps**` in `config.md`, use only that app's event sequence
+  for a sequential GA4 funnel; never reuse another app's event taxonomy.
 - Keep one global skill installation. Project links may point to it; do not copy skill directories.
   Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 
