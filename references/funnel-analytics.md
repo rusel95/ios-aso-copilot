@@ -9,10 +9,11 @@ for a labelled scenario.
 ## Definitions before ratios
 
 Record period, timezone, storefront, source type, version/product where available, metric unit,
-report identifier, data freshness and completeness. ASC impressions include page views. Users may
-download directly from search; all downloads divided by page views is not page-view conversion.
-ASC conversion uses total downloads and pre-orders divided by unique-device impressions, with
-pre-order counting rules. Prefer the reported rate; do not recompute it from ambiguous legacy columns.
+report identifier, data freshness and completeness. ASC impressions include page views, so
+`Product Page Views ÷ Impressions` is not a tap-through rate. Users may download directly from search;
+all downloads divided by page views is not page-view conversion. ASC conversion uses total downloads
+and pre-orders divided by unique-device impressions, with pre-order counting rules. Prefer the reported
+rate; do not recompute it from ambiguous legacy columns.
 
 Storefront observations and in-app events are different populations. Same-week trial starts are not
 necessarily from same-week downloads. Trial starts are not payments. Paying users are not transaction
@@ -39,7 +40,7 @@ ratio may reflect traffic mix, missing events or device/language differences bef
 Inspect the counts and uncertainty before recommending an icon or paywall change. With missing data,
 report `not_assessed`; never `healthy`.
 
-Sources checked 2026-09-08:
+Sources checked 2026-09-24:
 - https://developer.apple.com/help/app-store-connect-analytics/reference/metrics-definitions/
 - https://developer.apple.com/help/app-store-connect-analytics/benchmarks/peer-group-benchmarks/
 - https://developer.apple.com/help/app-store-connect-analytics/acquisition/acquisition/
