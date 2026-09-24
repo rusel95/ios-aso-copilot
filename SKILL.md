@@ -102,7 +102,10 @@ does not write a run manifest or input hashes; state that replay limit instead o
   cross-app mapping. If identity is missing, stop rather than reusing another app's values. Credentials
   come only from an explicit argument, `GOOGLE_APPLICATION_CREDENTIALS`, or this app's config path. If
   the installed CLI differs, inspect its `--help` and code before running; never accept an undocumented
-  fallback identity.
+  fallback identity. For Firebase apps, resolve project and iOS app with Firebase CLI, then verify the
+  numeric GA4 Property ID via Firebase Management API `projects.getAnalyticsDetails`; require its stream
+  to map to the selected Firebase App ID. Firebase CLI reads project/app SDK config but does not fetch
+  historical GA4 event reports; see `references/google-analytics.md` for the Data API and OAuth scope.
 - Keep one global skill installation. Project links may point to it; do not copy skill directories.
   Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 

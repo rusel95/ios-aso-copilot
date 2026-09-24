@@ -9,6 +9,37 @@ in-app behavior. Treat GA4 as an observation source, not as proof of attribution
   `--property-id <ID>`. Property selection never comes from environment variables, `STATE.md`, or an
   App ID mapping. `copilot cycle` uses only the configured property and marks the stage unavailable if
   it is missing.
+- Resolve Firebase identity with the Firebase CLI and an explicit project ID. In SDK-only app repos,
+  do not run `firebase init` just to select a project: there may be no `firebase.json`, and `firebase use`
+  then refuses to run. `--project` works for read commands without initializing Hosting/Firestore/etc.
+
+```bash
+firebase projects:list --json
+firebase apps:list --project "$FIREBASE_PROJECT_ID" --json
+firebase apps:sdkconfig IOS "$FIREBASE_APP_ID" --project "$FIREBASE_PROJECT_ID" --json
+```
+
+`apps:sdkconfig` returns SDK configuration that can include an API key; do not paste its raw JSON into
+reports or logs. Read only the project ID, app ID, bundle ID and analytics-enabled flag. Firebase CLI
+has no historical GA4 event-report command. Resolve the numeric property through the Firebase Management
+API `projects.getAnalyticsDetails`, and accept it only when the returned iOS stream maps back to the
+selected Firebase App ID. Save that verified number in this app's `STORE/config.md` as `**GA4 Property
+ID**`.
+
+```bash
+TOKEN="$(gcloud auth print-access-token)"
+curl --fail --silent --show-error \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-goog-user-project: $FIREBASE_PROJECT_ID" \
+  "https://firebase.googleapis.com/v1beta1/projects/$FIREBASE_PROJECT_ID/analyticsDetails"
+unset TOKEN
+```
+
+- GA4 report access is separate from Firebase CLI project access. The Data API requires an OAuth token
+  with `https://www.googleapis.com/auth/analytics.readonly` (or full `analytics`) and access to the GA4
+  property. If a token lacks the scope, stop on the 403 and record the missing scope; do not report an
+  empty funnel or zero events. `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly`
+  creates or refreshes persistent local ADC credentials and requires explicit authorization before use.
 - Credentials resolve in this order: explicit `--credentials`, then the app-specific
   `**GA4 Credentials**` path in `STORE/config.md`, then `GOOGLE_APPLICATION_CREDENTIALS`. Do not search another app's config,
   credential files, or cached state. Keep credential values out of reports and model context.
@@ -26,6 +57,12 @@ python3 "$GA" --store "$STORE" --days 7 --include-debug
 `--include-debug` changes the population by including app version `0`; label that explicitly. The report
 uses its declared date range and version filter. Preserve those with the capture time when recording
 results. A successful command or a blank table does not establish that tracking is complete.
+
+`pull_ga.py` returns separate event counts and per-event users; those are not a sequential user funnel.
+Never divide one event's users by another event's users and label the result a step conversion unless a
+user-level funnel report explicitly links the same cohort. GA4's `runFunnelReport` is currently v1alpha;
+label its preview status if used. Retention requires a cohort report using `cohortActiveUsers` and
+`cohortTotalUsers` over the same defined cohort; a 14-day event snapshot is not a retention measure.
 
 ## Event and metric interpretation
 
