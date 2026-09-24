@@ -58,6 +58,7 @@ KNOWN_EVENTS = {
     "app_update": ("Оновлення додатку", "lifecycle"),
 
     # Core Features & Activation (WhiteNoise / Hush)
+    "first_playback": ("Перше успішне відтворення", "core"),
     "playback_started": ("Старт відтворення звуків", "core"),
     "playback_paused": ("Пауза відтворення", "core"),
     "sound_toggled": ("Увімкнення / вимкнення звуку", "core"),
@@ -80,6 +81,10 @@ KNOWN_EVENTS = {
     # Monetization & Paywall Funnel
     "paywall_shown": ("Показ пейволу", "paywall"),
     "paywall_dismissed": ("Закриття пейволу", "paywall"),
+    "purchase_started": ("Початок покупки", "checkout"),
+    "purchase_completed": ("Покупка / entitlement отримано", "purchase"),
+    "purchase_failed": ("Помилка покупки", "purchase"),
+    "purchase_cancelled": ("Скасування покупки", "purchase"),
     "checkout_started": ("Початок оформлення (checkout)", "checkout"),
     "begin_checkout": ("Старт чекауту", "checkout"),
     "subscription_purchased": ("Успішна покупка підписки", "purchase"),
@@ -276,43 +281,8 @@ def run_funnel_report(client, property_id, days, exclude_debug: bool = True, exp
         print("\n  ▶ Інші зафіксовані події:")
         print(format_table(headers, other_rows[:10]))
 
-    # Funnel Stages Conversion Calculation
-    print("\n📈 [Конверсійна вирва користувачів]")
-    users_open = max(
-        events_map.get("first_open", {}).get("users", 0),
-        events_map.get("session_start", {}).get("users", 0),
-        events_map.get("app_launched", {}).get("users", 0),
-        1
-    )
-
-    core_users = max(
-        events_map.get("playback_started", {}).get("users", 0),
-        events_map.get("cleanup_screen_shown", {}).get("users", 0),
-        events_map.get("media_swiped", {}).get("users", 0),
-        0
-    )
-
-    paywall_users = events_map.get("paywall_shown", {}).get("users", 0)
-    checkout_users = max(
-        events_map.get("checkout_started", {}).get("users", 0),
-        events_map.get("begin_checkout", {}).get("users", 0),
-        0
-    )
-    purchase_users = max(
-        events_map.get("subscription_purchased", {}).get("users", 0),
-        events_map.get("purchase", {}).get("users", 0),
-        events_map.get("in_app_purchase", {}).get("users", 0),
-        0
-    )
-
-    funnel_summary = [
-        ["1. Відкриття додатку", users_open, "100.0%"],
-        ["2. Основна дія (Core Action)", core_users, f"{round(core_users / users_open * 100, 1)}%"],
-        ["3. Показ пейволу", paywall_users, f"{round(paywall_users / users_open * 100, 1)}%"],
-        ["4. Старт чекауту", checkout_users, f"{round(checkout_users / max(paywall_users, 1) * 100, 1)}% від пейволу" if paywall_users else "0.0%"],
-        ["5. Покупка / Тріал", purchase_users, f"{round(purchase_users / max(paywall_users, 1) * 100, 1)}% від пейволу" if paywall_users else "0.0%"],
-    ]
-    print(format_table(["Етап вирви", "Користувачі", "Конверсія"], funnel_summary))
+    print("\n📈 [Послідовна конверсія]")
+    print("  Не обчислюється з eventName totals: ці рядки не з'єднують тих самих користувачів і порядок подій. Використайте GA4 Funnel Exploration або runFunnelReport.")
 
     if export_path:
         export_path.parent.mkdir(parents=True, exist_ok=True)

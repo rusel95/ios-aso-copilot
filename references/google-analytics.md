@@ -40,6 +40,11 @@ unset TOKEN
   property. If a token lacks the scope, stop on the 403 and record the missing scope; do not report an
   empty funnel or zero events. `gcloud auth application-default login --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly`
   creates or refreshes persistent local ADC credentials and requires explicit authorization before use.
+- `firebase login` and Firebase CLI project commands do not grant `analytics.readonly`. On some hosts,
+  Google's default gcloud OAuth client is blocked from this Analytics scope and the browser shows “This
+  app is blocked.” Do not bypass that warning. Use a user-owned OAuth client with
+  `gcloud auth application-default login --client-id-file <client.json> --scopes=...` or approved service
+  account impersonation; treat creating a client or expanding IAM access as a separate, explicit setup.
 - Credentials resolve in this order: explicit `--credentials`, then the app-specific
   `**GA4 Credentials**` path in `STORE/config.md`, then `GOOGLE_APPLICATION_CREDENTIALS`. Do not search another app's config,
   credential files, or cached state. Keep credential values out of reports and model context.
