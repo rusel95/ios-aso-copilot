@@ -72,7 +72,9 @@ command or a blank table does not establish that tracking is complete.
 
 `pull_ga.py` returns separate event counts and per-event users; those are not a sequential user funnel.
 When the selected app's `config.md` declares `**GA4 Funnel Steps**`, the script also runs a closed,
-ordered user funnel for exactly those events. Never reuse another app's event sequence. GA4's
+ordered user funnel for exactly those events. Include only ordered milestones on the same progress path;
+report diagnostic, eligibility, suppression and branch events separately so they do not become false
+conversion drop-offs. Never reuse another app's event sequence. GA4's
 `runFunnelReport` is currently v1alpha and may change; label its preview status. Retention requires a
 cohort report using `cohortActiveUsers` and `cohortTotalUsers` over the same defined cohort; a 14-day
 event snapshot is not a retention measure.

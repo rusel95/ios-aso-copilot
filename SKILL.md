@@ -107,8 +107,9 @@ does not write a run manifest or input hashes; state that replay limit instead o
   numeric GA4 Property ID via Firebase Management API `projects.getAnalyticsDetails`; require its stream
   to map to the selected Firebase App ID. Firebase CLI reads project/app SDK config but does not fetch
   historical GA4 event reports; see `references/google-analytics.md` for the Data API and OAuth scope.
-  If the selected app defines `**GA4 Funnel Steps**` in `config.md`, use only that app's event sequence
-  for a sequential GA4 funnel; never reuse another app's event taxonomy.
+  If the selected app defines `**GA4 Funnel Steps**` in `config.md`, use only that app's ordered events
+  that represent users advancing through the same path; keep diagnostic, eligibility, suppression and
+  branch events separate, and never reuse another app's event taxonomy.
 - Keep one global skill installation. Project links may point to it; do not copy skill directories.
   Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
 
