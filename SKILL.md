@@ -3,6 +3,7 @@ name: ios-aso-copilot
 description: "Use for iOS App Store marketing and ASO: keyword research, rank evidence, competitor review, release readiness, Apple Ads, product-page experiments, reviews, localization and channel planning. Resume from the app repo's marketing/ state when present; verify app identity and live sources before app-specific claims, and keep missing evidence explicit."
 triggers:
   - ios-aso-copilot
+  - ios-aso-copilot --full
   - aso copilot
   - app store copilot
   - ASO
@@ -59,9 +60,9 @@ triggers:
   - add locale
   - localize
   - ios-localization
-argument-hint: "[status | manual | auto | localize] [free text]"
+argument-hint: "[--full | status | manual | auto | localize] [free text]"
 metadata:
-  version: 2.4.0
+  version: 2.5.0
 ---
 
 # iOS ASO Copilot
@@ -122,6 +123,19 @@ python3 "$COPILOT" status --store "$STORE"
 python3 "$COPILOT" cycle --store "$STORE"
 ```
 
+### Full-cycle invocation
+
+`ios-aso-copilot --full [app and scope]` is the skill's explicit full-cycle mode. It is a skill
+argument, not a `copilot.py` flag. Run the mechanical `copilot.py cycle`, then complete the analysis
+below: verify the live listing and metadata, refresh or reuse a current fixed rank basket, inspect
+all hypothesis windows, review ASC Search/Browse/referrer and GA4 funnel evidence, read Apple Ads
+when configured, and deliver sections A/B/C with a specific next change. Do not stop at CLI output.
+Keep missing stages explicit and judge a due hypothesis only if its predeclared signal has comparable
+evidence. The mode permits local evidence/report updates; it does not authorize metadata publishing,
+campaign changes, or spend changes. An explicit narrower user request still takes precedence.
+
+Example: `[$ios-aso-copilot](SKILL.md) --full Hush, App ID 6449785515`.
+
 | Request | Narrow route | What it does |
 |---|---|---|
 | Current status | `python3 "$COPILOT" status --store "$STORE"` | Live ASC version/rating reads plus ledger section A; use `ledger ... report` for B/C |
@@ -130,6 +144,7 @@ python3 "$COPILOT" cycle --store "$STORE"
 | Refresh funnel / in-app data | `python3 "$COPILOT" funnel --pull --store "$STORE"` / `python3 "$COPILOT" ga --days 14 --store "$STORE"` | Makes remote reads and writes local snapshots; funnel CSVs use a unique app-specific temp directory |
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
 | Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, attempts configured funnel and GA pulls, then reports the ledger |
+| Explicit full skill run (`--full`) | Start the complete cycle described below; its collection entrypoint remains `python3 "$COPILOT" cycle --store "$STORE"` | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
 
 Check `python3 "$COPILOT" --help` or the specific script's `--help` when a flag is unfamiliar or the installed
 version differs. The CLI `cycle` is only the mechanical collection pass: it does **not** refresh keyword

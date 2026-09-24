@@ -142,6 +142,15 @@ def self_check():
                                                                   "appVersionState": "READY_FOR_DISTRIBUTION"}}]})
         ratings_output = json.dumps({"averageRating": 4.5, "totalCount": 12, "countryCount": 2,
                                      "histogram": {"5": 10, "4": 2}})
+        ratings_by_country = json.dumps({"appId": "1234567890", "averageRating": 5,
+                                         "totalCount": 4, "countryCount": 2,
+                                         "byCountry": [{"country": "UA", "averageRating": 5,
+                                                        "ratingCount": 3},
+                                                       {"country": "PL", "averageRating": 5,
+                                                        "ratingCount": 1}]})
+        summary = compact_asc_output(ratings_by_country, "ratings")
+        assert "UA:3 @5/5" in summary and "PL:1 @5/5" in summary
+        assert "star histogram unavailable" in summary
         reviews_output = json.dumps({"data": [], "meta": {"paging": {"total": 0}}})
         complete = [(0, version_output, ""), (0, ratings_output, ""),
                     (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "ledger\n", "")]
@@ -201,12 +210,25 @@ def compact_asc_output(output, kind):
                           f"{attributes.get('appVersionState', 'build state unknown')}")
         suffix = f"; {len(rows) - 5} more omitted" if len(rows) > 5 else ""
         return f"{len(rows)} versions; " + "; ".join(labels) + suffix
-    if kind == "ratings" and all(key in payload for key in ("averageRating", "totalCount", "histogram")):
-        histogram = payload["histogram"]
-        counts = (", ".join(f"{star}:{histogram.get(str(star), histogram.get(star, '?'))}"
-                             for star in range(1, 6)) if isinstance(histogram, dict) else "unknown")
+    if kind == "ratings" and "averageRating" in payload and "totalCount" in payload:
+        countries = payload.get("byCountry")
+        histogram = payload.get("histogram")
+        if isinstance(histogram, dict):
+            counts = ", ".join(f"{star}:{histogram.get(str(star), histogram.get(star, '?'))}"
+                                for star in range(1, 6))
+            stars = f"stars {counts}"
+        else:
+            stars = "star histogram unavailable from ASC response"
+        country_summary = ""
+        if isinstance(countries, list):
+            entries = [f"{row.get('country', '?')}:{row.get('ratingCount', '?')} @"
+                       f"{row.get('averageRating', '?')}/5" for row in countries if isinstance(row, dict)]
+            country_summary = "; " + ", ".join(entries) if entries else ""
+        country_count = payload.get("countryCount")
+        if country_count is None:
+            country_count = len(countries) if isinstance(countries, list) else "unknown"
         return (f"Average {payload['averageRating']}/5; {payload['totalCount']} ratings; "
-                f"{payload.get('countryCount', 'unknown')} storefronts; stars {counts}")
+                f"{country_count} storefronts{country_summary}; {stars}")
     if kind == "unreplied" and isinstance(payload.get("data"), list):
         meta = payload.get("meta")
         paging = meta.get("paging") if isinstance(meta, dict) else None
