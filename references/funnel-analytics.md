@@ -30,7 +30,29 @@ When `$STORE/scripts/pull_ga.py` is configured, in-app telemetry bridges the gap
 - **Engagement Depth:** `Avg Engagement Duration` (seconds), `Sessions per User`.
 - **Product Velocity:** `media_swiped` count and `swipes_per_user` (verdicts: kept, deleted, compressed) — measures whether users actually engage with the core mechanic before dropping off or converting.
 - **In-App Funnel:** `first_open` → `session_start` → `media_swiped` → `paywall_shown` → `cleanup_completed` → `rating_prompt_requested`.
+- **Uninstalls:** not observable in GA4 on iOS — see § Deletions below.
 - **Reconciliation:** Storefront downloads (ASC) are acquisition; `first_open` / `session_start` (GA4) are activation. Comparing downloads to `first_open` measures the drop-off between store install and first launch. Comparing `media_swiped` to `paywall_shown` measures activation depth before monetization.
+
+## Deletions — the end of the lifecycle
+
+App Store Connect's **"App Store Installation and Deletion Standard"** analytics report (same ONGOING
+request as the funnel reports) carries `Install` and `Delete` events per day, territory, app version and
+source, plus `App Download Date` — when that device installed. It is the only first-party source for
+uninstalls on iOS: Firebase's `app_remove` is Android-only, and an APNs `410 Unregistered` needs a push
+server and arrives days late.
+
+The store's `pull_funnel.py` should request it and write `metrics/lifecycle.csv`
+(`first_installs_optin`, `deletions_optin`, `deleted_within_1d`, `median_days_to_delete`);
+`copilot.py funnel` prints it after the weekly summary, and a full audit must report it next to the
+GA4 funnel. Rules for reading it:
+- **Opt-in sample, not totals.** Only devices sharing analytics with developers are counted. Compare
+  installs with deletions inside this report; never divide by `weekly.csv` downloads.
+- **Not a cohort rate.** A deletion in the window may belong to an install before it.
+- `Date` is the event day, bucketed into its week for older data; a negative
+  `Date − App Download Date` is that bucketing and is excluded from timing.
+- The signal that matters is **time to delete**. Deletion within a day of install means the first
+  session failed (permission, first screen, value never shown); deletion after weeks is ordinary churn
+  or the job being done. Map fast deletions against the GA4 step where those users stopped.
 
 ## Diagnosis
 

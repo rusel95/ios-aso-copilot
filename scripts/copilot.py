@@ -395,7 +395,27 @@ def cmd_funnel(args):
             seg = r.get("segment")
             if seg != "all":
                 print(f"  {seg.upper()}: {r.get('impressions')} imp, {r.get('product_page_views')} views, {r.get('downloads')} dl (CVR: {r.get('cvr_pct')}%)")
+        print_lifecycle(store / "metrics" / "lifecycle.csv")
         return 0 if all_row else 2
+
+
+def print_lifecycle(path):
+    """Installs vs deletions from ASC's opt-in Installation and Deletion report."""
+    import csv
+    if not path.exists():
+        print("\nLifecycle: no lifecycle.csv — the store's pull_funnel.py does not emit it yet "
+              "(see references/funnel-analytics.md § Deletions).")
+        return
+    with path.open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return
+    latest = max(r.get("recorded", "") for r in rows)
+    print(f"\n🗑️  Install → delete lifecycle (opt-in sample, snapshot {latest}; not totals, not a cohort rate)")
+    for r in (r for r in rows if r.get("recorded") == latest):
+        median = r.get("median_days_to_delete") or "—"
+        print(f"  {r['segment'].upper():>4}: {r['first_installs_optin']} installs · {r['deletions_optin']} deletions "
+              f"· {r['deleted_within_1d']}/{r['deletions_timed']} within 1 day · median {median} d")
 
 
 def cmd_ga(args):
