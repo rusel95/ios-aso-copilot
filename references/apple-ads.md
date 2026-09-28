@@ -11,8 +11,8 @@ When a newly launched campaign or ad group shows **$0.00 spend and 0 impressions
 | Cause | Mechanism | Verification & Fix |
 |---|---|---|
 | **1. Broad Negative Keywords Trap** | Setting a category word as a **BROAD** negative blocks **100% of queries** containing that word (e.g., negative `cleaner` blocks `storage cleaner`, `photo cleaner`). | Run `asc ads negative-keywords find`. Delete category root broad negatives immediately. Only use **EXACT** negatives (`[query]`) for category terms. |
-| **2. Cold-Start Auction Reserve Price** | Apple uses a second-price auction where $\text{Ad Rank} = \text{Bid} \times \text{Relevance} \times \text{Historical TTR}$. A new app has $0$ historical TTR. Bids under $0.30–$0.50 fail to clear Apple's reserve price against established incumbents. | Apply the **"Bid High to Learn"** rule: Raise default CPT bid ceiling to **$0.75–$1.25** while keeping a strict daily budget ($5.00/day). The second-price auction charges only the market clearing price ($Bid_{2nd} + \$0.01$). Step bids down after TTR is proven. |
-| **3. Search Match Disabled** | When Search Match is OFF and exact keywords are narrow, only exact query matches can trigger impressions. | In ad group settings, set `automatedKeywordsOptIn: true`. In early discovery, Search Match is the primary discovery engine. |
+| **2. Cold-Start Auction Reserve Price** | Folk model — Apple does not publish its ranking formula: a second-price auction where $\text{Ad Rank} = \text{Bid} \times \text{Relevance} \times \text{Historical TTR}$, so a new app with $0$ TTR may lose contested head terms at bids under $0.30–$0.50. **Untested as a rule**: Compresso never ran an enabled bid under $0.45 (2026-09), so zero delivery at a low bid was never observed either. | For contested head terms, a higher ceiling (**$0.75–$1.25**) under a strict daily budget is one option; step down once TTR exists. For the long tail, where there may be no other bidder, a cap at what an install is worth is the other (§3c). Decide from the account's own delivery, not from this row. |
+| **3. Search Match Disabled** | When Search Match is OFF and exact keywords are narrow, only exact query matches can trigger impressions. | Search Match finds new terms and also buys other apps' names: in Compresso's 2026-09 flights it served on `4ka` (a Slovak telecom), picme and immich. Use it only in a bounded, negated discovery batch (§3b); keep it OFF when harvesting EXACT keywords. |
 | **4. Reporting Lag (3–6 Hours)** | Apple Ads analytics does **not** update in real time. Apple explicitly notes: *"Reporting is not in real time and may not reflect data received in the last three hours."* | Wait at least 3–6 hours before assuming auctions are stagnant. Check the timezone (ORTZ vs UTC). |
 | **5. Small Market Query Volume** | Niche phrases (e.g., `стиснути відео` in UA) may have only 10–30 searches/day nationwide. | Broaden keyword coverage to high-intent adjacent problems (e.g. `очистити пам'ять`, `звільнити місце`, `photo cleaner`). |
 
@@ -26,10 +26,11 @@ reads as "an unclaimed, easy market" — and it might be. It might just as easil
 searches, where the low competitor count is an effect of the same cause as our own uncontested rank:
 there is nothing there to compete for. iTunes Search API order and `total_results` measure **who
 else is trying**, never **how many people are looking**. The two produce an identical-looking result
-(few, weak competitors) for opposite underlying reasons, and neither `rank_audit.py` nor any Apple
-API used in this skill currently distinguishes them (see `references/provenance.md` — no working
-Apple endpoint returns per-keyword, per-country search volume as of 2026-09; `KeywordSuggestionV6`
-rejects a term/country filter, the legacy v5 popularity endpoint 404s).
+(few, weak competitors) for opposite underlying reasons, and `rank_audit.py` cannot distinguish them.
+Apple's own popularity data covers only part of the gap (§3c): `insights search-term-popularity`
+lists each genre's head terms, so a niche term is usually absent — censored, not zero — and
+`insights impression-share` only covers terms the app's ads already showed on. (`KeywordSuggestionV6`
+rejects a term/country filter; the legacy v5 popularity endpoint 404s.)
 
 **The MediaCleaner precedent this generalizes from** (`docs/closed-questions.md`, "Should Compresso
 ship a macOS port?", researched 2026-08-01): a genuinely unfilled competitive gap existed — no macOS
@@ -88,6 +89,12 @@ Platform API v1 leaf commands require `--ads-profile` and `--ad-account` (or `AS
 
 ## 3. Auction Mechanics & The Cold-Start "Bid High to Learn" Rule
 
+> **Status: an industry folk model, not verified here.** Apple publishes neither the ranking formula
+> nor a reserve price. In Compresso's 2026-09 flights no enabled bid was below $0.45, so the "zero
+> impressions at $0.15–$0.25" claim below was never observed — neither was its opposite. The UA and PL
+> taps cleared at an average of $0.54 and $0.55 (keyword report, whole flight), not the $0.08–$0.25 quoted below. Treat the playbook as
+> one option for contested head terms; §3c is the other for the long tail.
+
 ### The Vickrey Second-Price Auction
 In Apple Search Ads:
 - Your **CPT Bid** is the maximum you are willing to pay per tap.
@@ -144,6 +151,43 @@ campaign per batch, never the full harvested basket at once. After any expansion
 to prevent (see the opening of this SKILL.md — "do not draft a new hypothesis before section A is on
 screen"). A keyword-list expansion is a hypothesis with a batch size; treat oversized batches as a
 `due` ledger row that never got a verdict, not as free exploration.
+
+**Scope**: this rule is about BROAD seeds on a shared budget. It does not forbid a long-tail EXACT
+harvest (§3c): there, Search Match is off, so nothing wanders off-topic. The question is also a
+different one. It is the blended cost per install across the whole set, plus which terms deliver at
+all, not a per-keyword verdict.
+
+## 3c. Measuring Demand: Popularity, Impression Share, and the Low-Volume Wall
+
+Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's account):
+
+1. **Head popularity** — `asc ads insights search-term-popularity find`
+   (`POST v1/insights/apps/search-term-popularity/query`): `searchPopularity1to100` per term ×
+   storefront × week (`WEEKLY_SUN_SAT`, UTC; `pageSize` ≤ 5000, page with `offset`; filter
+   `countryOrRegion` and optionally `searchTerm` `CONTAINS`). Only each genre's head: ~100–350 terms,
+   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 3 of Compresso's 446
+   tracked non-brand pairs appeared. An absent term is below the cut, not zero.
+2. **Impression share** — `asc ads insights impression-share find`
+   (`POST v1/insights/apps/impression-share/query`): share range, rank and popularity 1–5 per term the
+   app's ads showed on (`DAILY` ≤ 30 days or `WEEKLY_SUN_SAT` ≤ 4 weeks). Total volume ≈ own
+   impressions ÷ share. The CLI's starter payload is wrong: `promotedObjectId` needs
+   `{"field":"promotedObjectId","operator":"IN","value":["<adamId>"]}` — `EQUALS` returns 400, and the
+   CLI rejects a `values` key.
+3. **Search terms** — `reports apps search-terms` withholds every term under 10 impressions as low
+   volume. In Compresso's September flights that was **96% of spend and 95% of taps**, and all of
+   every EXACT keyword's traffic. For the long tail, the per-query lens is the **keyword report**
+   (`reports apps keywords`, ORTZ). Its rows carry only a keyword id; join them to
+   `targeting-keywords find` (filter `campaignId`) for text, match type and bid.
+
+**Long-tail EXACT at a break-even cap** (the design this enables, from a founder running it across 29
+localizations): thousands of EXACT keywords per language — intent × inflections × modifiers ×
+transliteration and wrong-layout spellings, no competitor brands. Search Match stays OFF. The max CPT
+is set to what an install is worth in that storefront (net proceeds × share of installs that pay ×
+tap→install). Apple allows 5,000 keywords per ad group (`targeting-keywords create-bulk`). Run
+everything at the cap, read which terms deliver, move the good ones into title/subtitle, and keep only
+the profitable ones paid. Exact match still serves close variants (plurals, misspellings), so some
+generated spellings are redundant. That is harmless. Compresso's own data: EXACT 20 installs from 25
+taps ($0.57 each) against BROAD 37 from 96 ($1.37) — observational, and EXACT was mostly one head term.
 
 ## 4. Negative Keyword Match Rules & Hazards
 
@@ -213,10 +257,13 @@ Query shape (`report-query.json`):
   },
   "pagination": {"offset": 0, "pageSize": 50},
   "filters": [
-    {"field": "campaignId", "operator": "EQUALS", "value": ["DISCOVERY_CAMPAIGN_ID"]}
+    {"field": "campaignId", "operator": "EQUALS", "value": "DISCOVERY_CAMPAIGN_ID"}
   ]
 }
 ```
+
+Rows with `searchTermText: null` are terms under Apple's 10-impression line, not missing data. When
+they dominate the spend, read the keyword report instead (§3c).
 
 ### Step B: The Promotion / Pruning Engine
 
