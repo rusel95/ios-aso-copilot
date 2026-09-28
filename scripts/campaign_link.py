@@ -164,16 +164,20 @@ App Store: {app_url}"""
         }
     elif channel_type in ("threads", "x"):
         return {
-            "en": f"""iPhone 128GB hack: Saved 24 GB of storage in 3 minutes without deleting family memories 📱
+            "en": f"""[Hook: one real, measured result — e.g. "[X] GB of my clips became [Y] GB" from your own library. Never a number you did not measure.]
 
-Instead of paying Apple $2.99/mo for extra iCloud storage, you can compress 4K camera roll videos directly on your device.
-Turned 14 GB of clips into 1.8 GB with zero cloud upload (100% private, on-device Apple Silicon compression).
+[What the app does differently, in one sentence the listing can back up.]
 
-Reclaim your space: {app_url}""",
-            "uk": f"""Як перестати платити Apple за додатковий iCloud і звільнити 20–30 GB на iPhone за 3 хвилини 📱
+[Ask the reader something — replies are the reach on Threads/X.]
 
-Замість щомісячної підписки просто перетисніть 4K відео в галереї.
-14 GB відео перетворюються на 1.8 GB без помітної втрати якості на екрані. Все стискається локально на телефоні без жодних серверів: {app_url}"""
+{app_url}""",
+            "uk": f"""[Хук: один реальний, виміряний результат — напр. «[X] GB моїх відео стали [Y] GB» з твоєї медіатеки. Жодних цифр, яких ти не вимірював.]
+
+[Що застосунок робить інакше — одним реченням, яке підтверджує сторінка в App Store.]
+
+[Запитання до читача — на Threads/X охоплення дають відповіді.]
+
+{app_url}"""
         }
     elif channel_type == "ugc_video":
         return {
