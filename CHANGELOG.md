@@ -7,6 +7,33 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.5.0 — Apple demand radar; brand filter by whole word; no invented figures in templates — 2026-09-29
+
+Partially closes R-10 (Apple demand source) and R-26 (per-keyword paid reporting).
+
+- `scripts/radar.py` (`copilot.py radar pull|report|keywords`, step 5 of 6 in `cycle`): weekly Apple search
+  popularity through the app's own Apple Ads account, stored in `metrics/popularity.csv` with the per-storefront cut in
+  `popularity_cut.csv`, plus impression share in `impression_share.csv`. A tracked term that is not listed is *below the
+  cut*, never zero; storefronts Apple lists nothing for are `no data`; a lagging week falls back once; a stored week is not
+  pulled twice. `keywords` joins the keyword report to keyword text and prints how much spend sits under withheld
+  (<10 impression) search terms. Config: four optional `**Apple Ads …**` labels; without profile and account it refuses.
+- `ledger.py`: section C gains a **Demand** column (`head N`, `below N`, `no data`, `—`) when the radar has data. It
+  informs the order and does not enter the score.
+- `ledger.py` **bug**: a brand token was matched as a substring, so `compresso` dropped every `compressor` query from
+  section C. On Compresso that hid 282 of 778 tracked pairs (332 excluded, now 50). Brand tokens now match as whole words.
+- `economics.py --net-per-payer … --pay-rate … --tap-to-install … [--cpt …]`: the per-tap bid ceiling the README already
+  promised, with a `derived:` tag naming every input.
+- `campaign_link.py` **bug class**: templates shipped unmeasured figures ("24 GB in 3 minutes", "90 % of your storage",
+  "$3/mo") and claims that are false for an app with a paywall ("no subscriptions"). They are placeholders now, and the
+  self-check fails on any percentage (other than an architectural 100 %), dollar amount or GB/MB figure in a template.
+- Docs: `apple-ads.md` §3c (radar, per-tap ceiling, ads → ASO loop, why ad matching is not keyword-field matching),
+  `state-store.md` schemas, `ugc-playbook.md` §8 photo carousels, `channel-playbooks.md` Threads build-in-public angle.
+- Verified against MediaCleaner: real pull for 39 storefronts (week 2026-09-20), report, ledger with the Demand column,
+  `copilot.py --self-check`, `radar.py --self-check`, `ledger.py --self-check`, `economics.py --self-check`,
+  `campaign_link.py --self-check`. Not yet run on a second store.
+
+---
+
 ## v2.4.0 — App identity and partial-run correctness — 2026-09-23
 
 Partially closes R-12; automatic bounded retries and persistent run manifests remain open.

@@ -37,7 +37,8 @@
 | **Data Ownership & Portability** | Locked in proprietary SQLite DB | Plain text CSV & Markdown in `marketing/` under Git | 🟢 **Git-Versioned** |
 | **Money-at-Stake Opportunity Prioritization** | ❌ Not available | Net proceeds per sub × unclaimed gain × reach | 🚀 **Exclusive** (`scripts/ledger.py`) |
 | **ASO Hypothesis Lifecycle & Anti-Regression** | ❌ Not available | 21-day observation windows, paired before/after | 🚀 **Exclusive** (`scripts/ledger.py`) |
-| **Apple Ads Financial Modeling** | ❌ Not available | LTV/subscriber, LTV/trial, break-even CPT bid cap | 🚀 **Exclusive** (`scripts/economics.py`) |
+| **Apple Ads Financial Modeling** | ❌ Not available | LTV/subscriber, LTV/trial, break-even trial rate, per-tap bid ceiling | 🚀 **Exclusive** (`scripts/economics.py`) |
+| **Apple Demand Radar** | `get_top_search_terms` (needs a license) | Weekly search popularity, the per-storefront cut and impression share through the app's own Apple Ads account, kept as CSV and shown beside every key in the ledger | 🚀 **Exclusive** (`scripts/radar.py`) |
 | **Metadata Character Pre-flight** | ❌ Not available | 30/30/100 limit validation, cross-locale rules | 🚀 **Exclusive** |
 | **Storefront Localization & CLDR Plural Engine** | ❌ Not available | Full in-app .xcstrings audit, CLDR plurals, zero-waste metadata & knownRegions | 🚀 **Exclusive** (`scripts/localization_tool.py`) |
 
@@ -113,6 +114,7 @@ python3 scripts/economics.py --self-check
 python3 scripts/rank_audit.py --self-check
 python3 scripts/harvest_keywords.py --self-check
 python3 scripts/economics.py --self-check
+python3 scripts/radar.py --self-check
 ```
 
 ## Repository structure
@@ -129,6 +131,7 @@ ios-aso-copilot/
 ├── scripts/
 │   ├── rank_audit.py       ← keyword rank + opportunity scoring (25 markets)
 │   ├── harvest_keywords.py ← Apple autocomplete hints + competitor discovery
+│   ├── radar.py            ← Apple search popularity, impression share, keyword report join
 │   └── economics.py        ← LTV / break-even / scaling verdict
 ├── references/
 │   ├── aso-loop.md         ← hypothesis lifecycle, verdict criteria

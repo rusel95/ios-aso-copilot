@@ -41,7 +41,8 @@ Never join by translated text or copy an English difficulty score to a native ke
 Apple popularity is a relative indicator, not monthly searches. The low end can be censored at 5;
 it cannot reliably distinguish all low-demand queries. An internal fallback remains an estimate
 even when Apple is the selected source. `get_top_search_terms` exposes weekly Apple data; always
-record the exact week and category, not the all-time maximum. Impression-share results describe
+record the exact week and category, not the all-time maximum. Without a license, `scripts/radar.py` reads the same
+weekly data through the app's own Apple Ads account and keeps it in the store (apple-ads.md §3c). Impression-share results describe
 our served ads and can suppress small cells; empty does not establish zero searches.
 
 For a metadata candidate: validate product relevance, research the exact native query, preserve

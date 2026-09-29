@@ -87,14 +87,22 @@ On microblogging platforms, attention spans are 2 seconds. The winning angle is 
 
 ### Angle 1: "The Anti-iCloud Tax"
 - **Hook**: "Stop paying Apple $2.99 every single month just because your camera roll is bloated."
-- **Narrative**: Apple charges $36/year for 200GB iCloud just to hold uncompressed 4K video clips you took 2 years ago. Compressing them locally shrinks 30GB down to 4GB in minutes.
+- **Narrative**: Apple charges $36/year for 200GB iCloud just to hold uncompressed 4K video clips you took 2 years ago. Compressing them locally shrinks [X] GB down to [Y] GB (your own measured numbers).
 - **Call to Action**: Direct App Store link with `?ct=threads_icloud_tax` or `?ct=x_icloud_tax`.
 
 ### Angle 2: Visual Before/After Card
 - **Asset**: Side-by-side screenshot:
   - Left: Problem state (e.g. storage red bar / unorganized data).
   - Right: Solved state after using [App Name].
-- **Copy**: "Turned a frustrating problem into a 3-minute fix on my iPhone. All processed on-device with zero server uploads."
+- **Copy**: "Turned a frustrating problem into a [N]-minute fix on my iPhone. All processed on-device with zero server uploads."
+
+### Angle 3: Build in public (the audience is other founders)
+- **Audience**: indie developers, not iPhone owners. What works is one measured lesson and a question that asks for a practice
+  (a bid, a paywall placement, a channel); such replies are what a founder call credited Threads for.
+- **Post**: one real number from your own account or funnel, what you concluded, a closing question. The tracked link goes in the
+  first reply or the bio, not the post.
+- **Measure**: ≥3 replies carrying a concrete practice plus clicks on the token, counted by hand; a generic "nice" does not count.
+  Installs are a bonus. Revenue and funnel figures are the owner's business data: draft them, the owner decides what is published.
 
 ---
 
@@ -166,6 +174,9 @@ When marketing as software engineers to other software engineers, never use cons
 ---
 
 ## 4. Apple Search Ads (ASA): Beachhead Strategy
+
+> The CPT and budget figures below are examples, unverified for any app. Derive the ceiling from the store's own numbers
+> (`economics.py --net-per-payer …`, apple-ads.md §3c) and read delivery from the account.
 
 Do not spend high bids on broad keywords in the US ($2.50+ CPT). Instead:
 - **Markets**: Beachhead locales where your app is already ranking in the Top 10–20:

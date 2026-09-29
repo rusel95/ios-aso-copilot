@@ -9,6 +9,11 @@ rewrites this file. Bump `**Version**:` by hand when a new version starts (same 
 **GA4 Property ID**: TODO — optional numeric property ID; set only if this app uses GA4/Firebase
 **GA4 Credentials**: TODO — optional path to this app's service account JSON; leave unset when runtime ADC is configured
 
+**Apple Ads profile**: TODO — optional `asc ads` profile name; set only if this app runs Apple Ads (`radar.py`)
+**Apple Ads account**: TODO — optional numeric ad account id
+**Apple Ads genres**: TODO — optional, Apple's spelling of the app's categories, e.g. PHOTO_VIDEO, PRODUCTIVITY_UTILITIES; `radar pull` needs it
+**Apple Ads topic words**: TODO — optional substrings; `radar pull` also stores head terms that contain one
+
 App ID or Version still reading `TODO` → the skill refuses to guess and names this file as the fix.
 If GA4 is configured, its property must be explicit here or passed as a one-off `--property-id`; no
 cross-app mapping, environment property, or saved-state fallback is used.

@@ -165,7 +165,7 @@ Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's 
    (`POST v1/insights/apps/search-term-popularity/query`): `searchPopularity1to100` per term ×
    storefront × week (`WEEKLY_SUN_SAT`, UTC; `pageSize` ≤ 5000, page with `offset`; filter
    `countryOrRegion` and optionally `searchTerm` `CONTAINS`). Only each genre's head: ~100–350 terms,
-   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 3 of Compresso's 446
+   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 6 of Compresso's 728
    tracked non-brand pairs appeared. An absent term is below the cut, not zero.
 2. **Impression share** — `asc ads insights impression-share find`
    (`POST v1/insights/apps/impression-share/query`): share range, rank and popularity 1–5 per term the
@@ -188,6 +188,57 @@ everything at the cap, read which terms deliver, move the good ones into title/s
 the profitable ones paid. Exact match still serves close variants (plurals, misspellings), so some
 generated spellings are redundant. That is harmless. Compresso's own data: EXACT 20 installs from 25
 taps ($0.57 each) against BROAD 37 from 96 ($1.37) — observational, and EXACT was mostly one head term.
+
+### The radar: `scripts/radar.py`
+
+One weekly, read-only pull turns the three sources above into history in the store
+(`copilot.py radar …`; also step 5 of `copilot.py cycle`, which skips it quietly when config.md has no Apple Ads lines):
+
+| Command | Reads | Writes |
+|---|---|---|
+| `radar pull` | popularity for every market in `metrics/ranks.csv`, filtered server-side to the app's genres; four weeks of impression share for the app's own ads | `metrics/popularity.csv` (tracked terms inside the head, plus head terms that contain a configured topic word), `metrics/popularity_cut.csv` (per market × genre: terms listed, lowest score listed), `metrics/impression_share.csv` |
+| `radar report` | those files, no network | the cut per market, tracked terms inside the head beside our search-API position, topical head terms we do not track, our impression share |
+| `radar keywords [--campaign ID]` | keyword report + `targeting-keywords find` + search-terms report | keyword text, match type, bid, spend, installs, and how much spend sits under withheld terms |
+| `ledger.py report` | the radar files | section C gains a **Demand** column: `head N`, `below N`, `no data`, `—` |
+
+config.md, all optional; without profile and account the radar refuses to guess an account:
+`**Apple Ads profile**:` (an `asc ads auth` profile name), `**Apple Ads account**:` (numeric ad account id),
+`**Apple Ads genres**:` (the app's categories in Apple's spelling; Compresso is UTILITIES + PHOTO_AND_VIDEO in ASC and
+`PRODUCTIVITY_UTILITIES` + `PHOTO_VIDEO` here; the others are `GAMES`, `BUSINESS`, `EDUCATION`, `ENTERTAINMENT`, `FINANCE`,
+`FOOD_DRINK`, `HEALTH_FITNESS`, `LIFESTYLE`, `NEW_PUBLICATION`, `SHOPPING`, `SOCIAL_NETWORKING`, `SPORTS`, `TRAVEL`),
+`**Apple Ads topic words**:` (substrings; head terms containing one are stored).
+
+What it enforces: a tracked term that is not listed is **below the cut** (the lowest score Apple lists there), never zero;
+a storefront where Apple lists nothing (RU, LT and MD in 2026-09) is `no data`, not "no demand"; a week Apple has not
+published yet falls back one week and stores nothing for the empty one; a market already stored for a week is not pulled
+twice. Pull weekly: Apple's weeks run Sunday to Saturday.
+
+First real run (Compresso, week 2026-09-20): 6 of 728 tracked non-brand pairs inside the head — jp `動画圧縮` 55 (our
+search-API position 160), cn `视频压缩` 48, four India `compressor` queries at 44–46. Head terms on the app's topic that
+were not tracked: us `clean up iphone` 63, it `clean up iphone gratis` 58, au `clean up iphone free` 57, mx `clean up
+gratis` 55. Popularity is a relative score, not a search count, and the cut differs by storefront (44 in GB, 56 in NO), so
+`below 56` in Norway and `below 44` in Britain are not comparable statements about volume. A candidate is a reason to
+observe the term (`rank_audit.py`, `ledger.py ingest`) and then draft a hypothesis, not a keyword to ship. Generic topic
+words match brand names.
+
+`radar report` reads offline; `radar pull` is the only network step. RespectASO's `get_top_search_terms` reaches the same
+weekly data with a license; the radar needs only the app's own Ads account and keeps the history in the store.
+
+### Ceiling for a per-tap bid
+
+Apple Ads bills taps, so the ceiling is per tap:
+`economics.py --net-per-payer <first-year net, metrics/markets.csv proceeds_usd> --pay-rate <payers per install>
+--tap-to-install <installs per tap, from the Ads report> [--cpt <the bid>]`. At 0.5 % payers per install and 0.8 installs
+per tap a $29.88-net storefront allows $0.12 a tap and a $6.68-net one $0.03. The pay rate stays a scenario until
+RevenueCat has enough paying customers to measure it; print it next to the ceiling every time.
+
+### Ads → ASO loop (from a founder call, 2026-09-28)
+
+Run long-tail EXACT keywords at the ceiling → read `radar keywords` → the terms that deliver become candidates → check who
+holds them in title and subtitle (`rank_audit.py`, competitor listings) → move a winner into organic metadata as a
+hypothesis with a kill criterion → pause the paid keyword once organic holds it. Ads matching is looser than the keyword
+field's: an EXACT keyword also serves close variants (plurals, misspellings, word order), which the keyword field does not,
+so a finding from an ad report is never a reason to delete variants from a keyword field.
 
 ## 4. Negative Keyword Match Rules & Hazards
 

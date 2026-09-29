@@ -16,7 +16,12 @@ without re-deriving it by hand.
 Usage:
     economics.py --price 49.99 --commission 0.15 --retention 0.221 --trial-to-paid-cvr 0.38 \
                   --cpi 1.39 [--observed-trial-rate 0.05]
+    economics.py --net-per-payer 29.88 --pay-rate 0.005 --tap-to-install 0.8 [--cpt 0.65]
     economics.py --self-check
+
+The second form is the ceiling for a per-tap bid (Apple Ads bills taps): what one payer nets in the
+first year (metrics/markets.csv `proceeds_usd`) × payers per install (RevenueCat: paying customers ÷ new
+customers, a scenario until measured) × installs per tap (Apple Ads report: tapInstalls ÷ taps).
 """
 
 from __future__ import annotations
@@ -56,6 +61,16 @@ def breakeven_trial_start_rate(ltv_trial: float, cpi: float) -> float:
     if not math.isfinite(ltv_trial) or ltv_trial <= 0:
         raise ValueError("ltv_per_trial must be positive")
     return cpi / ltv_trial
+
+
+def breakeven_cpt(net_per_payer: float, pay_rate: float, tap_to_install: float) -> float:
+    """Highest cost per tap at which a tap still pays for itself: net × payers per install × installs per tap."""
+    if not math.isfinite(net_per_payer) or net_per_payer <= 0:
+        raise ValueError("net_per_payer must be finite and positive")
+    for name, value in (("pay_rate", pay_rate), ("tap_to_install", tap_to_install)):
+        if not math.isfinite(value) or not 0 < value <= 1:
+            raise ValueError(f"{name} must be in (0, 1]")
+    return net_per_payer * pay_rate * tap_to_install
 
 
 def scaling_verdict(observed_trial_rate: float, breakeven_rate: float) -> str:
@@ -100,6 +115,16 @@ def run(args: argparse.Namespace) -> None:
         print("(pass --observed-trial-rate to get a scaling verdict against this break-even point)")
 
 
+def run_cpt(args: argparse.Namespace) -> None:
+    print("SCENARIO ONLY: first-year net per payer, no refunds/taxes/renewals; pay_rate and tap_to_install are "
+          "inputs, not forecasts. Tell the two apart from a measured rate before bidding on it.")
+    cap = breakeven_cpt(args.net_per_payer, args.pay_rate, args.tap_to_install)
+    print(f"Break-even max CPT: ${cap:.3f}  [{_tag('net_per_payer', 'pay_rate', 'tap_to_install')}]")
+    if args.cpt is not None:
+        print(f"a ${args.cpt:.2f} tap is {'within' if args.cpt <= cap else 'ABOVE'} that ceiling "
+              f"({args.cpt / cap:.1f}x)")
+
+
 def self_check() -> None:
     # HANDBOOK.md Part 2.4 worked example. The handbook rounds at every step (LTV/subscriber to
     # "$54", the final LTV/trial to "$20.50"); this script keeps full precision throughout, so the
@@ -136,6 +161,18 @@ def self_check() -> None:
         else:
             raise AssertionError(values)
 
+    # Per-tap ceiling: the product of its three inputs, and each input pushes it the right way.
+    cap = breakeven_cpt(29.88, 0.005, 0.8)
+    assert abs(cap - 0.11952) < 1e-9
+    assert breakeven_cpt(29.88, 0.01, 0.8) > cap and breakeven_cpt(29.88, 0.005, 0.4) < cap
+    for bad in ((0, .005, .8), (29.88, 0, .8), (29.88, .005, 1.2), (float("nan"), .005, .8)):
+        try:
+            breakeven_cpt(*bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(bad)
+
     # Verdict direction, both sides:
     assert "BELOW" in scaling_verdict(0.05, breakeven)
     assert "clears" in scaling_verdict(0.10, breakeven)
@@ -161,6 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="measured share of downloads that start a trial (trial_starts / downloads); optional",
     )
+    parser.add_argument("--net-per-payer", type=float, help="first-year net proceeds of one payer, $ (max-CPT mode)")
+    parser.add_argument("--pay-rate", type=float, help="payers per install, e.g. 0.005 (max-CPT mode)")
+    parser.add_argument("--tap-to-install", type=float, help="installs per tap, e.g. 0.8 (max-CPT mode)")
+    parser.add_argument("--cpt", type=float, default=None, help="a bid or observed cost per tap to compare with the ceiling")
     return parser
 
 
@@ -170,6 +211,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.self_check:
         self_check()
+        return 0
+
+    if args.net_per_payer is not None:
+        missing = [flag for flag, value in (("--pay-rate", args.pay_rate), ("--tap-to-install", args.tap_to_install))
+                   if value is None]
+        if missing:
+            parser.error(f"max-CPT mode also needs {', '.join(missing)}")
+        try:
+            run_cpt(args)
+        except ValueError as exc:
+            parser.error(str(exc))
         return 0
 
     required = ["price", "commission", "retention", "trial_to_paid_cvr", "cpi"]

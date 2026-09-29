@@ -150,6 +150,7 @@ Example: `[$ios-aso-copilot](SKILL.md) --full Hush, App ID 6449785515`.
 | Existing funnel snapshot | `python3 "$COPILOT" funnel --store "$STORE"` | Reads local `weekly.csv`; no pull |
 | Refresh funnel / in-app data | `python3 "$COPILOT" funnel --pull --store "$STORE"` / `python3 "$COPILOT" ga --days 14 --store "$STORE"` | Makes remote reads and writes local snapshots; funnel CSVs use a unique app-specific temp directory |
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
+| Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
 | Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, attempts configured funnel and GA pulls, then reports the ledger |
 | Explicit full skill run (`--full`) | Start the complete cycle described below; its collection entrypoint remains `python3 "$COPILOT" cycle --store "$STORE"` | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
 
@@ -191,6 +192,8 @@ the ledger exists to make that state visible instead of comfortable.
   priority order, not a revenue forecast, and it is deliberately not sorted by impressions:
   a first place in a storefront that nets $6.37 a subscriber is worth less than a fifth place in
   one that nets $29.88. Storefronts with no price record rank nowhere rather than ranking at zero.
+  Where `radar pull` has run, each row also shows Apple's search popularity for the key (`head N`; `below N` = not listed,
+  so under the storefront's cut: unknown, not zero; `no data`). It informs the order and is not part of the score.
 
 Draft with `python3 "$COPILOT" ledger --store "$STORE" draft --market X --queries "a; b"`. It scaffolds
 only the deterministic half — id, storefront, basket, each query's real baseline, the window dates,
@@ -291,6 +294,8 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
    without authorization. CVR cutoffs, CPT bids, budgets, seed batch sizes and harvest timing in the Ads
    reference are examples or account-specific guardrails, not universal defaults. Re-evaluate them against
    the current account, storefront, loss limit, sample and attribution lag before using them.
+   Pull the weekly demand radar first (`radar pull`, `references/apple-ads.md` §3c): it separates *below the cut* from zero, and
+   the search-terms report hides terms under 10 impressions, so read paid queries per keyword (`radar keywords`).
 3. Audit App Store customer reviews and ratings only as needed: use `asc reviews ratings --app "$APP_ID" --all`
    and the documented read command for unresponded reviews (see `references/reviews-and-ratings.md`). Report rating counts,
    averages by country, star distribution, qualitative sentiment, praised features to amplify in

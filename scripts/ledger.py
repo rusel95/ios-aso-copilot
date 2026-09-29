@@ -26,6 +26,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from radar import demand_label, demand_lookup  # noqa: E402 — Apple's popularity, read from metrics/popularity*.csv
+
 RANK_HEADER = ["date", "market", "keyword", "group", "position", "popularity",
                "difficulty", "source", "depth", "status"]
 # status vocabulary: ok = found at `position`; beyond-depth = queried, absent within `depth`;
@@ -125,6 +128,19 @@ def read_markets(store: Path):
 
 def hyp_markets(h):
     return [m.strip().lower() for m in (h.get("markets") or "").split(",") if m.strip()]
+
+
+def brand_hit(token: str, keyword: str) -> bool:
+    """A brand token is a whole word. `compresso` is our name; `compressor` is a generic query that merely
+    contains it, and a substring test used to drop 332 of Compresso's 778 tracked pairs from section C."""
+    token, keyword = token.casefold(), keyword.casefold()
+    at = keyword.find(token)
+    while at != -1:
+        before, after = keyword[at - 1:at], keyword[at + len(token):at + len(token) + 1]
+        if not (before.isascii() and before.isalnum()) and not (after.isascii() and after.isalnum()):
+            return True
+        at = keyword.find(token, at + 1)
+    return False
 
 
 def read_brand_tokens(store: Path):
@@ -393,7 +409,7 @@ def is_dominant(market: str, pos) -> bool:
     return pos <= threshold
 
 
-def section_c(pairs, markets, hyps, limit, brand):
+def section_c(pairs, markets, hyps, limit, brand, demand=None):
     print("\n## C · What to do next, ordered by money at stake\n")
     print("_Order = net proceeds per paying subscriber in that storefront (live ASC price record) "
           "× gain (how much of a top-3 position is unclaimed) × reach (how movable the current "
@@ -408,7 +424,7 @@ def section_c(pairs, markets, hyps, limit, brand):
     open_hyp_markets = {m for h in hyps if not (h.get("verdict") or "").strip() for m in hyp_markets(h)}
     scored, unpriced, brand_skipped = [], 0, 0
     for (market, keyword), obs in pairs.items():
-        if any(token in keyword.lower() for token in brand):
+        if any(brand_hit(token, keyword) for token in brand):
             brand_skipped += 1
             continue
         proceeds = markets.get(market)
@@ -430,11 +446,18 @@ def section_c(pairs, markets, hyps, limit, brand):
         scored.append((round(proceeds * gain * reach, 2), market, keyword, pos, name,
                        proceeds, f"{gain}×{reach}", status))
     scored.sort(reverse=True)
-    print("| Score | Market | Key | Position now | Band | Net proceeds/sub | Gain×Reach | Status |")
-    print("|---:|---|---|---:|---|---:|---:|---|")
+    shown = bool(demand and demand[1])         # a store that never ran the radar keeps its old table
+    if shown:
+        print("_Demand is Apple's own search popularity (`radar.py pull` → metrics/popularity*.csv): `head N` is its "
+              "1–100 score for a term in the published head list; `below N` means not listed, so under the lowest "
+              "score listed for that storefront: volume unknown, not zero; `no data` means Apple lists nothing "
+              "there; `—` means never pulled. It informs the order; it is not part of the score._\n")
+    print("| Score | Market | Key |" + (" Demand |" if shown else "") + " Position now | Band | Net proceeds/sub | Gain×Reach | Status |")
+    print("|---:|---|---|" + ("---|" if shown else "") + "---:|---|---:|---:|---|")
     for s in scored[:limit]:
         pos = s[3] if s[3] is not None else f">depth"
-        print(f"| {s[0]} | {s[1]} | {s[2]} | {pos} | {s[4]} | ${s[5]:.2f} | {s[6]} | {s[7]} |")
+        cell = f" {demand_label(demand, s[1], s[2])} |" if shown else ""
+        print(f"| {s[0]} | {s[1]} | {s[2]} |{cell} {pos} | {s[4]} | ${s[5]:.2f} | {s[6]} | {s[7]} |")
     if brand_skipped:
         print(f"\n{brand_skipped} brand-term keys excluded: rank on our own name shows we are indexed, "
               f"not that anyone searches for us. Set `**Brand tokens**:` in config.md to change the list.")
@@ -482,7 +505,7 @@ def report(store: Path, limit: int):
     print_problems()
     section_a(hyps, pairs, markets)
     section_b(pairs, markets, limit)
-    section_c(pairs, markets, hyps, limit, read_brand_tokens(store))
+    section_c(pairs, markets, hyps, limit, read_brand_tokens(store), demand_lookup(store))
 
 
 # ---------------------------------------------------------------- draft
@@ -763,11 +786,30 @@ def self_check():
         assert read_brand_tokens(store) == ["komprimieren"]
         assert not section_c(pairs, read_markets(store), hyps, 10, ["komprimieren"]), \
             "a brand term is not an acquisition target"
+        assert brand_hit("compresso", "compresso: стиснути фото") and brand_hit("compresso", "Compresso")
+        assert brand_hit("compresso", "compresso写真圧縮") and not brand_hit("compresso", "video compressor"), \
+            "a generic query that contains the brand's letters is not a brand query"
         scored = section_c(pairs, read_markets(store), hyps, 10, [])
         assert scored and scored[0][1] == "de" and scored[0][5] == 29.88
         assert scored[0][2] == "video komprimieren" and scored[-1][2] == "fotos komprimieren", (
             "a #30 with room must outrank a #8 that is nearly top3")
         assert all(s[0] > 0 for s in scored), "score must use real proceeds, never a stored opportunity field"
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()) as plain:
+            section_c(pairs, read_markets(store), hyps, 10, [], demand_lookup(store))
+        assert "Demand" not in plain.getvalue(), "no radar data, no Demand column"
+        (store / "metrics" / "popularity_cut.csv").write_text(
+            "week,captured,market,genre,listed,min_popularity_100,source\n"
+            "2026-09-20,2026-09-29,de,PHOTO_VIDEO,300,45,test\n", encoding="utf-8")
+        (store / "metrics" / "popularity.csv").write_text(
+            "week,captured,market,genre,term,rank_in_genre,popularity_100,popularity_5,why,source\n"
+            "2026-09-20,2026-09-29,de,PHOTO_VIDEO,video komprimieren,185,55,3,basket,test\n", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()) as with_demand:
+            section_c(pairs, read_markets(store), hyps, 10, [], demand_lookup(store))
+        table = with_demand.getvalue()
+        assert "| video komprimieren | head 55 |" in table and "| fotos komprimieren | below 45 |" in table, table
+        (store / "metrics" / "popularity_cut.csv").unlink()
+        (store / "metrics" / "popularity.csv").unlink()
         import io, contextlib
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):

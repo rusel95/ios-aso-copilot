@@ -8,6 +8,7 @@ Consolidates multi-step marketing operations into a single entrypoint:
   - copilot funnel: pull and summarize ASC analytics
   - copilot ga: pull in-app GA4 / Firebase telemetry
   - copilot ledger: delegate to ledger.py (report, refresh, draft, ingest)
+  - copilot radar: delegate to radar.py (Apple search popularity, impression share, keyword report join)
 """
 
 import argparse
@@ -153,17 +154,21 @@ def self_check():
         assert "star histogram unavailable" in summary
         reviews_output = json.dumps({"data": [], "meta": {"paging": {"total": 0}}})
         complete = [(0, version_output, ""), (0, ratings_output, ""),
-                    (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "ledger\n", "")]
+                    (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")]
         assert cycle_result(complete)[0] == 0
         partial, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
-                                        (0, "", ""), (0, "GA metrics\n", ""), (0, "ledger\n", "")])
+                                        (0, "", ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert partial == 2 and "whether there are zero rows is unknown" in output
         empty_ga, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
-                                         (0, reviews_output, ""), (0, "", ""), (0, "ledger\n", "")])
+                                         (0, reviews_output, ""), (0, "", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert empty_ga == 2 and "GA4 returned no output" in output
         failed, _ = cycle_result([(1, "", "ASC unavailable"), (0, ratings_output, ""),
-                                  (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "ledger\n", "")])
+                                  (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert failed == 2
+        radar_failed, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
+                                             (0, reviews_output, ""), (0, "GA metrics\n", ""),
+                                             (2, "⚠️ jp: exit 1: boom\n", ""), (0, "ledger\n", "")])
+        assert radar_failed == 2 and "Radar pull incomplete" in output and "jp: exit 1: boom" in output
 
         ga_args = argparse.Namespace(store=str(store), property_id=None, days=14, credentials=None,
                                      realtime=False, include_debug=False, export_csv=False)
@@ -174,6 +179,11 @@ def self_check():
 
         with patch(f"{__name__}.subprocess.run", return_value=subprocess.CompletedProcess([], 7)):
             assert cmd_reviews(argparse.Namespace(store=str(store), action="ratings")) == 7
+        parser = build_parser()
+        assert parser.parse_args(["--store", "/a", "cycle"]).store == "/a"
+        assert parser.parse_args(["cycle", "--store", "/b"]).store == "/b"
+        assert parser.parse_args(["radar", "--store", "/c", "pull"]).store == "/c"
+        assert parser.parse_args(["status"]).store == str(DEFAULT_STORE)
     print("OK: app identity, safe funnel paths, and CLI complete/partial/failure semantics")
 
 
@@ -462,6 +472,16 @@ def cmd_ledger(args):
     return subprocess.run(forward_args).returncode
 
 
+def cmd_radar(args):
+    """Delegate to radar.py."""
+    radar_py = SKILL_DIR / "scripts" / "radar.py"
+    if not radar_py.exists():
+        print(f"radar.py not found at {radar_py}")
+        return 1
+    return subprocess.run([sys.executable, str(radar_py), "--store", str(Path(args.store).resolve())]
+                          + args.radar_args).returncode
+
+
 def cmd_cycle(args):
     """Run the consolidated live-read and local snapshot pass."""
     store = Path(args.store).resolve()
@@ -475,7 +495,7 @@ def cmd_cycle(args):
     print("=================================================================\n")
 
     # Step 1: Reconcile versions
-    print("▶ [1/5] Verifying App Store Connect Versions...")
+    print("▶ [1/6] Verifying App Store Connect Versions...")
     rc, out, err = run_cmd(["asc", "versions", "list", "--app", app_id, "--platform", "IOS"])
     if rc == 0:
         if out.strip():
@@ -493,7 +513,7 @@ def cmd_cycle(args):
         partial = True
 
     # Step 2: Reviews & Ratings
-    print("\n▶ [2/5] Auditing Customer Reviews & Ratings...")
+    print("\n▶ [2/6] Auditing Customer Reviews & Ratings...")
     rc, out, err = run_cmd(["asc", "reviews", "ratings", "--app", app_id, "--all"])
     if rc == 0 and out.strip():
         summary = compact_asc_output(out, "ratings")
@@ -524,7 +544,7 @@ def cmd_cycle(args):
         partial = True
 
     # Step 3: Funnel metrics
-    print("\n▶ [3/5] Syncing Funnel Analytics...")
+    print("\n▶ [3/6] Syncing Funnel Analytics...")
     pull_script = store / "scripts" / "pull_funnel.py"
     if not pull_script.exists():
         pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
@@ -550,7 +570,7 @@ def cmd_cycle(args):
         partial = True
 
     # Step 4: GA4 Telemetry
-    print("\n▶ [4/5] Pulling In-App Telemetry (GA4)...")
+    print("\n▶ [4/6] Pulling In-App Telemetry (GA4)...")
     ga_script = SKILL_DIR / "scripts" / "pull_ga.py"
     if not ga_script.exists():
         ga_script = store / "scripts" / "pull_ga.py"
@@ -581,8 +601,21 @@ def cmd_cycle(args):
         print("  ⚠️ GA4 pull unavailable — pull_ga.py not found in skill or store scripts/.")
         partial = True
 
-    # Step 5: Ledger Report
-    print("\n▶ [5/5] Generating Hypothesis & Keyword Ledger Report...")
+    # Step 5: Apple demand radar
+    print("\n▶ [5/6] Apple demand radar (search popularity, impression share)...")
+    radar_py = SKILL_DIR / "scripts" / "radar.py"
+    rc, out, err = run_cmd([sys.executable, str(radar_py), "--store", str(store), "pull", "--if-configured"])
+    if rc == 0:
+        for l in out.splitlines():
+            print(f"  {l}")
+    else:
+        print(f"  ⚠️ Radar pull incomplete (exit {rc}); stored weeks are unchanged for the markets that failed:")
+        for l in (out + err).splitlines()[:20]:
+            print(f"    {l}")
+        partial = True
+
+    # Step 6: Ledger Report
+    print("\n▶ [6/6] Generating Hypothesis & Keyword Ledger Report...")
     ledger_py = SKILL_DIR / "scripts" / "ledger.py"
     if ledger_py.exists():
         rc, out, err = run_cmd([sys.executable, str(ledger_py), "--store", str(store), "report"])
@@ -606,11 +639,14 @@ def cmd_cycle(args):
     return 2 if partial else 0
 
 
-def main():
+def build_parser():
+    # `--store` works before or after the subcommand. A subparser repeating the default would overwrite
+    # `copilot.py --store OTHER cycle` with cwd/marketing and act on the wrong app's store.
     store_parent = argparse.ArgumentParser(add_help=False)
-    store_parent.add_argument("--store", default=str(DEFAULT_STORE), help="Path to marketing store directory")
+    store_parent.add_argument("--store", default=argparse.SUPPRESS, help="Path to marketing store directory")
 
-    parser = argparse.ArgumentParser(description="Unified CLI for iOS ASO Copilot", parents=[store_parent])
+    parser = argparse.ArgumentParser(description="Unified CLI for iOS ASO Copilot")
+    parser.add_argument("--store", default=str(DEFAULT_STORE), help="Path to marketing store directory")
     parser.add_argument("--self-check", action="store_true", help="check app identity parsing without network access")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -646,6 +682,16 @@ def main():
     p_led = subparsers.add_parser("ledger", help="Manage hypothesis and keyword ledger", parents=[store_parent])
     p_led.add_argument("ledger_args", nargs=argparse.REMAINDER, help="Arguments passed to ledger.py")
 
+    # radar
+    p_rad = subparsers.add_parser("radar", help="Apple demand radar: popularity, impression share, keyword lens",
+                                  parents=[store_parent])
+    p_rad.add_argument("radar_args", nargs=argparse.REMAINDER, help="Arguments passed to radar.py (pull, report, keywords)")
+
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.self_check:
@@ -666,6 +712,8 @@ def main():
         return cmd_ga(args)
     elif args.command == "ledger":
         return cmd_ledger(args)
+    elif args.command == "radar":
+        return cmd_radar(args)
     return 0
 
 

@@ -29,7 +29,7 @@ close R-23/R-28/R-13: they do not create real analytics, a tracker, or an automa
 | R-32 | Experiment design and power | Prospective primary metric, useful effect, allocation, window and guardrails | Sample/duration feasibility calculated per cell; inconclusive is a supported outcome |
 | R-33 | Creative testing with PPO | One real first-screenshot, icon or honest App Preview contrast with substantiated value and actual UI | Validated localized assets, feasible duration, approved test and archived result; a preview is used only when it clarifies the product |
 | R-34 | Intent-specific CPP and deep links | Compression-video page and storage-saving page, with distinct relevant keyword combinations | Public pages verified; iOS 18+ route and older-OS fallback tested; page analytics available |
-| R-10 | Apple query demand source | Apple popularity and/or actual paid-query observations with dates and source details | Missing/censored values preserved; no monthly-volume conversion invented |
+| R-10 | Apple query demand source | Apple popularity and/or actual paid-query observations with dates and source details | Missing/censored values preserved; no monthly-volume conversion invented. **Partially closed 2026-09-29** (CHANGELOG v2.5.0): `radar.py` stores weekly Apple popularity with the cut. Still open: a run on a second store; no source for terms below the cut except our own ads' impressions |
 | R-21 | Apple Ads pilot preparation | One-market exact-query research plan with hard total loss cap and stop rule | Approved plan launched, spend/installs/quality read back and reconciled |
 | R-26 | Paid-query reporting | Search-term rather than only bid-keyword reports; attribution windows and new/redownload definitions | Paid acquisition analyzed separately from ASC Search totals |
 | R-35 | Review language and quality loop | Classify real objections; native neutral prompts after a successful user outcome | Product issues feed backlog; replies are drafts until authorized; no incentives or review gating |
@@ -65,6 +65,10 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
   app identity, isolates funnel raw files, and returns a partial/failure status when a stage is
   incomplete. Still open: automatic bounded retry and a persistent run manifest; retry failures with
   `--failed-only` and retain explicit replay limits.
+- R-43: source or remove the unsourced figures left in `ugc-playbook.md` and `channel-playbooks.md` (muted-viewing share,
+  page-CVR norm, CPT and budget ranges). Templates already ship placeholders (v2.5.0).
+- R-44: section C shows demand but does not weight by it. Revisit once the radar covers enough of the basket; on Compresso
+  6 of 728 tracked non-brand pairs sit inside Apple's head, so a weight today would be mostly noise.
 - R-17: wire verified observations into the cycle after R-13/R-29; do not restore forecast leaderboards.
 - R-18/R-19: npm publication or additional packaging only when distribution demand exists.
 - R-22: review reply drafting; retain author approval for public responses.

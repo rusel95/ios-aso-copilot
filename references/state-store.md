@@ -180,6 +180,25 @@ date,market,keyword,group,position,popularity,difficulty,source,depth,status
   independent of how long the provider keeps it — provider retention only bounds how much can be
   back-filled on first use, never how long an experiment may run.
 
+## Apple demand — `metrics/popularity.csv`, `popularity_cut.csv`, `impression_share.csv`
+
+Append-only, written by `scripts/radar.py`, never rewritten. `week` is the measured Sunday–Saturday week (its Sunday),
+`captured` the pull date; keep them apart. `source` is `asc-ads-insights`; the full tag is
+`live:asc ads insights <search-term-popularity|impression-share> find@<captured>`.
+
+```csv
+week,captured,market,genre,term,rank_in_genre,popularity_100,popularity_5,why,source
+2026-09-20,2026-09-29,jp,PHOTO_VIDEO,動画圧縮,185,55,3,basket,asc-ads-insights
+```
+
+- `why` — `basket` (a tracked term found in the head) or `topic` (a head term containing a configured topic word, at most 40 per market).
+- `popularity_cut.csv` — `week,captured,market,genre,listed,min_popularity_100,source`: per market × genre, how many terms Apple
+  listed and the lowest score listed. `listed=0` with a blank genre means Apple lists nothing for that storefront. A tracked term
+  missing from `popularity.csv` is *below this cut*: never zero, never "no demand". The two files are read together.
+- `impression_share.csv` — `week,captured,market,term,rank,popularity_5,share_low,share_high,source`: only terms the app's own ads
+  showed on; two different bounds mean Apple returned a band.
+- config.md labels, all optional: `**Apple Ads profile**:`, `**Apple Ads account**:`, `**Apple Ads genres**:`, `**Apple Ads topic words**:`.
+
 ## Storefront economics — `metrics/markets.csv`
 
 One row per territory, refreshed when prices change, never estimated.

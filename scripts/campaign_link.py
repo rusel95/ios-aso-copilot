@@ -110,6 +110,18 @@ def check_collision(existing_records, channel, target_community, campaign_token)
 
     return collisions
 
+# A scaffold that prints a number ships it: the Threads template once said "Saved 24 GB in 3 minutes" and
+# nobody had measured that. Percentages (except the architectural 100%), dollar amounts and GB/MB figures
+# stay out of every template; write them as [placeholders] the author must fill from a measurement.
+UNMEASURED_FIGURE = re.compile(r"\$\s?\d|(?<![\d.])(?!100\s?%)\d+(?:[.,]\d+)?\s?%|\d\s?(?:GB|MB|ГБ|МБ)\b", re.I)
+
+
+def unmeasured_figures(text):
+    text = re.sub(r"\[[^\]]*\]", "", text)      # [placeholders], incl. time codes, are exempt
+    text = re.sub(r"https?://\S+", "", text)
+    return [m.group(0) for m in UNMEASURED_FIGURE.finditer(text)]
+
+
 def get_copy_templates(channel_type, app_url):
     if channel_type == "reddit_reply":
         return {
@@ -122,7 +134,7 @@ High "System Data" or full iPhone storage is usually caused by iOS holding onto 
 3. Clear Safari website data (Settings > Safari > Clear History and Website Data).
 
 [Step 3: Solution]
-If you are looking for a focused on-device solution without recurring subscription traps, I built [App Name] for this — 100% private, native processing on Apple Silicon, no data leaves your device: {app_url}
+If you are looking for a focused on-device solution, I built [App Name] for this — 100% private, native processing on Apple Silicon, no data leaves your device: {app_url}
 (Disclaimer: I'm the developer, hope it helps!)""",
             "uk": f"""[Крок 1: Причина]
 Типові проблеми з пам'яттю часто спричинені кешем месенджерів або важкими медіафайлами.
@@ -133,25 +145,25 @@ If you are looking for a focused on-device solution without recurring subscripti
 3. Очистіть кеш Safari в Налаштуваннях.
 
 [Крок 3: Локальне рішення]
-Якщо потрібен зручний нативний інструмент без підписок та хмарних сервісів — можете спробувати [App Name]: працює повністю локально на процесорі вашого iPhone: {app_url}
+Якщо потрібен зручний нативний інструмент без хмарних сервісів — можете спробувати [App Name]: працює повністю локально на процесорі вашого iPhone: {app_url}
 (Звісно, як розробник я зацікавлений, але спершу обов'язково спробуйте ребут і очистку кешу!)"""
         }
     elif channel_type == "reddit_showcase":
         return {
             "en": f"""Title: [App Name] — Native on-device utility [Freemium]
 
-Hey r/iosapps! I'm the developer of [App Name]. Built this native tool to solve a specific problem cleanly without predatory subscription models.
+Hey r/iosapps! I'm the developer of [App Name]. [One sentence on why you built it, in your own words.]
 
 **A - Answer (Problem solved):**
-4K 60fps videos quickly eat 40–80GB. Many "cleaner" apps secretly upload media to cloud servers or lock basic features behind $50/yr subscriptions.
+Long 4K videos eat storage fast. Some "cleaner" apps upload media to cloud servers or lock basic features behind subscriptions.
 
 **B - Better (Key differences):**
 - 100% On-Device: All compression runs locally via Apple Silicon VideoToolbox (HEVC/H.265). Zero data leaves your device.
 - Month-by-month swipe UI: Review your memories with smooth swipe gestures.
-- High visual fidelity: Shrinks videos by 70–85% while keeping sharpness on Retina displays.
+- Judge the quality yourself: original and compressed side by side before you commit. Typical saving: [your measured %, from the App Store cards or your own library].
 
 **C - Cost & Link:**
-Freemium. Full unrestricted access to review and compress your first month for free to verify real GB savings. Lifetime & subscription available.
+[Pricing exactly as the App Store listing states it.]
 App Store: {app_url}""",
             "uk": f"""Заголовок: [App Name] — локальний нативний інструмент для iPhone [Freemium]
 
@@ -182,14 +194,14 @@ App Store: {app_url}"""
     elif channel_type == "ugc_video":
         return {
             "en": f"""[0:00 - 0:03] HOOK:
-Visual: Shocked face or close up of iPhone Storage red bar (126/128 GB).
+Visual: Shocked face or close up of iPhone Storage red bar ([your real used/total GB]).
 Audio: "Stop deleting your favorite photos every time your iPhone says storage full."
 Caption: DON'T DELETE PHOTOS 🛑
 
 [0:03 - 0:08] PAIN:
-Visual: Quick scroll through Photos settings showing 80GB of videos.
-Audio: "Apple wants you to pay $3/mo for iCloud forever, but 90% of your storage is just uncompressed 4K video clips."
-Caption: Apple's $3/mo iCloud Trap 💸
+Visual: Quick scroll through Storage settings showing [your real GB] of videos.
+Audio: "Apple wants you to pay for extra iCloud storage forever, but [your real share]% of my storage was just video clips."
+Caption: The iCloud upgrade trap 💸
 
 [0:08 - 0:18] SOLUTION:
 Visual: Phone in hand opening [App Name]. Demonstrating core workflow.
@@ -198,7 +210,7 @@ Caption: 100% On-Device Solution 🔒
 
 [0:18 - 0:24] PAYOFF:
 Visual: Immediate payoff screen / problem solved.
-Audio: "Fast, private, and the quality is completely untouched."
+Audio: "Fast, private, and it shows before and after so you can judge the quality yourself."
 Caption: Instant Result ⚡️
 
 [0:24 - 0:30] CTA:
@@ -206,14 +218,14 @@ Visual: Pointing to bio or showing App Store icon.
 Audio: "It's called [App Name] on the App Store. Link in bio to try it!"
 Caption: [App Name] in App Store 📲 (Link in Bio: {app_url})""",
             "uk": f"""[0:00 - 0:03] ХУК:
-Візуал: Крупний план iPhone з червоною смугою пам'яті (126/128 GB) або поп-апом "Storage Almost Full".
+Візуал: Крупний план iPhone з червоною смугою пам'яті ([твої реальні GB]) або поп-апом "Storage Almost Full".
 Озвучка: "Припини видаляти улюблені фото щоразу, коли на iPhone закінчується пам'ять."
 Субтитри: НЕ ВИДАЛЯЙ ФОТО 🛑
 
 [0:03 - 0:08] БІЛЬ:
-Візуал: Сховище iPhone, де відео займають 80+ GB.
-Озвучка: "Apple хоче, щоб ти все життя платив за додатковий iCloud, хоча 90% місця — це просто нестиснуті 4K відео."
-Субтитри: Пастка $3/міс за iCloud 💸
+Візуал: Сховище iPhone, де відео займають [твої реальні GB].
+Озвучка: "Apple хоче, щоб ти все життя платив за додатковий iCloud, хоча [твоя реальна частка]% місця в мене — це просто відео."
+Субтитри: Пастка апгрейду iCloud 💸
 
 [0:08 - 0:18] РІШЕННЯ:
 Візуал: Телефон у руках, відкривається [App Name]. Демонстрація ключової фічі.
@@ -222,7 +234,7 @@ Caption: [App Name] in App Store 📲 (Link in Bio: {app_url})""",
 
 [0:18 - 0:24] ДОФАМІН:
 Візуал: Миттєве вирішення проблеми на екрані.
-Озвучка: "Швидко, без підписок і жодних зайвих рухів."
+Озвучка: "Швидко, приватно, і можна порівняти до й після."
 Субтитри: Миттєвий результат ⚡️
 
 [0:24 - 0:30] ЗАКЛИК (CTA):
@@ -256,6 +268,11 @@ def main():
         existing = [{"id": "C001", "campaign_token": "reddit_test", "target_community": "r/iosapps", "status": "queued"}]
         cols = check_collision(existing, "reddit", "r/iosapps", "reddit_test")
         assert len(cols) >= 2  # token + cooldown collision
+        assert unmeasured_figures("Saved 24 GB in 3 minutes, 85% smaller, only $3/mo") and \
+            not unmeasured_figures("100% on-device [X] GB became [Y] GB [0:00 - 0:03] https://a.co/id1?ct=t3")
+        for kind in ("reddit_reply", "reddit_showcase", "threads", "x", "ugc_video"):
+            for lang, text in get_copy_templates(kind, "https://example.com/id1").items():
+                assert not unmeasured_figures(text), (kind, lang, unmeasured_figures(text))
         print("Self-check passed successfully.")
         return
 
