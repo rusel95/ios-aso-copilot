@@ -84,22 +84,20 @@ def append_csv(path: Path, cols: list, rows: list) -> None:
 
 
 def read_basket(store: Path):
-    """The tracked rank basket as of each market's latest look: ({market: {term}}, {(market, term): position})."""
-    rows = read_csv(store / "metrics" / "ranks.csv")
-    latest = {}
-    for r in rows:
-        market = (r.get("market") or "").strip().lower()
-        if market:
-            latest[market] = max(latest.get(market, ""), r.get("date") or "")
+    """Every (market, term) ever tracked in ranks.csv, the set the ledger counts and `ledger.py refresh` re-queries;
+    NOT each market's latest date, which a partial refresh shrinks to a handful. The position comes from that
+    key's own latest row: an int, "beyond depth", or "unknown (request failed)".
+    -> ({market: {term}}, {(market, term): position})"""
+    newest = {}
+    for r in read_csv(store / "metrics" / "ranks.csv"):
+        market, term = (r.get("market") or "").strip().lower(), norm(r.get("keyword"))
+        if market and term and (r.get("date") or "") >= newest.get((market, term), ("",))[0]:
+            newest[(market, term)] = (r.get("date") or "", (r.get("position") or "").strip(), (r.get("status") or "").strip())
     basket, position = {}, {}
-    for r in rows:
-        market = (r.get("market") or "").strip().lower()
-        if not market or (r.get("date") or "") != latest[market]:
-            continue
-        term = norm(r.get("keyword"))
+    for (market, term), (_date, pos, status) in newest.items():
         basket.setdefault(market, set()).add(term)
-        pos = (r.get("position") or "").strip()
-        position[(market, term)] = int(pos) if pos.isdigit() else None
+        position[(market, term)] = (int(pos) if pos.isdigit() else
+                                    "unknown (request failed)" if status == "error" else "beyond depth")
     return basket, position
 
 
@@ -273,7 +271,7 @@ def cmd_pull(args, run=asc_ads, today=None):
 # ---------------------------------------------------------------- read side (report, ledger)
 def demand_lookup(store: Path):
     """(heads, cuts) from the latest stored week per market.
-    heads[(market, term)] = (popularity_100, week); cuts[market] = (lowest listed score or None, week);
+    heads[(market, term)] = (popularity_100, week) for any stored head row; cuts[market] = (lowest listed score or None, week);
     a None score means Apple listed nothing for that storefront."""
     cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
     latest = {}
@@ -286,7 +284,7 @@ def demand_lookup(store: Path):
         cuts[market] = (min(scores) if scores else None, week)
     heads = {}
     for r in read_csv(store / "metrics" / "popularity.csv"):
-        if r["why"] == "basket" and r["week"] == latest.get(r["market"]):
+        if r["week"] == latest.get(r["market"]):  # `why` records how the row was picked at pull time, not whether it is tracked now
             key = (r["market"], r["term"])
             heads[key] = (max(int(r["popularity_100"]), heads.get(key, (0, ""))[0]), r["week"])
     return heads, cuts
@@ -326,23 +324,23 @@ def cmd_report(args):
         if cut is None:
             silent.append(market)
             continue
-        inside = sum(1 for (m, _t) in heads if m == market)
+        inside = sum(1 for (m, t) in heads if m == market and (m, t) in position)
         print(f"| {market} | {cut} | {len(basket.get(market, ()))} | {inside} |")
     if silent:
         print(f"\nNo data (Apple lists nothing for these storefronts): {', '.join(silent)}.")
     pop = [r for r in read_csv(store / "metrics" / "popularity.csv") if r["week"] == week]
-    tracked = sorted((r for r in pop if r["why"] == "basket"), key=lambda r: (r["market"], -int(r["popularity_100"])))
+    tracked = sorted((r for r in pop if (r["market"], r["term"]) in position),
+                     key=lambda r: (r["market"], -int(r["popularity_100"])))
     print("\n### Tracked terms inside Apple's head\n")
     if tracked:
         print("| Market | Term | Genre | Rank in genre | Popularity | Our position (search-API proxy) |")
         print("|---|---|---|---:|---:|---:|")
         for r in tracked:
-            ours = position.get((r["market"], r["term"]))
             print(f"| {r['market']} | {r['term']} | {r['genre']} | {r['rank_in_genre']} | {r['popularity_100']} | "
-                  f"{ours if ours is not None else 'beyond depth'} |")
+                  f"{position.get((r['market'], r['term']), 'not tracked')} |")
     else:
         print("_None: every tracked term sits below the cut._")
-    topical = sorted((r for r in pop if r["why"] == "topic" and r["term"] not in basket.get(r["market"], set())),
+    topical = sorted((r for r in pop if r["why"] == "topic" and (r["market"], r["term"]) not in position),
                      key=lambda r: -int(r["popularity_100"]))
     print("\n### Head terms on our topic that we do not track (top 15 across markets)\n")
     if topical:
@@ -465,12 +463,18 @@ def self_check():
         cfg = read_config(store)
         (store / "metrics" / "ranks.csv").write_text(
             "date,market,keyword,group,position,popularity,difficulty,source,depth,status\n"
-            "2026-09-27,jp,動画圧縮,target,160,,,itunes-search-api,200,ok\n"
-            "2026-09-27,jp,写真 圧縮,target,,,,itunes-search-api,200,beyond-depth\n"
-            "2026-09-27,ru,сжать видео,target,,,,itunes-search-api,200,beyond-depth\n"
-            "2026-09-27,us,clean up iphone,target,,,,itunes-search-api,200,beyond-depth\n", encoding="utf-8")
+            "2026-09-20,jp,動画圧縮,target,160,,,itunes-search-api,200,ok\n"
+            "2026-09-20,jp,写真 圧縮,target,,,,itunes-search-api,200,beyond-depth\n"
+            "2026-09-20,ru,сжать видео,target,,,,itunes-search-api,200,beyond-depth\n"
+            "2026-09-20,us,clean up iphone,target,,,,itunes-search-api,200,beyond-depth\n"
+            "2026-09-20,us,video compressor,target,52,,,itunes-search-api,200,ok\n"
+            "2026-09-29,jp,動画圧縮,target,157,,,itunes-search-api,200,ok\n"      # a partial refresh: one term
+            "2026-09-29,us,video compressor,target,,,,itunes-search-api,200,error\n", encoding="utf-8")
         basket, position = read_basket(store)
-        assert basket["jp"] == {"動画圧縮", "写真 圧縮"} and position[("jp", "動画圧縮")] == 160
+        assert basket["jp"] == {"動画圧縮", "写真 圧縮"}, "a partial refresh must not shrink the basket"
+        assert position[("jp", "動画圧縮")] == 157 and position[("jp", "写真 圧縮")] == "beyond depth"
+        assert position[("us", "video compressor")] == "unknown (request failed)", "a failed look is not a position"
+        assert basket["us"] == {"clean up iphone", "video compressor"}
 
         calls = []
 
@@ -516,7 +520,10 @@ def self_check():
         assert "already stored" in out.getvalue() and len(read_csv(store / "metrics" / "impression_share.csv")) == 1
         assert len(calls) == n + 1  # only the impression-share query re-ran; markets are not pulled twice
 
+        with (store / "metrics" / "ranks.csv").open("a", encoding="utf-8") as fh:   # tracked after it was stored as `topic`
+            fh.write("2026-09-30,jp,画像圧縮アプリ,target,,,,itunes-search-api,200,beyond-depth\n")
         demand = demand_lookup(store)
+        assert demand_label(demand, "jp", "画像圧縮アプリ") == "head 49", "a topic row for a term tracked since counts"
         assert demand_label(demand, "jp", "動画圧縮") == "head 55"
         assert demand_label(demand, "JP", "写真 圧縮") == "below 49"
         assert demand_label(demand, "ru", "сжать видео") == "no data"
@@ -524,8 +531,10 @@ def self_check():
         with contextlib.redirect_stdout(io.StringIO()) as out:
             assert cmd_report(argparse.Namespace(store=str(store))) == 0
         text = out.getvalue()
-        assert "動画圧縮 | PHOTO_VIDEO | 185 | 55 | 160" in text and "No data" in text and "ru" in text
+        assert "動画圧縮 | PHOTO_VIDEO | 185 | 55 | 157" in text and "No data" in text and "ru" in text
         assert "| pl | video compressor | 1 | 2 | 63% |" in text
+        assert "| jp | 画像圧縮アプリ | PHOTO_VIDEO | 220 | 49 | beyond depth |" in text, "tracked now → the tracked table"
+        assert "### Head terms on our topic that we do not track" in text and text.count("画像圧縮アプリ") == 1
 
         lag_store = Path(tmp) / "lag"
         (lag_store / "metrics").mkdir(parents=True)

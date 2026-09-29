@@ -7,6 +7,21 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.5.1 — the radar reads every tracked key — 2026-09-29
+
+- `radar.py` **bug**: the basket was each market's latest `ranks.csv` date. A partial refresh (a few new keys observed on a
+  later date) shrinks that to those keys, so the next `pull`, which is also step 5 of `cycle`, would have stopped recording
+  about 120 tracked keys in those markets, and the first report missed a tracked head term. The basket is now every key
+  ever tracked, the set the ledger counts and `ledger.py refresh` re-queries; a position comes from that key's own latest
+  row, and a failed request reads "unknown (request failed)", not "beyond depth". The self-check now has a later date
+  that holds one term and a failed look.
+- The demand lookup and the report match by term, not by how a row was picked at pull time: a head row stored as `topic`
+  counts as tracked once the term is tracked, so the ledger's Demand column and the tracked table follow the basket.
+- Compresso's count is 7 of 728 tracked non-brand pairs inside Apple's head (v2.5.0 printed 6: it missed `video compressor`
+  in the US).
+
+---
+
 ## v2.5.0 — Apple demand radar; brand filter by whole word; no invented figures in templates — 2026-09-29
 
 Partially closes R-10 (Apple demand source) and R-26 (per-keyword paid reporting).

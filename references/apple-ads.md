@@ -165,7 +165,7 @@ Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's 
    (`POST v1/insights/apps/search-term-popularity/query`): `searchPopularity1to100` per term ×
    storefront × week (`WEEKLY_SUN_SAT`, UTC; `pageSize` ≤ 5000, page with `offset`; filter
    `countryOrRegion` and optionally `searchTerm` `CONTAINS`). Only each genre's head: ~100–350 terms,
-   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 6 of Compresso's 728
+   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 7 of Compresso's 728
    tracked non-brand pairs appeared. An absent term is below the cut, not zero.
 2. **Impression share** — `asc ads insights impression-share find`
    (`POST v1/insights/apps/impression-share/query`): share range, rank and popularity 1–5 per term the
@@ -213,8 +213,8 @@ a storefront where Apple lists nothing (RU, LT and MD in 2026-09) is `no data`, 
 published yet falls back one week and stores nothing for the empty one; a market already stored for a week is not pulled
 twice. Pull weekly: Apple's weeks run Sunday to Saturday.
 
-First real run (Compresso, week 2026-09-20): 6 of 728 tracked non-brand pairs inside the head — jp `動画圧縮` 55 (our
-search-API position 160), cn `视频压缩` 48, four India `compressor` queries at 44–46. Head terms on the app's topic that
+First real run (Compresso, week 2026-09-20): 7 of 728 tracked non-brand pairs inside the head — jp `動画圧縮` 55 (our
+search-API position 160), cn `视频压缩` 48, us `video compressor` 48, four India `compressor` queries at 44–46. Head terms on the app's topic that
 were not tracked: us `clean up iphone` 63, it `clean up iphone gratis` 58, au `clean up iphone free` 57, mx `clean up
 gratis` 55. Popularity is a relative score, not a search count, and the cut differs by storefront (44 in GB, 56 in NO), so
 `below 56` in Norway and `below 44` in Britain are not comparable statements about volume. A candidate is a reason to

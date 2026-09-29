@@ -192,6 +192,7 @@ week,captured,market,genre,term,rank_in_genre,popularity_100,popularity_5,why,so
 ```
 
 - `why` — `basket` (a tracked term found in the head) or `topic` (a head term containing a configured topic word, at most 40 per market).
+  It records how the row was picked at pull time; readers match by term, so a `topic` row for a term tracked since counts as tracked.
 - `popularity_cut.csv` — `week,captured,market,genre,listed,min_popularity_100,source`: per market × genre, how many terms Apple
   listed and the lowest score listed. `listed=0` with a blank genre means Apple lists nothing for that storefront. A tracked term
   missing from `popularity.csv` is *below this cut*: never zero, never "no demand". The two files are read together.
