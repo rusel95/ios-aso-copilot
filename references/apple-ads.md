@@ -414,6 +414,24 @@ kill_criterion_written: 2026-09-18
 went_live: 2026-09-18
 window_days: 7
 primary_signal: rank
-verdict:
----
 ```
+
+---
+
+## 10. The Penny Bids / Long-Tail Mass Exact Playbook
+
+### The Strategy & Unit Economics
+The **Penny Bids** model (originating from Google AdWords and Amazon remnant inventory arbitrage) exploits the second-price auction mechanics of Apple Search Ads:
+1. **The Second-Price Reserve Rule:** You pay the bid of the next closest advertiser + $0.01. If an exact-match long-tail keyword has **zero competitor bids**, your clearing price falls to Apple's absolute reserve price ($0.05–$0.10) regardless of the general market rate.
+2. **Remnant Inventory Aggregation:** In smaller/medium markets (IL, PL, VN, RO), head terms (e.g. `video compressor`) cost $0.50–$1.50/tap and face competitor bid wars. But thousands of 2–4 word permutations (`compress heavy 4k videos iphone`, `מחיקת סרטונים כבדים באייפון`), typos, and keyboard layout mistypes have zero competing bidders.
+3. **Volume through Multiplicity:** One keyword getting 1 search a week yields nothing alone. 5,000 exact long-tail keywords getting 1 search a week yield **5,000 potential impressions and 300–500 low-cost taps a month** at $0.05–$0.10 CPT.
+4. **Zero Financial Downside:** With Exact Match only, Search Match OFF, and a bid ceiling of $0.10, the campaign physically cannot buy expensive or irrelevant traffic.
+
+### Technical Implementation with `asc ads`:
+- **Ad Group Limit:** Apple Ads allows up to 5,000 keywords per Ad Group.
+- **Bulk Uploading:** Use `asc ads targeting-keywords create-bulk` with `allowPartialSuccess: true` and integer `correlationId`. Chunk payloads into batches of 500 items to prevent gateway timeouts.
+- **Negative Keywords:** Always add broad negative keywords for the app's brand name (`compresso`, `media cleaner`) so the campaign never bids on organic brand equity.
+- **Optimization Loop:**
+  - Day 0–5: Observe impression delivery at $0.10.
+  - If 0 impressions after 5 days: Increment bid by +$0.05 ($0.10 → $0.15 → $0.20) until auctions begin clearing.
+  - When impressions arrive: Pull `asc ads reports apps searchterms` and `asc ads insights impression-share` to map queries converting to installs, then promote winning keywords to app Title/Subtitle (ASO loop).

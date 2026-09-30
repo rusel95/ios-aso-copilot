@@ -133,13 +133,25 @@ python3 "$COPILOT" cycle --store "$STORE"
 ### Full-cycle invocation
 
 `ios-aso-copilot --full [app and scope]` is the skill's explicit full-cycle mode. It is a skill
-argument, not a `copilot.py` flag. Run the mechanical `copilot.py cycle`, then complete the analysis
-below: verify the live listing and metadata, refresh or reuse a current fixed rank basket, inspect
-all hypothesis windows, review ASC Search/Browse/referrer and GA4 funnel evidence, read Apple Ads
-when configured, and deliver sections A/B/C with a specific next change. Do not stop at CLI output.
-Keep missing stages explicit and judge a due hypothesis only if its predeclared signal has comparable
-evidence. The mode permits local evidence/report updates; it does not authorize metadata publishing,
-campaign changes, or spend changes. An explicit narrower user request still takes precedence.
+argument, not a `copilot.py` flag. After resolving the store, App ID, exact bundle ID and fixed query
+basket, start the full Top-200 rank refresh (`ledger.py refresh`) first in a long-running session;
+keep its session/PID and output. Requests run serially with the 3s guard, so this is the longest step.
+While it runs, collect independent ASC version/review/funnel, GA4, Apple Ads, metadata and pricing
+evidence; `copilot.py cycle` may run during this interval. Treat its ledger section as interim if it
+prints before the rank refresh finishes. Once the rank refresh and all independent reads
+finish, inspect every exit status/warning. Compare each ledger date with per-query `observed_at`:
+a long refresh can cross local midnight while the CLI stamps rows with its launch date. Correct any
+mismatches from the source timestamps and record the correction, then generate the final local
+`ledger.py report --as-of`.
+Use that completed report for hypothesis decisions and sections A/B/C. Do not parallelize or shorten
+rank requests, start a second full refresh, or use a mid-refresh ledger as final. If requests fail,
+wait out the source cooldown and retry only those rows with `ledger.py refresh --failed-only`. This
+overlaps the long rank collection with independent work and reduces wall-clock time without changing
+its request rate.
+Do not stop at CLI output. Keep missing stages explicit and judge a due hypothesis only if its
+predeclared signal has comparable evidence. The mode permits local evidence/report updates; it does
+not authorize metadata publishing, campaign changes, or spend changes. An explicit narrower user
+request still takes precedence.
 
 Example: `[$ios-aso-copilot](SKILL.md) --full Hush, App ID 6449785515`.
 
@@ -152,7 +164,7 @@ Example: `[$ios-aso-copilot](SKILL.md) --full Hush, App ID 6449785515`.
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
 | Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
 | Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, attempts configured funnel and GA pulls, then reports the ledger |
-| Explicit full skill run (`--full`) | Start the complete cycle described below; its collection entrypoint remains `python3 "$COPILOT" cycle --store "$STORE"` | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
+| Explicit full skill run (`--full`) | Start `ledger.py refresh` first; run `python3 "$COPILOT" cycle --store "$STORE"` and independent reads while it runs | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
 
 Check `python3 "$COPILOT" --help` or the specific script's `--help` when a flag is unfamiliar or the installed
 version differs. The CLI `cycle` is only the mechanical collection pass: it does **not** refresh keyword
