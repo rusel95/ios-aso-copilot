@@ -422,10 +422,10 @@ primary_signal: rank
 
 ### The Strategy & Unit Economics
 The **Penny Bids** model (originating from Google AdWords and Amazon remnant inventory arbitrage) exploits the second-price auction mechanics of Apple Search Ads:
-1. **The Second-Price Reserve Rule:** You pay the bid of the next closest advertiser + $0.01. If an exact-match long-tail keyword has **zero competitor bids**, your clearing price falls to Apple's absolute reserve price ($0.05–$0.10) regardless of the general market rate.
+1. **The Second-Price Reserve Rule (a folk model, §3):** You pay the bid of the next closest advertiser + $0.01. If an exact-match long-tail keyword has **zero competitor bids**, your clearing price falls to Apple's absolute reserve price ($0.05–$0.10) regardless of the general market rate. Apple publishes neither a reserve price nor its formula. Compresso, 2026-10-01: two campaigns of 5,000 exact terms each (IL, RO) had reported 0 impressions after about a day, at caps of $0.10, then $0.20, then $0.30 [live:asc ads reports apps keywords@2026-10-01]. A long tail that clears at a reserve price has not been observed yet.
 2. **Remnant Inventory Aggregation:** In smaller/medium markets (IL, PL, VN, RO), head terms (e.g. `video compressor`) cost $0.50–$1.50/tap and face competitor bid wars. But thousands of 2–4 word permutations (`compress heavy 4k videos iphone`, `מחיקת סרטונים כבדים באייפון`), typos, and keyboard layout mistypes have zero competing bidders.
 3. **Volume through Multiplicity:** One keyword getting 1 search a week yields nothing alone. 5,000 exact long-tail keywords getting 1 search a week yield **5,000 potential impressions and 300–500 low-cost taps a month** at $0.05–$0.10 CPT.
-4. **Zero Financial Downside:** With Exact Match only, Search Match OFF, and a bid ceiling of $0.10, the campaign physically cannot buy expensive or irrelevant traffic.
+4. **Bounded downside, not zero:** Exact Match only and Search Match OFF keep the traffic on the listed terms. The bid cap limits what one tap costs and the daily budget limits the loss, but a tap at the cap pays back only if the cap is at or below the per-tap ceiling in §3c: at 0.5 % payers per install and 0.8 installs per tap that is about $0.10–0.12 for a $25–30-net storefront and $0.04–0.06 for a $10–15-net one. A cap above it buys data, not profit; say so in the hypothesis and print the ceiling for each market before launching (`economics.py --net-per-payer … --cpt <cap>`).
 
 ### Technical Implementation with `asc ads`:
 - **Ad Group Limit:** Apple Ads allows up to 5,000 keywords per Ad Group.
@@ -434,4 +434,5 @@ The **Penny Bids** model (originating from Google AdWords and Amazon remnant inv
 - **Optimization Loop:**
   - Day 0–5: Observe impression delivery at $0.10.
   - If 0 impressions after 5 days: Increment bid by +$0.05 ($0.10 → $0.15 → $0.20) until auctions begin clearing.
+  - Zero impressions is as likely a volume problem as a bid problem: a term nobody searches never serves at any bid, and a niche like ours sits below Apple's popularity cut (§3c). Read `radar keywords` first (it prints "No impressions in this window" for a campaign that has not shown), wait the full five days, raise one step in one market and read it before copying the campaign to the next. Reports lag by hours, so a campaign launched today says nothing yet.
   - When impressions arrive: Pull `asc ads reports apps searchterms` and `asc ads insights impression-share` to map queries converting to installs, then promote winning keywords to app Title/Subtitle (ASO loop).

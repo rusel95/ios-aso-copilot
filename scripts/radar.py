@@ -129,7 +129,7 @@ def paged_rows(run, cfg, resource, payload) -> list:
     rows, offset = [], 0
     while True:
         reply = run(cfg, resource, dict(payload, pagination={"offset": offset, "pageSize": PAGE}))
-        page = reply["result"]["rows"]
+        page = (reply.get("result") or {}).get("rows") or []  # a report with no data at all is {"result": {}}
         rows += page
         if len(page) < PAGE:
             return rows
@@ -386,6 +386,11 @@ def keyword_lens(cfg, campaign: str, start: str, end: str, run=asc_ads) -> None:
                         "fields": ["impressions", "taps", "localSpend"]})
     print(f"\n### Campaign {campaign} · {start} → {end} (ORTZ) "
           f"[live:asc ads reports apps keywords|search-terms + targeting-keywords find@{dt.date.today()}]\n")
+    if not kw and not terms:  # Apple answers a campaign that has not shown yet with an empty report, not zero rows
+        bids = sorted(money(k.get("bid")) for k in texts.values())
+        loaded = f"{len(texts)} keywords loaded" + (f", bids ${bids[0]:.2f}–${bids[-1]:.2f}" if bids else "")
+        print(f"No impressions in this window. {loaded}.")
+        return
     print("| Keyword | Match | Bid | Status | Impr | Taps | Spend | Installs | CPT | CPI |")
     print("|---|---|---:|---|---:|---:|---:|---:|---:|---:|")
     table = []
@@ -575,7 +580,18 @@ def self_check():
         text = out.getvalue()
         assert "стиснути відео | BROAD | $0.40 | PAUSED | 30 | 3 | $1.50 | 2 | $0.50 | $0.75" in text
         assert "$1.20 of $1.50 (80%)" in text and "term `capcut` ← keyword `стиснути відео` (BROAD)" in text
-    print("OK: config parsing, week math, cut vs head vs no-data, lag fallback, idempotent pulls, ledger labels, keyword join")
+
+        def quiet(cfg_, resource, payload):  # a campaign that has not shown yet: the reports carry no `rows` key at all
+            if resource == ["targeting-keywords", "find"]:
+                return {"result": [{"id": 1, "bid": {"amount": "0.2"}}, {"id": 2, "bid": {"amount": "0.3"}}]}
+            return {"result": {}}
+
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            keyword_lens(cfg, "2", "2026-09-30", "2026-10-01", quiet)
+        assert "No impressions in this window. 2 keywords loaded, bids $0.20–$0.30." in out.getvalue()
+        assert paged_rows(quiet, cfg, ["reports", "apps", "keywords"], {}) == []
+    print("OK: config parsing, week math, cut vs head vs no-data, lag fallback, idempotent pulls, ledger labels, "
+          "keyword join, empty report")
 
 
 def main(argv=None) -> int:

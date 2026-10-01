@@ -7,6 +7,20 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.5.2 — the radar survives a campaign that has not shown yet — 2026-10-01
+
+- `radar.py` **bug**: Apple answers a report for a campaign with no impressions with `{"result": {}}`, no `rows` key, and
+  `paged_rows` indexed it, so `radar keywords` stopped with `⚠️ 'rows'` on exactly the campaigns a new launch produces.
+  An empty report is now an empty list, and `keywords` prints "No impressions in this window. N keywords loaded, bids
+  $a–$b." The self-check has a campaign whose reports carry no `rows`.
+- `references/apple-ads.md` §10: the Penny Bids playbook said "Zero Financial Downside" and stated the reserve-price rule
+  as fact. The bid cap bounds a tap's price and the daily budget bounds the loss; whether a tap pays back is the §3c ceiling
+  (about $0.10–0.12 at a $25–30-net storefront, $0.04–0.06 at $10–15). The reserve-price rule is marked a folk model next to
+  the first observation (two 5,000-term campaigns, 0 impressions after about a day), and zero impressions is called a volume
+  problem as often as a bid problem: read `radar keywords`, wait the five days, raise one step in one market first.
+
+---
+
 ## v2.5.1 — the radar reads every tracked key — 2026-09-29
 
 - `radar.py` **bug**: the basket was each market's latest `ranks.csv` date. A partial refresh (a few new keys observed on a
