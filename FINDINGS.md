@@ -230,3 +230,36 @@ instead of `covered`, and a non-dominant position with no hypothesis still reads
 All three bugs share one shape: a tool silently gave a confident-looking answer to a question it
 had not actually checked (a storefront it never queried, a process it gave no status on, a market it
 called defended without checking the number). Each is now checked explicitly instead of assumed.
+
+## Non-English Exact Keyword Mechanics: Intent Suffixes, Scenario Triggers, and the Localization Vacuum
+
+**Date:** 2026-10-03
+**Source:** Live Apple Ads telemetry across 14 international campaigns (36 taps, avg CPT $0.216),
+Apple Ads Search Term Popularity Insights API (`asc ads insights search-term-popularity find`),
+and live iTunes Search API query audits.
+
+### Finding 1 — The 4 High-Converting Intent Clusters Outperform Generic Terms
+Broad generic terms (`video compress`, `kompresor wideo`) either struggle to deliver or run into high competition.
+Observed delivery concentrated on four distinct intent clusters:
+1. **Explicit Tool / Utility Suffixes (`[Action] + [Local "App" Word]`)**: Non-English users qualify their searches
+   with words like `aplikasi` (ID), `aplikacja/program` (PL), `app` (DE/NO). Example: `aplikasi kompres video`
+   delivered 16 taps at $0.16 CPT in Indonesia within 24 hours.
+2. **Third-Party Scenario Friction (Job-to-be-Done Constraints)**: Users search when blocked by size limits on other
+   platforms (e.g. `kompresja wideo whatsapp`, `zmniejsz wideo do maila`, `video compress for discord`).
+3. **Acute Storage Exhaustion**: Device lockup triggers (e.g. `brak miejsca na iphone`, `jak zwolnic miejsce w telefonie`).
+4. **Heavy Media Format Targets**: Users targeting specific file types (e.g. `kompresja wideo 4k`, `zmniejsz rozmiar mp4`).
+
+### Finding 2 — Apple Ads Popularity API Only Indexes Head Terms (Pop >= 45-50)
+Apple's official insights endpoint (`asc ads insights search-term-popularity find`) ranks only the top ~1,000–2,000
+search terms per country. These are overwhelmingly institutional brands (CapCut, Canva, Instagram) and generic head
+categories (`photo editor` Pop 70, `cleanup` Pop 58 in PL). Mid- and long-tail terms (popularity 10–35) do NOT appear
+in Apple's head index, but they represent uncontested demand where exact match ads at $0.15–$0.25 clear taps with
+zero competitor bidding pressure.
+
+### Finding 3 — iTunes Search API Probes Confirm Localization Vacuums
+Probing the live App Store search results via iTunes API (`curl https://itunes.apple.com/search?term=...`) reveals
+whether local queries are defended. In Poland, querying `kompresor wideo` yielded only 10 apps total, and almost
+none were localized into Polish (foreign apps with English titles and 0–76 ratings). This confirms a "Localization
+Vacuum": native users search in their language, but no competitor has localized ASO or title tokens. Exact match
+keywords targeting this vacuum convert at extremely low acquisition costs.
+

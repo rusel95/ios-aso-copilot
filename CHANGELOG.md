@@ -7,6 +7,34 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.6.1 — 4 high-converting intent clusters, popularity API thresholds, and localization vacuum checks — 2026-10-03
+
+- **The 4 High-Converting Intent Clusters**: Codified generation of international Exact keywords across four
+  empirically proven clusters (Action + local "app/program" noun suffixes, third-party messenger/sharing constraints,
+  acute storage exhaustion triggers, and heavy format targets) based on multi-country telemetry.
+- **Apple Ads Search Popularity API Mechanics**: Documented `asc ads insights search-term-popularity find` behavior,
+  clarifying that Apple only indexes head terms (Pop >= 45–50). Absence in this index represents mid/long-tail
+  sweet-spot opportunities where $0.15–$0.25 bids clear taps without institutional competitor pressure.
+- **Localization Vacuum Audit**: Added pre-launch probe guidance using the iTunes Search API to detect markets
+  where local search demand is served exclusively by unlocalized foreign apps, signaling prime conversion ground.
+- Updated `references/apple-ads.md`, `SKILL.md` step 2b, and `FINDINGS.md`.
+
+---
+
+## v2.6.0 — natural Exact phrases, protected seeds and honest delivery — 2026-10-02
+
+- `ads_keywords.py`: local accepted/rejected exports from whole-phrase model generation and a separate semantic pass.
+  Deterministic NFC/case/space dedup, protected seeds before the cap, whole-word brand filtering and word-order labels.
+  No matrix filler, random set slice, semantic score or automatic upload. One offline self-check covers the failure modes.
+- `radar.py`: an empty report says delivery is unknown; bid-keyword traffic is no longer described as actual per-query data.
+- Ads playbook replaces unsupported reserve-price/auction formulas, equal budget splitting, daily hard-cap promises and
+  zero-impressions → automatic bid escalation. Adds native end-time controls, staged repairs with complete read-back,
+  distinct evidence types, stable 14/28-day rotation heuristics and attribution limits. Existing authorization persists.
+- Verified offline self-checks and used the exports for an authorized Compresso Hebrew/English repair; app-specific
+  payloads, current budgets and live results belong in that app's marketing store, not in the generic skill.
+
+---
+
 ## v2.5.2 — the radar survives a campaign that has not shown yet — 2026-10-01
 
 - `radar.py` **bug**: Apple answers a report for a campaign with no impressions with `{"result": {}}`, no `rows` key, and

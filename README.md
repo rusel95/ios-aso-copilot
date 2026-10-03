@@ -115,6 +115,7 @@ python3 scripts/rank_audit.py --self-check
 python3 scripts/harvest_keywords.py --self-check
 python3 scripts/economics.py --self-check
 python3 scripts/radar.py --self-check
+python3 scripts/ads_keywords.py --self-check
 ```
 
 ## Repository structure
@@ -132,6 +133,7 @@ ios-aso-copilot/
 │   ├── rank_audit.py       ← keyword rank + opportunity scoring (25 markets)
 │   ├── harvest_keywords.py ← Apple autocomplete hints + competitor discovery
 │   ├── radar.py            ← Apple search popularity, impression share, keyword report join
+│   ├── ads_keywords.py     ← reviewed Exact phrase validation; deterministic accepted/rejected exports
 │   └── economics.py        ← LTV / break-even / scaling verdict
 ├── references/
 │   ├── aso-loop.md         ← hypothesis lifecycle, verdict criteria

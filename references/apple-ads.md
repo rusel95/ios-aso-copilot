@@ -4,19 +4,23 @@ Historical app/account figures below are examples, not current configuration. Re
 
 ---
 
-## 1. Quick Diagnostics: Why Are Impressions / Spend at Zero?
+## 1. Diagnose missing delivery before changing bids
 
-When a newly launched campaign or ad group shows **$0.00 spend and 0 impressions**, evaluate this checklist in order:
+A fresh campaign with an empty report has **unknown delivery from that response**, not an explicit
+zero metric. Read eligibility/status/limiting reasons, account timezone, report range and pagination.
+Keep the complete inventory joined by IDs to the campaign-scoped keyword report and search-term report.
 
-| Cause | Mechanism | Verification & Fix |
-|---|---|---|
-| **1. Broad Negative Keywords Trap** | Setting a category word as a **BROAD** negative blocks **100% of queries** containing that word (e.g., negative `cleaner` blocks `storage cleaner`, `photo cleaner`). | Run `asc ads negative-keywords find`. Delete category root broad negatives immediately. Only use **EXACT** negatives (`[query]`) for category terms. |
-| **2. Cold-Start Auction Reserve Price** | Folk model — Apple does not publish its ranking formula: a second-price auction where $\text{Ad Rank} = \text{Bid} \times \text{Relevance} \times \text{Historical TTR}$, so a new app with $0$ TTR may lose contested head terms at bids under $0.30–$0.50. **Untested as a rule**: Compresso never ran an enabled bid under $0.45 (2026-09), so zero delivery at a low bid was never observed either. | For contested head terms, a higher ceiling (**$0.75–$1.25**) under a strict daily budget is one option; step down once TTR exists. For the long tail, where there may be no other bidder, a cap at what an install is worth is the other (§3c). Decide from the account's own delivery, not from this row. |
-| **3. Search Match Disabled** | When Search Match is OFF and exact keywords are narrow, only exact query matches can trigger impressions. | Search Match finds new terms and also buys other apps' names: in Compresso's 2026-09 flights it served on `4ka` (a Slovak telecom), picme and immich. Use it only in a bounded, negated discovery batch (§3b); keep it OFF when harvesting EXACT keywords. |
-| **4. Reporting Lag (3–6 Hours)** | Apple Ads analytics does **not** update in real time. Apple explicitly notes: *"Reporting is not in real time and may not reflect data received in the last three hours."* | Wait at least 3–6 hours before assuming auctions are stagnant. Check the timezone (ORTZ vs UTC). |
-| **5. Small Market Query Volume** | Niche phrases (e.g., `стиснути відео` in UA) may have only 10–30 searches/day nationwide. | Broaden keyword coverage to high-intent adjacent problems (e.g. `очистити пам'ять`, `звільнити місце`, `photo cleaner`). |
+| Check | Action |
+|---|---|
+| Relevant terms accidentally blocked | Inspect campaign- and group-level negatives. A broad negative blocks when **all its words** occur; do not remove a category negative without checking the user's exclusion intent. |
+| New launch or changed bid | Allow report/setting lag. No published reserve-price number establishes that the bid is too low. |
+| Search Match OFF | Exact still includes close variants. Keep OFF for a controlled Exact experiment; use a separate bounded discovery test when authorized. |
+| Entire campaign has little delivery | Verify targeting, app availability, ad eligibility, language/product fit and budget before isolating a bid experiment. |
+| Some keywords deliver, others do not | Distinguish weak phrases from natural rare seeds. Do not delete core seeds just because their row is missing or impressions are zero. |
 
----
+Apple describes relevance and bids as auction factors, with ineligible irrelevant apps excluded:
+[Search results](https://ads.apple.com/app-store/help/ad-placements/0082-search-results).
+The keyword policy and stable-window rules are in §10. No minimum daily search count is inferred.
 
 ## 1b. A Weak Competitor Field Is Not the Same Claim as Real Demand
 
@@ -87,75 +91,44 @@ Platform API v1 leaf commands require `--ads-profile` and `--ad-account` (or `AS
 
 ---
 
-## 3. Auction Mechanics & The Cold-Start "Bid High to Learn" Rule
+## 3. Bids and budgets: published mechanics and evidence boundaries
 
-> **Status: an industry folk model, not verified here.** Apple publishes neither the ranking formula
-> nor a reserve price. In Compresso's 2026-09 flights no enabled bid was below $0.45, so the "zero
-> impressions at $0.15–$0.25" claim below was never observed — neither was its opposite. The UA and PL
-> taps cleared at an average of $0.54 and $0.55 (keyword report, whole flight), not the $0.08–$0.25 quoted below. Treat the playbook as
-> one option for contested head terms; §3c is the other for the long tail.
+A max CPT bid is a per-tap ceiling; the actual price may be lower. Apple's dynamic pricing considers
+relevance, bids, other bidders, user experience, a possible auction reserve and other factors. Apple
+does not publish a universal $0.05–$0.10 floor, an exact ranking formula or a guaranteed
+second-bid-plus-$0.01 payment rule. Do not use a folk equation to diagnose missing impressions.
+[Set and adjust bids](https://ads.apple.com/app-store/help/bids-and-budget/0062-set-and-adjust-bids).
 
-### The Vickrey Second-Price Auction
-In Apple Search Ads:
-- Your **CPT Bid** is the maximum you are willing to pay per tap.
-- You do **NOT** pay your maximum bid. You pay **$0.01 more than the second-highest bidder's Ad Rank equivalent**.
-- The winning bidder is decided by:
-  $$\text{Ad Rank} = \text{CPT Bid} \times \text{Relevance Score} \times \text{Historical TTR}$$
+A daily budget is an **average**, and spend may exceed it on a particular day. Apple describes a
+monthly limit of daily budget × 30.4 and a duration limit when an end date is set; mid-month budget
+changes need their own reconciliation. Native end times and bounded budgets must be configured
+before activating an experiment. A credit balance does not stop a PAYG account from billing after
+credit is used. Verify the balance if available; preserve a user-provided balance as `user:`, not live.
+[Manage budgets](https://ads.apple.com/app-store/help/bids-and-budget/0016-manage-budgets).
 
-### Cold-Start Penalty
-For a brand new app (0 reviews, no historical tap-through rate):
-- $\text{Historical TTR}$ is assumed to be baseline or zero.
-- If incumbents bid $0.80 with a proven 8% TTR, their Ad Rank is significantly higher.
-- If you bid $0.15–$0.25, your Ad Rank fails to meet the minimum clearing threshold (Reserve Price) and you receive **zero impressions**.
+Shared budget orders require an invoiced account/line of credit; do not create one as a workaround for
+PAYG spend controls. [Monthly invoicing](https://ads.apple.com/app-store/help/billing/0031-monthly-invoicing).
 
-### The Cold-Start Playbook
-1. **Cap Risk with Daily Budget**: Set campaign daily budget strictly to **$5.00/day** (or your bounded loss limit). You can never lose more than this daily cap.
-2. **Set High CPT Bid Ceiling ($0.75 – $1.25)**:
-   - This unlocks auction liquidity, clears the reserve price, and wins initial impressions.
-   - The second-price auction prevents paying $1.00 unless an incumbent is bidding $0.99. In smaller markets (UA, PL), actual clearing CPT often settles at $0.08–$0.25.
-3. **Step Down Bids**: Once 50–100 impressions are logged and initial TTR is established (>5%), gradually lower keyword bids by 10–15% every 48 hours to find the optimal volume/cost equilibrium.
+Compute per-tap economics with §3c. If a delivery test changes bids, change one market or intent group
+under a loss limit, hold its dictionary stable, record the new phase, and check it before copying.
+No arbitrary number of impressions or historical TTR authorizes a universal bid increase.
 
----
+## 3b. Keep discovery batches interpretable
 
-## 3b. Discovery Batch Size — Never Expand a Keyword List All at Once
+Use a small reviewed batch of broad seeds as an operational choice, not a claim that every keyword
+gets `budget / N` spend. Keywords have no equal budget allocation. Adding many low-volume or weak
+seeds makes interpretation harder; it does not mathematically starve each term of a fixed share.
 
-**The failure mode**: on 2026-09-19, a Compresso UA campaign went from 12 to 47 active keywords and
-a PL campaign from 18 to 46 in a single batch — 29 and 28 new BROAD terms added at once, on a
-$5.00/day budget each. A `reports/apps/search-terms` pull 24–48 hours later showed every added term
-carrying 0–2 impressions — no usable signal in the campaign's 7-day window — while the one keyword
-that already had traction (`video compressor`, EXACT) still carried the majority of all impressions.
-Worse, the PL BROAD batch auto-discovered the query **"immich"** (an unrelated open-source
-self-hosted photo-backup app) with real impressions before anyone caught it — a bleeding query per
-§6 Step B.2, sitting live because no one had reviewed search terms since the batch shipped.
+Compresso's September 2026 historical broad expansion found off-topic terms, including `immich`;
+that observation motivated smaller discovery batches, but it did not isolate a causal batch-size effect.
+For a new test, choose the batch size from the current budget, intent coverage and review capacity.
+A default proposal of 5–10 broad seeds is an operator heuristic, not an Apple limit.
 
-**Root cause**: a fixed daily budget divided across N keywords gives each keyword roughly
-`budget / N` of auction liquidity per day. At N=5–10 that's enough to clear a cold-start reserve
-price occasionally. At N=40+, most keywords never see enough auction participation in a 4–7 day
-window to produce a judgeable sample — this is budget atomization, not discovery breadth. Broad
-match makes it worse: each additional broad seed doesn't just split the budget, it also grows the
-query-matching surface Apple's algorithm can wander into unsupervised.
-
-**The rule**: a single Discovery-campaign expansion is capped at **5–10 new BROAD seeds** per
-campaign per batch, never the full harvested basket at once. After any expansion:
-1. Pull `reports/apps/search-terms` within 48 hours of the batch going live — not at the end of the
-   test window — specifically to catch off-topic auto-discovery (like "immich") while spend is still
-   near $0, per the Quick Diagnostics table in §1.
-2. Do not add a second batch of seeds until the first batch has either produced a promotable winner
-   (§6 Step B.1) or been judged a dead end and paused. Seeds compete for the same fixed daily budget;
-   stacking unjudged batches is the same mistake as stacking unjudged ASO hypotheses.
-3. A keyword added to a live campaign with **zero measured impressions** after 3–4 days in a
-   `$5/day` test is not "still gathering data" — it never cleared the auction. Pause it; it is not
-   occupying budget, but it is diluting the operator's ability to read the report at a glance.
-
-**The connection to organic ASO discipline**: this is the same failure the hypothesis ledger exists
-to prevent (see the opening of this SKILL.md — "do not draft a new hypothesis before section A is on
-screen"). A keyword-list expansion is a hypothesis with a batch size; treat oversized batches as a
-`due` ledger row that never got a verdict, not as free exploration.
-
-**Scope**: this rule is about BROAD seeds on a shared budget. It does not forbid a long-tail EXACT
-harvest (§3c): there, Search Match is off, so nothing wanders off-topic. The question is also a
-different one. It is the blended cost per install across the whole set, plus which terms deliver at
-all, not a per-keyword verdict.
+After an authorized expansion, inspect disclosed search terms early (for example within 48 hours)
+for relevance and spend. Withheld terms and empty reports stay unknown. Add appropriate negatives
+for observed off-topic traffic. Review results before adding another batch. Do not infer auction
+failure, remove a core seed or raise its bid solely because 3–5 days passed with no impressions.
+The Exact rotation policy in §10 requires a stable observation window.
 
 ## 3c. Measuring Demand: Popularity, Impression Share, and the Low-Volume Wall
 
@@ -175,19 +148,20 @@ Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's 
    CLI rejects a `values` key.
 3. **Search terms** — `reports apps search-terms` withholds every term under 10 impressions as low
    volume. In Compresso's September flights that was **96% of spend and 95% of taps**, and all of
-   every EXACT keyword's traffic. For the long tail, the per-query lens is the **keyword report**
-   (`reports apps keywords`, ORTZ). Its rows carry only a keyword id; join them to
+   every EXACT keyword's traffic. For the long tail, the **keyword report**
+   (`reports apps keywords`, ORTZ) aggregates traffic matched to that bid keyword, including close variants.
+   It does not disclose every actual query. Its rows carry a keyword id; join them to
    `targeting-keywords find` (filter `campaignId`) for text, match type and bid.
 
-**Long-tail EXACT at a break-even cap** (the design this enables, from a founder running it across 29
-localizations): thousands of EXACT keywords per language — intent × inflections × modifiers ×
-transliteration and wrong-layout spellings, no competitor brands. Search Match stays OFF. The max CPT
-is set to what an install is worth in that storefront (net proceeds × share of installs that pay ×
-tap→install). Apple allows 5,000 keywords per ad group (`targeting-keywords create-bulk`). Run
-everything at the cap, read which terms deliver, move the good ones into title/subtitle, and keep only
-the profitable ones paid. Exact match still serves close variants (plurals, misspellings), so some
-generated spellings are redundant. That is harmless. Compresso's own data: EXACT 20 installs from 25
-taps ($0.57 each) against BROAD 37 from 96 ($1.37) — observational, and EXACT was mostly one head term.
+**Long-tail Exact under a bounded learning budget.** A founder's thousands-of-phrases method is an
+experiment idea, not measured low-cost inventory. Build natural product-matched phrases using §10,
+keep Search Match OFF, and choose the bid from an explicit economics scenario. Apple's 5,000-keyword
+limit is a ceiling per ad group, not a required basket size. Exact includes spelling variations,
+reordered words and translations, so count neither permutations nor keywords as independent searches.
+[Match types](https://ads.apple.com/app-store/help/keywords/0059-understand-keyword-match-types),
+[keyword limits and relevance](https://ads.apple.com/app-store/help/keywords/0014-add-and-manage-keywords).
+Compresso's old Exact/Broad CPI contrast was observational, dominated by one Exact head term;
+it does not establish the ROI of a newly generated long tail.
 
 ### The radar: `scripts/radar.py`
 
@@ -285,7 +259,8 @@ The standard industry structure for sustainable ASA management (`doc:HANDBOOK.md
 
 ## 6. Search Term Harvesting Pipeline (ASA ↔ ASO Synergy)
 
-The true power of Apple Search Ads is providing **unfiltered query and conversion data** to feed organic ASO.
+Apple Ads provides paid keyword metrics and some disclosed actual queries. Low-volume search terms may
+be withheld; installs are attributed downloads, not proof of payer conversion or organic-rank causality.
 
 ### Step A: Pull Search Term Report
 Run weekly via `asc ads reports apps search-terms`:
@@ -313,8 +288,8 @@ Query shape (`report-query.json`):
 }
 ```
 
-Rows with `searchTermText: null` are terms under Apple's 10-impression line, not missing data. When
-they dominate the spend, read the keyword report instead (§3c).
+Rows with `searchTermText: null` have an undisclosed query. Preserve their metrics as withheld traffic;
+do not invent its text. The keyword report helps analyze matched traffic (§3c), but cannot recover the query.
 
 ### Step B: The Promotion / Pruning Engine
 
@@ -404,35 +379,175 @@ change: >
   Exact match ($0.75 bid ceiling) and Search Match ON ($0.75 default).
 mechanism: >
   1. Buying clean in-app conversion telemetry in GA4 (install -> permissions -> paywall -> trial).
-  2. Injecting 72-hour download velocity into Ukrainian exact queries to move organic rank from #9 to Top 3.
+  2. Testing delivery of relevant paid traffic under a fixed budget; organic rank tracked separately,
+     without claiming that paid installs cause a rank lift.
 prediction: >
-  1. 100+ downloads delivered at CPT <= $0.25, CVR >= 35%.
-  2. Organic rank for 'стиснути відео' advances into Top 5 by Day 7.
+  Define paid delivery, activation and spend thresholds from this app's current baseline.
+  Organic rank is an observational secondary signal, with its source and confounds recorded.
 kill_criterion: >
   Average CPT exceeds $0.40 or Tap-to-Install CVR falls below 25% after 30 taps.
 kill_criterion_written: 2026-09-18
 went_live: 2026-09-18
 window_days: 7
-primary_signal: rank
+primary_signal: paid_delivery
 ```
 
 ---
 
-## 10. The Penny Bids / Long-Tail Mass Exact Playbook
+## 10. Automatic Exact creation, repair and future rotation
 
-### The Strategy & Unit Economics
-The **Penny Bids** model (originating from Google AdWords and Amazon remnant inventory arbitrage) exploits the second-price auction mechanics of Apple Search Ads:
-1. **The Second-Price Reserve Rule (a folk model, §3):** You pay the bid of the next closest advertiser + $0.01. If an exact-match long-tail keyword has **zero competitor bids**, your clearing price falls to Apple's absolute reserve price ($0.05–$0.10) regardless of the general market rate. Apple publishes neither a reserve price nor its formula. Compresso, 2026-10-01: two campaigns of 5,000 exact terms each (IL, RO) had reported 0 impressions after about 25 hours: about 5 h at a $0.10 cap, 19 h at $0.20 and 1 h at $0.30, with both ad groups RUNNING and no limiting reasons [live:asc ads reports apps keywords + ad-groups find@2026-10-01]. The cause (a bid under the floor, terms nobody searches, or report lag) is not settled by that. A long tail that clears at a reserve price has not been observed yet.
-2. **Remnant Inventory Aggregation:** In smaller/medium markets (IL, PL, VN, RO), head terms (e.g. `video compressor`) cost $0.50–$1.50/tap and face competitor bid wars. But thousands of 2–4 word permutations (`compress heavy 4k videos iphone`, `מחיקת סרטונים כבדים באייפון`), typos, and keyboard layout mistypes have zero competing bidders.
-3. **Volume through Multiplicity:** One keyword getting 1 search a week yields nothing alone. 5,000 exact long-tail keywords getting 1 search a week yield **5,000 potential impressions and 300–500 low-cost taps a month** at $0.05–$0.10 CPT.
-4. **Bounded downside, not zero:** Exact Match only and Search Match OFF keep the traffic on the listed terms. The bid cap limits what one tap costs and the daily budget limits the loss, but a tap at the cap pays back only if the cap is at or below the per-tap ceiling in §3c: at 0.5 % payers per install and 0.8 installs per tap that is about $0.10–0.12 for a $25–30-net storefront and $0.04–0.06 for a $10–15-net one. A cap above it buys data, not profit; say so in the hypothesis and print the ceiling for each market before launching (`economics.py --net-per-payer … --cpt <cap>`).
+The output target is **accepted natural phrases**, not 5,000 rows. A set of action × object ×
+modifier permutations, random set iteration followed by `[:5000]`, translated token fragments and
+synthetic typos must not feed an upload. In the Compresso 2026-10-01 audit the historical IL/RO
+programs reproduced this selection defect and dropped relevant tracked seeds; that is a generator
+bug, not evidence of market demand or a reason to raise all bids.
 
-### Technical Implementation with `asc ads`:
-- **Ad Group Limit:** Apple Ads allows up to 5,000 keywords per Ad Group.
-- **Bulk Uploading:** Use `asc ads targeting-keywords create-bulk` with `allowPartialSuccess: true` and integer `correlationId`. Chunk payloads into batches of 500 items to prevent gateway timeouts.
-- **Negative Keywords:** Always add broad negative keywords for the app's brand name (`compresso`, `media cleaner`) so the campaign never bids on organic brand equity.
-- **Optimization Loop:**
-  - Day 0–5: Observe impression delivery at $0.10.
-  - If 0 impressions after 5 days: Increment bid by +$0.05 ($0.10 → $0.15 → $0.20) until auctions begin clearing.
-  - Zero impressions is as likely a volume problem as a bid problem: a term nobody searches never serves at any bid, and a niche like ours sits below Apple's popularity cut (§3c). Read `radar keywords` first (it prints "No impressions in this window" for a campaign that has not shown), wait the full five days, raise one step in one market and read it before copying the campaign to the next. Reports lag by hours, so a campaign launched today says nothing yet.
-  - When impressions arrive: Pull `asc ads reports apps searchterms` and `asc ads insights impression-share` to map queries converting to installs, then promote winning keywords to app Title/Subtitle (ASO loop).
+### A. Collect a product contract and seeds automatically
+
+Use the configured app's current metadata, the full tracked basket (`radar.read_basket`),
+campaign-scoped keyword/search-term reports joined to the complete inventory, and Apple hints
+(`harvest_keywords.py`). Keep `text`, language, storefront, source and evidence type:
+
+- `seed`: our relevant metadata/tracked query; a tracked rank alone does not measure searches.
+- `suggestion`: Apple hint or recommendation; names of apps are not measured generic demand.
+- `keyword_delivery`: observed traffic matched to a bid keyword; close variants are included.
+- `search_term`: an actually disclosed relevant paid query, with report range and metrics.
+- `model`: a newly generated phrase with no measured demand.
+
+Filter app titles, wrong platforms and unsupported outcomes with semantic review. Never promote
+hints into popularity. A source spelling that is a typo or unsupported intent is reviewed before
+being protected. Mark relevant core seeds `protected=true` **before expansion**. Protect them even
+if capacity is low; split the group rather than silently discard seeds.
+
+Use shipped capability docs/code and limitations. Manual photo review can help delete duplicates a
+person notices; it does not promise an automatic duplicate finder. A storage complaint may be an
+adjacent Photos use case; RAM/cache/system-data cleanup is a separate unsupported outcome unless
+verified for this product. Lossless, exact byte-size and absolute quality promises need actual support.
+Do not indiscriminately ban the words `similar`, `iCloud` or `quality`; judge the expected result.
+
+### B. Have the agent generate and review whole phrases
+
+No human needs to type thousands of keywords. The running language model does this work in batches
+of roughly 100–200 candidates by language and intent.
+
+#### The 4 High-Converting Intent Clusters (Empirical Oct 2026 Telemetry)
+In international storefronts, single-word or broad generic phrases either fail or trigger expensive auctions.
+High-converting, low-CPT ($0.15–$0.25) delivery concentrates around 4 specific intent structures:
+
+1. **Explicit Tool / Utility Suffixes (`[Action] + [Local "App" Word]`)**:
+   Non-English users heavily qualify intent with words meaning app/program/free tool:
+   - Indonesian: `aplikasi kompres video` (proven winner: 16 taps at $0.16 CPT)
+   - Polish: `aplikacja do kompresji wideo`, `program do zmniejszania rozmiaru wideo`, `darmowa aplikacja do kompresji wideo`
+   - German: `app um videos zu verkleinern`, `programm zur videokomprimierung`
+   - Spanish: `aplicacion para comprimir videos`, `reducir tamaño video app`
+2. **Scenario & External Friction Constraints (Jobs-to-be-Done Triggers)**:
+   Users search when blocked by third-party size limits:
+   - Messaging limits: `kompresja wideo whatsapp`, `zmniejsz wideo do maila`, `video compress for discord`, `film za duzy na email`
+3. **Acute Storage Exhaustion (Device Lockup Pain)**:
+   Users confronting "Storage Almost Full" system warnings:
+   - `brak miejsca na iphone`, `jak zwolnic miejsce w telefonie`, `pamiec iphone pelna`, `czyszczenie pamieci iphone`
+4. **Heavy Asset & Format Targets**:
+   Users targeting specific large media:
+   - `kompresja wideo 4k`, `zmniejsz rozmiar mp4`, `zmniejsz duze pliki wideo`
+
+#### Apple Ads Search Popularity & Long-Tail Arbitrage
+- **Apple Ads Insights API** (`asc ads insights search-term-popularity find --ad-account <ID>`):
+  Official popularity scores (1–100) are heavily head-skewed. Across genres, the top 1,000 terms in any country
+  are dominated by institutional brands (`capcut`, `canva`, `cleanup` Pop 58 in PL) and broad categories (`photo editor` Pop 70).
+  Institutional competitors bid $1.50–$3.00+ on these head terms.
+- **The Long-Tail Reality**: Specific scenario terms (`kompresja wideo whatsapp`, `brak miejsca na iphone`)
+  sit below Apple's head-tier index (popularity 10–35), but represent uncontested, high-intent traffic where
+  Exact bids at $0.15–$0.25 clear taps with zero competitor pressure.
+
+#### Storefront Localization Vacuum Audit (iTunes Search API)
+Before finalizing a candidate basket for a country, probe the App Store search index:
+```bash
+curl -s "https://itunes.apple.com/search?term=<query>&country=<country>&entity=software&limit=10"
+```
+If a query in the native language (e.g. `kompresor wideo` in PL) returns only foreign English apps with low
+rating counts (<50), it confirms a **Localization Vacuum**: native users search the query, but no competitor
+has localized their listing. This represents the highest-converting opportunity for localized Exact match.
+
+#### Expansion Prompt
+Use the following prompt with the real seeds, product contract, and the 4 clusters above:
+
+> Generate complete natural App Store search phrases in {language} for {intent}.
+> Structure candidates across the 4 high-converting clusters:
+> 1) [Action] + [Local App/Tool word] (aplikacja, program, app, darmowa)
+> 2) Scenario/sharing constraints (WhatsApp, email limit, Discord)
+> 3) Acute storage friction (storage almost full, brak miejsca, zwolnij pamiec)
+> 4) Heavy asset formats (4K video, MP4, large files)
+> Each phrase must express one understandable job this product can satisfy.
+> Keep relevant seeds unchanged. Do not pad with typos, years, or competitor brands.
+> Return text, language, intent, source, evidence, full Ukrainian translation, expected product path.
+> New phrases have evidence=model; never invent demand, competition or a score.
+
+Then review every phrase in a separate pass: native-language naturalness, expected result, one task,
+product path, and a complete Ukrainian translation. Return `core`, `adjacent` or `reject` and an
+explicit `review_reason`. Adjacent storage/organizing queries remain a separate evaluation bucket.
+Record model/pass/date and whether a native human reviewed it; Python does not certify fluency.
+Rejected examples and reasons stay in the file to prevent regeneration of the same defects.
+
+### C. Validate and export deterministically
+
+CSV fields are exactly documented by `scripts/ads_keywords.py`: `text,language,intent,source,evidence,
+translation_uk,classification,product_path,review_reason,protected` (`protected`: true/false).
+
+```bash
+python3 "$SKILL_DIR/scripts/ads_keywords.py" \
+  --input "$STORE/ads/batch/candidates.csv" --output "$STORE/ads/batch/reviewed" \
+  --brand compresso --brand 'media cleaner'
+python3 "$SKILL_DIR/scripts/ads_keywords.py" --self-check
+```
+
+Replace the example brands with this app's brand and the competitor tokens excluded by the user's
+strategy. The script writes accepted/rejected CSV with reasons and a newline keyword basket. It
+normalizes NFC/case/whitespace, deduplicates exact normalized texts, checks required review fields
+and control/length limits, filters whole brand tokens (`compresso` must not drop `compressor`), and
+selects stably: protected seeds → disclosed relevant terms → observed keywords → seeds → suggestions
+→ model expansions. A protected invalid seed stops export; excess protected seeds stop cap slicing.
+Word-order family labels are for review; never delete an order variant solely because the label matches.
+The local 80-character ceiling is a conservative export check; verify the installed API contract too.
+
+Diff against the full fresh inventory with concrete campaign/group/keyword IDs, current status and
+metrics. Export create and pause lists and their reasons. Keep historical IDs and attributed traffic.
+An accepted phrase with an existing identical active keyword does not need another active copy.
+
+### D. Apply authorized repairs and read back
+
+Inspect the exact installed `asc ads ... --help` and use existing credentials. When the user has
+already authorized repairs, apply them; otherwise leave a concrete local plan for final approval.
+Never turn the local generator into an unattended spending tool.
+
+For a wholly defective basket, prepare a new PAUSED ad group, upload its reviewed Exact phrases,
+set Search Match OFF, copy the intended scoped negatives, inspect every bulk item result and fully
+read back. Only then pause the old group and enable the verified replacement. Pausing preserves
+history; it is not assumed to free the 5,000 slots. For partial repairs, pause specified keyword IDs
+and keep observed relevant winners. Do not increase bids during a dictionary repair.
+
+Bulk shape: `allowPartialSuccess` plus `items[{correlationId, data}]`. Use <=500 items per batch as
+an operator choice. Correlation IDs must be unique in the request. Check CLI exit status, valid JSON,
+expected result count, unique returned correlation IDs and success for **every** item. A parse error
+or partial failure is failure, never assumed success. Read back every keyword page, parent IDs, texts,
+match types, statuses, bid currency/value, Search Match, negatives, daily budgets and native end times.
+Save before/after snapshots and the actual repair manifest. Preserve original hypotheses, but add a
+dated operational amendment which supersedes unsupported/currently unsafe instructions.
+
+### E. Treat future zeros as a queue, not a verdict
+
+The following intervals are experiment heuristics, not Apple thresholds:
+
+| Stable observation | Action |
+|---|---|
+| First 14 completed days | Observe. No zero-only deletion, rotation or automatic bid increase. |
+| Whole campaign lacks delivery | Verify eligibility/report completeness/timezone and isolate causes; core seeds remain. |
+| At least 28 completed stable days, campaign has delivery, weak phrase has explicitly observed zero | Queue the weak phrase for replacement with a reviewed candidate. |
+| Same window, natural relevant protected core seed has zero | Keep it; rare/expensive demand is unresolved. |
+| Off-topic traffic, unsupported intent or sufficient spend without the declared result | Review sooner against sample, attribution lag and the bounded loss criterion. |
+
+Rotation may replace at most 10–20% of a basket per fortnight as a chosen operator ceiling; it is
+not an obligation to fill that amount. Export existing IDs, metrics, created time, stable bid phase,
+reason and replacement first. Missing rows remain unknown. Never change bids and vocabulary together
+and claim their effects were isolated. A one-week experiment ends after a week; 14/28-day rules do
+not silently extend spending or authorize a relaunch. An end-of-week report is a checkpoint, not
+proof that the new dictionary paid back or caused an organic lift.

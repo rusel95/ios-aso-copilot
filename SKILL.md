@@ -62,7 +62,7 @@ triggers:
   - ios-localization
 argument-hint: "[--full | status | manual | auto | localize] [free text]"
 metadata:
-  version: 2.5.0
+  version: 2.6.1
 ---
 
 # iOS ASO Copilot
@@ -307,7 +307,14 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
    reference are examples or account-specific guardrails, not universal defaults. Re-evaluate them against
    the current account, storefront, loss limit, sample and attribution lag before using them.
    Pull the weekly demand radar first (`radar pull`, `references/apple-ads.md` §3c): it separates *below the cut* from zero, and
-   the search-terms report hides terms under 10 impressions, so read paid queries per keyword (`radar keywords`).
+   low-volume search terms may be withheld. `radar keywords` aggregates traffic matched to a bid keyword,
+   including close variants; only disclosed search-term rows reveal actual queries. Empty rows are unknown, not zero.
+   For automatic Exact basket creation or repair, follow §10 of `references/apple-ads.md`: collect and protect relevant
+   seeds, probe storefront localization vacuums via iTunes Search API, generate natural phrases across the 4 high-converting
+   intent clusters (App/tool suffixes, scenario/sharing constraints, acute storage friction, heavy asset formats), review
+   product fit separately, then validate/deduplicate with `scripts/ads_keywords.py`. Never fill a 5,000 quota with word
+   matrices or arbitrary set slicing. Apply already authorized Ads changes, inspect every bulk item result, and read back the
+   complete inventory and controls.
 3. Audit App Store customer reviews and ratings only as needed: use `asc reviews ratings --app "$APP_ID" --all`
    and the documented read command for unresponded reviews (see `references/reviews-and-ratings.md`). Report rating counts,
    averages by country, star distribution, qualitative sentiment, praised features to amplify in
@@ -398,6 +405,9 @@ virtual environment. Do not install packages or credentials as part of a status 
   Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
 - `diff_snapshots.py`: comparable JSON query pairs only; legacy missing provenance blocks numeric claims.
 - `harvest_keywords.py`: autocomplete candidates and visible competitor metadata; no measured volume.
+- `ads_keywords.py`: local validation/export of model-reviewed Exact phrases; protects seeds, normalizes and deduplicates
+  deterministically, rejects brand tokens, labels word-order families, keeps accepted/rejected CSV with reasons.
+  It neither certifies native fluency nor uploads anything.
 - `economics.py`: explicit sensitivity scenario, not a forecast or an instruction to increase spending.
 - `campaign_link.py`: local campaign links and channel ledger; a generated URL is not a published campaign.
 

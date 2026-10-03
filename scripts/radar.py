@@ -386,10 +386,11 @@ def keyword_lens(cfg, campaign: str, start: str, end: str, run=asc_ads) -> None:
                         "fields": ["impressions", "taps", "localSpend"]})
     print(f"\n### Campaign {campaign} · {start} → {end} (ORTZ) "
           f"[live:asc ads reports apps keywords|search-terms + targeting-keywords find@{dt.date.today()}]\n")
-    if not kw and not terms:  # Apple answers a campaign that has not shown yet with an empty report, not zero rows
+    if not kw and not terms:  # an empty envelope carries no explicit zero metric
         bids = sorted(money(k.get("bid")) for k in texts.values())
         loaded = f"{len(texts)} keywords loaded" + (f", bids ${bids[0]:.2f}–${bids[-1]:.2f}" if bids else "")
-        print(f"No impressions in this window. {loaded}.")
+        print(f"No published report rows in this window. {loaded}. Delivery is unknown from this response; "
+              "check eligibility, time range and reporting lag before changing keywords or bids.")
         return
     print("| Keyword | Match | Bid | Status | Impr | Taps | Spend | Installs | CPT | CPI |")
     print("|---|---|---:|---|---:|---:|---:|---:|---:|---:|")
@@ -410,7 +411,8 @@ def keyword_lens(cfg, campaign: str, start: str, end: str, run=asc_ads) -> None:
     all_spend = sum(money(r["totalMetrics"].get("localSpend")) for r in terms)
     share = f"{hidden_spend / all_spend:.0%}" if all_spend else "n/a"
     print(f"\nKeyword report spend ${total:.2f}. Search-term report: ${hidden_spend:.2f} of ${all_spend:.2f} "
-          f"({share}) sits under terms Apple withholds (<10 impressions), so the keyword report is the per-query lens.")
+          f"({share}) sits under terms Apple withholds (<10 impressions). The keyword report aggregates matched "
+          "traffic, including close variants; only disclosed search terms identify actual queries.")
     named = sorted((r for r in terms if r["metadata"].get("searchTermText")),
                    key=lambda r: -money(r["totalMetrics"].get("localSpend")))[:10]
     for r in named:
@@ -581,14 +583,15 @@ def self_check():
         assert "стиснути відео | BROAD | $0.40 | PAUSED | 30 | 3 | $1.50 | 2 | $0.50 | $0.75" in text
         assert "$1.20 of $1.50 (80%)" in text and "term `capcut` ← keyword `стиснути відео` (BROAD)" in text
 
-        def quiet(cfg_, resource, payload):  # a campaign that has not shown yet: the reports carry no `rows` key at all
+        def quiet(cfg_, resource, payload):  # an empty envelope: absence of rows is not an observed zero
             if resource == ["targeting-keywords", "find"]:
                 return {"result": [{"id": 1, "bid": {"amount": "0.2"}}, {"id": 2, "bid": {"amount": "0.3"}}]}
             return {"result": {}}
 
         with contextlib.redirect_stdout(io.StringIO()) as out:
             keyword_lens(cfg, "2", "2026-09-30", "2026-10-01", quiet)
-        assert "No impressions in this window. 2 keywords loaded, bids $0.20–$0.30." in out.getvalue()
+        assert "No published report rows in this window. 2 keywords loaded, bids $0.20–$0.30." in out.getvalue()
+        assert "Delivery is unknown" in out.getvalue() and "No impressions" not in out.getvalue()
         assert paged_rows(quiet, cfg, ["reports", "apps", "keywords"], {}) == []
     print("OK: config parsing, week math, cut vs head vs no-data, lag fallback, idempotent pulls, ledger labels, "
           "keyword join, empty report")
