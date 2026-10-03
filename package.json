@@ -1,6 +1,6 @@
 {
   "name": "ios-aso-copilot",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "AI Copilot and free Astro MCP alternative for App Store Optimization (ASO), storefront localization, keyword rankings, and growth",
   "keywords": [
     "aso",
@@ -24,8 +24,8 @@
     "url": "https://github.com/rusel95/ios-aso-copilot.git"
   },
   "bin": {
-    "ios-aso-copilot": "./bin/cli.js",
-    "ios-marketing-ops": "./bin/cli.js"
+    "ios-aso-copilot": "./bin/ios-aso-copilot",
+    "ios-marketing-ops": "./bin/ios-aso-copilot"
   },
   "files": [
     "SKILL.md",
