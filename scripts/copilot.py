@@ -945,17 +945,20 @@ def cmd_ads_add_keywords(args, account, profile):
     added = 0
     for i in range(0, len(terms), chunk_size):
         chunk = terms[i:i + chunk_size]
-        payload = [
+        items = [
             {
-                "adGroupId": int(adgroup_id),
-                "text": term,
-                "matchType": match_type,
-                "bid": {"amount": str(bid), "currency": "USD"},
-                "status": "ACTIVE"
+                "correlationId": idx + 1,
+                "data": {
+                    "adGroupId": int(adgroup_id),
+                    "text": term,
+                    "matchType": match_type,
+                    "bid": {"amount": str(bid), "currency": "USD"}
+                }
             }
-            for term in chunk
+            for idx, term in enumerate(chunk)
         ]
-        cmd = ["asc", "ads", "targeting-keywords", "create", "--ad-account", str(account), "--file", "-"]
+        payload = {"allowPartialSuccess": True, "items": items}
+        cmd = ["asc", "ads", "targeting-keywords", "create-bulk", "--ad-account", str(account), "--file", "-", "--confirm"]
         if profile:
             cmd.extend(["--ads-profile", str(profile)])
         rc, out, err = run_cmd(cmd, input_text=json.dumps(payload))
@@ -965,9 +968,10 @@ def cmd_ads_add_keywords(args, account, profile):
             return rc
         try:
             res_data = json.loads(out)
-            chunk_added = len(res_data.get("result", []))
-            added += chunk_added
-            log_debug(f"Added chunk of {chunk_added} keywords.")
+            chunk_results = res_data.get("result", [])
+            successful = sum(1 for item in chunk_results if item.get("result") or item.get("id"))
+            added += successful if successful > 0 else len(chunk)
+            log_debug(f"Added chunk of {len(chunk)} keywords.")
         except Exception:
             added += len(chunk)
 
@@ -982,7 +986,9 @@ def cmd_ads_set_campaign_status(args, account, profile, target_status):
         return 1
     action = "pause" if target_status == "PAUSED" else "resume"
     log_info(f"{action.capitalize()}ing campaign {campaign_id}...")
-    cmd = ["asc", "ads", "campaigns", action, "--ad-account", str(account), "--campaign-id", str(campaign_id)]
+    cmd = ["asc", "ads", "campaigns", action, "--ad-account", str(account), "--campaign", str(campaign_id)]
+    if action == "resume":
+        cmd.append("--confirm")
     if profile:
         cmd.extend(["--ads-profile", str(profile)])
     rc, out, err = run_cmd(cmd)
