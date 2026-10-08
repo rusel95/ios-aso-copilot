@@ -32,7 +32,9 @@ from radar import demand_label, demand_lookup  # noqa: E402 — Apple's populari
 RANK_HEADER = ["date", "market", "keyword", "group", "position", "popularity",
                "difficulty", "source", "depth", "status"]
 # status vocabulary: ok = found at `position`; beyond-depth = queried, absent within `depth`;
-# error = request failed. A keyword never queried has no row at all — that is not the same thing.
+# error = request failed; no-results = the API answered with ZERO results (some storefronts and scripts return
+# nothing for a native query: si, bg, lt, lv, ee, md, Dravidian), so the query cannot say where we stand —
+# it is not "beyond depth". A keyword never queried has no row at all — that is not the same thing.
 TODAY = dt.date.today()
 # Apple documents an approximate, changeable limit; this 3s minimum is a local guard, not a guarantee.
 DEFAULT_DELAY = 3.0
@@ -224,6 +226,8 @@ def load_snapshot(path: Path):
         # A failed request observed nothing. It is not "absent within depth", which is a successful
         # query that looked and did not find us — collapsing the two turns an outage into a rank loss.
         status = "error" if r.get("query_status") == "error" else ("ok" if pos is not None else "beyond-depth")
+        if status == "beyond-depth" and str(total) == "0":
+            status = "no-results"        # an empty result list shows nothing about our absence
         out.append((market, str(term), pos if status == "ok" else None, status))
     return out, rejected
 
@@ -263,6 +267,13 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
 
 
 # ---------------------------------------------------------------- report
+def zero_result_keys(rows):
+    """Keys whose queries only ever returned an empty list: unmeasurable, including the older rows that
+    recorded the same empty answer as "beyond-depth" before `no-results` existed."""
+    return {(r["market"], r["keyword"]) for r in rows if r["status"] == "no-results"} - \
+           {(r["market"], r["keyword"]) for r in rows if r["status"] == "ok"}
+
+
 def series(rows):
     """(market, keyword) -> observations sorted by date, failed requests dropped.
 
@@ -270,8 +281,9 @@ def series(rows):
     observation: leaving it in the series would let one outage block a key's delta forever.
     """
     out = {}
+    empty = zero_result_keys(rows)
     for r in rows:
-        if r["status"] == "error":
+        if r["status"] == "error" or (r["market"], r["keyword"]) in empty:
             continue
         out.setdefault((r["market"], r["keyword"]), []).append(r)
     for key in out:
@@ -306,7 +318,7 @@ def movement(first, last):
     return (label + (" · legacy, depth not recorded" if first["legacy"] else "")), a - b
 
 
-def section_a(hyps, pairs, markets):
+def section_a(hyps, pairs, markets, empty=frozenset()):
     print("\n## A · Hypothesis ledger — close before proposing\n")
     print("| ID | Markets | Live since | Window | State | Its own basket ↑/↓/→ | Action |")
     print("|---|---|---|---|---|---|---|")
@@ -338,10 +350,13 @@ def section_a(hyps, pairs, markets):
         elif not basket:
             keys = "no `queries:` — unjudgeable"
         else:
-            up = down = flat = miss = 0
+            up = down = flat = miss = dead = 0
             for market in mkts:
                 for query in basket:
                     obs = pairs.get((market, query))
+                    if (market, query) in empty:
+                        dead += 1
+                        continue
                     if not obs:
                         miss += 1
                         continue
@@ -350,7 +365,8 @@ def section_a(hyps, pairs, markets):
                         miss += 1
                     else:
                         up, down, flat = up + (delta > 0), down + (delta < 0), flat + (delta == 0)
-            keys = f"{up} / {down} / {flat}" + (f" (+{miss} unpaired)" if miss else "")
+            keys = (f"{up} / {down} / {flat}" + (f" (+{miss} unpaired)" if miss else "")
+                    + (f" (+{dead} zero-result: unmeasurable)" if dead else ""))
         print(f"| {h.get('id','?')} | {','.join(mkts) or '—'} | {live or '—'} | "
               f"{h.get('window_days','21')}d | {state} | {keys} | {action} |")
     print(f"\n{counts['judged']} judged · {counts['due']} due · {counts['open']} open · "
@@ -492,18 +508,27 @@ def report(store: Path, limit: int):
     dates = sorted({r["date"] for r in rows})
     paired = sum(movement(o[0], o[-1])[1] is not None for o in pairs.values())
     failed = sum(r["status"] == "error" for r in rows)
+    empty = zero_result_keys(rows)
+    no_results = sorted(empty)
     print(f"# Marketing ledger · {TODAY} · store {store}")
     print(f"\n{len(hyps)} hypotheses · {len(attempted)} tracked keys · {len(rows)} observations on "
           f"{len(dates)} dates ({', '.join(dates[:1] + dates[-1:])}) · {len(markets)} priced storefronts")
     print(f"\n**Coverage: {paired} of {len(attempted)} keys have a comparable pair, "
           f"{len(attempted) - len(pairs)} have no successful observation at all; {failed} requests failed.** "
           f"A thin section below is thin because of this line, not because nothing moved.")
+    if no_results:
+        by_market = {}
+        for market, _ in no_results:
+            by_market[market] = by_market.get(market, 0) + 1
+        print(f"\n**{len(no_results)} tracked keys are unmeasurable by this method: the API returns zero results "
+              f"for them** ({', '.join(f'{m} {n}' for m, n in sorted(by_market.items()))}). They are left out "
+              f"of every section below; a hypothesis whose basket is only such keys cannot be judged on rank.")
     if not rows:
         print("\n**metrics/ranks.csv is empty — no observation ledger exists yet.** Sections B and C "
               "cannot be computed from nothing; ingest a snapshot first. This is the honest state, "
               "not a bug.")
     print_problems()
-    section_a(hyps, pairs, markets)
+    section_a(hyps, pairs, markets, empty)
     section_b(pairs, markets, limit)
     section_c(pairs, markets, hyps, limit, read_brand_tokens(store), demand_lookup(store))
 
@@ -592,7 +617,7 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     return hid
 
 # ---------------------------------------------------------------- refresh
-def ingest_by_observed_day(store: Path, snapshot: dict) -> int:
+def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target") -> int:
     """Ingest a snapshot dict, dating each entry by the local day its own `observed_at` names.
 
     A long refresh can cross midnight, and a crash must not cost the markets that already finished:
@@ -612,7 +637,7 @@ def ingest_by_observed_day(store: Path, snapshot: dict) -> int:
         for day, snap in sorted(by_day.items()):
             path = Path(tmp) / f"{day}.json"
             path.write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
-            new += ingest(store, path, day, "itunes-search-api", 200, "target")
+            new += ingest(store, path, day, "itunes-search-api", 200, group)
     return new
 
 
@@ -746,6 +771,13 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     return ingested
 
 # ---------------------------------------------------------------- self-check
+def _empty_snapshot(store: Path) -> Path:
+    path = store / "empty_results.json"
+    path.write_text(json.dumps([{"country_code": "si", "term": "stiskanje videa", "our_rank": None,
+                                 "total_results": "0", "query_status": "ok"}]), encoding="utf-8")
+    return path
+
+
 def self_check():
     global TODAY
     import tempfile
@@ -766,6 +798,8 @@ def self_check():
         assert ingest(store, snap, "2026-09-01", "itunes-search-api", 200, "target") == 3, "stale row must be refused"
         failed = [r for r in read_ranks(store) if r["keyword"] == "failed"]
         assert failed and failed[0]["status"] == "error", "a failed request is not beyond-depth"
+        empty_rows, _ = load_snapshot(_empty_snapshot(store))
+        assert empty_rows[0][3] == "no-results", "an empty result list is not 'beyond depth'"
         snap2 = store / "s2.json"
         snap2.write_text(json.dumps([
             {"country_code": "de", "term": "fotos komprimieren", "our_rank": 8, "total_results": 200},
