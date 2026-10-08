@@ -219,6 +219,11 @@ def self_check():
         complete = [(0, version_output, ""), (0, ratings_output, ""),
                     (0, reviews_output, ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")]
         assert cycle_result(complete)[0] == 0
+        ga_partial, out_ga = cycle_result([(0, version_output, ""), (0, ratings_output, ""), (0, reviews_output, ""),
+                                           (2, "GA table\n⚠️ Збір частковий: Firebase CLI\n", ""),
+                                           (0, "radar\n", ""), (0, "ledger\n", "")])
+        assert ga_partial == 2 and "GA table" in out_ga and "GA4 pull partial (exit 2)" in out_ga
+        assert any(l.startswith("4 ") and " partial " in l for l in out_ga.rstrip().splitlines()[-6:])
         partial, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
                                         (0, "", ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert partial == 2 and "whether there are zero rows is unknown" in output
@@ -1318,7 +1323,7 @@ def _cycle_run(args):
             if rc == 0:
                 print("  ✓ Funnel metrics updated.")
             else:
-                why = next((l for l in lines if re.search(r"refus|rate limit|429|Error", l)),
+                why = next((l for l in reversed(lines) if re.search(r"refus|rate limit|429|Error:", l)),
                            next((l for l in reversed(lines) if l), "no output"))
                 print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale. "
                       f"Cause: {why[:200]}")
@@ -1352,6 +1357,17 @@ def _cycle_run(args):
                     print(f"  {l}")
                 if len(lines) > 80:
                     print(f"  … {len(lines) - 80} additional GA4 output lines omitted.")
+        elif rc == 2 and out.strip():
+            # pull_ga.py uses exit 2 for "partial" and prints everything it did get; the cycle used to
+            # report "failed: exit 2" and drop the tables (and the reason) on the floor.
+            lines = out.splitlines()
+            for l in lines[:80]:
+                print(f"  {l}")
+            if len(lines) > 80:
+                print(f"  … {len(lines) - 80} additional GA4 output lines omitted.")
+            why = next((l.strip(" ⚠️") for l in reversed(lines) if "⚠️" in l), "see the GA4 output above")
+            print(f"  ⚠️ GA4 pull partial (exit 2): {why[:160]}")
+            partial = True
         else:
             print(f"  ⚠️ GA4 pull failed: {err.strip() or f'exit {rc}'}")
             partial = True

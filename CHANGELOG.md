@@ -13,6 +13,8 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
 
 - `copilot.py cycle`: closes with a `STAGE SUMMARY` table (stage / ok·partial·failed·skipped / reason). The funnel
   step streams `pull_funnel.py` and names its cause (e.g. the 429) in the warning instead of "exited with code 1".
+- `copilot.py cycle`: a GA4 pull that exits 2 (partial) keeps its tables and says why, instead of "GA4 pull failed: exit 2"
+  with the data dropped; the funnel failure cause is the last error line (the exception), not a traceback source line.
 - `ledger.py refresh`: ingests each storefront as it finishes, dating rows by their own `observed_at` (it used to
   ingest once at the end under the start day, so a crash or a hung storefront lost every finished market and a
   run crossing midnight mis-dated rows). Exits **3** when a storefront failed or keys got no response (it exited 0).
