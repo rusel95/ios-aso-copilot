@@ -592,6 +592,30 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     return hid
 
 # ---------------------------------------------------------------- refresh
+def ingest_by_observed_day(store: Path, snapshot: dict) -> int:
+    """Ingest a snapshot dict, dating each entry by the local day its own `observed_at` names.
+
+    A long refresh can cross midnight, and a crash must not cost the markets that already finished:
+    refresh calls this once per market as it completes, instead of once at the end under one date.
+    """
+    import tempfile
+    by_day: dict = {}
+    for country, entries in snapshot.items():
+        for e in entries:
+            try:
+                day = dt.datetime.fromisoformat(e["observed_at"]).astimezone().date().isoformat()
+            except (KeyError, TypeError, ValueError):
+                day = str(TODAY)               # an entry that names no time falls back to the run's date
+            by_day.setdefault(day, {}).setdefault(country, []).append(e)
+    new = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for day, snap in sorted(by_day.items()):
+            path = Path(tmp) / f"{day}.json"
+            path.write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
+            new += ingest(store, path, day, "itunes-search-api", 200, "target")
+    return new
+
+
 def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
             out_dir: Path):
     """Re-query the basket the store already tracks, then ingest it. One command, so that the
@@ -626,7 +650,7 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
         return 0
     script = Path(__file__).resolve().parent / "rank_audit.py"
     out_dir.mkdir(parents=True, exist_ok=True)
-    merged, ok, err = {}, 0, 0
+    merged, ok, err, ingested = {}, 0, 0, 0
     failed_markets: list[str] = []
     missing_by_market: dict[str, list[str]] = {}
     for market in sorted(basket):
@@ -666,11 +690,24 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
         # non-zero exit. Name exactly which keywords never got a response, per market, every run.
         requested = set(basket[market])
         returned_terms = set()
-        for country, entries in json.loads(target.read_text(encoding="utf-8")).items():
+        market_snapshot = json.loads(target.read_text(encoding="utf-8"))
+        m_ok = m_err = 0
+        for country, entries in market_snapshot.items():
             merged.setdefault(country, []).extend(entries)
-            ok += sum(e.get("query_status") == "ok" for e in entries)
-            err += sum(e.get("query_status") == "error" for e in entries)
+            m_ok += sum(e.get("query_status") == "ok" for e in entries)
+            m_err += sum(e.get("query_status") == "error" for e in entries)
             returned_terms.update(e.get("term") for e in entries if e.get("term"))
+        ok += m_ok
+        err += m_err
+        if m_err and not m_ok:
+            # every query of this storefront failed: an outage, not an observation. Same rule the
+            # whole run used to apply at the end, now applied per market so one dead storefront
+            # cannot veto the rest and a finished one is never lost to a later crash.
+            print(f"  {market}: every query failed — nothing ingested for this storefront",
+                  file=sys.stderr, flush=True)
+            failed_markets.append(market)
+        else:
+            ingested += ingest_by_observed_day(store, market_snapshot)
         missing = requested - returned_terms
         if missing:
             missing_by_market[market] = sorted(missing)
@@ -678,11 +715,14 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
                   f"no response at all (not even 'error'), previous observation kept unchanged: "
                   f"{sorted(missing)}", file=sys.stderr, flush=True)
     snapshot = out_dir / f"snapshot_{TODAY}.json"
-    snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
+    if merged:
+        if snapshot.exists():              # a retry (e.g. --markets us) must not clobber the full run
+            snapshot = out_dir / f"snapshot_{TODAY}_{dt.datetime.now():%H%M%S}.json"
+        snapshot.write_text(json.dumps(merged, ensure_ascii=False), encoding="utf-8")
     for market in basket:                      # the per-market files are inputs to the merge above
         (out_dir / f"{market}.json").unlink(missing_ok=True)
     total_missing = sum(len(v) for v in missing_by_market.values())
-    print(f"{ok} observed · {err} failed → {snapshot}")
+    print(f"{ok} observed · {err} failed" + (f" → {snapshot}" if merged else ""))
     if failed_markets or missing_by_market:
         print(f"\n⚠⚠ INCOMPLETE REFRESH — do not read this as a full basket update:", file=sys.stderr)
         if failed_markets:
@@ -695,10 +735,15 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
               f"today, whatever `ledger.py report` prints for it next.", file=sys.stderr)
     else:
         print("Every requested keyword in every requested storefront returned a response.")
+    print(f"ingested {ingested} new rows in total (each dated by its own observed_at)")
     if err and not ok:
         sys.exit(f"every query failed (this run used --delay {delay}). Nothing ingested; inspect "
                  "the per-query errors and retry only after correcting the cause.")
-    return ingest(store, snapshot, str(TODAY), "itunes-search-api", 200, "target")
+    if failed_markets or missing_by_market:
+        # what finished is already in ranks.csv; the exit code says the basket is NOT complete
+        print_problems(sys.stderr)
+        sys.exit(3)
+    return ingested
 
 # ---------------------------------------------------------------- self-check
 def self_check():
@@ -832,7 +877,17 @@ def self_check():
         except SystemExit as exc:
             assert "--delay must be at least 3.0 seconds" in str(exc), exc
 
+        # per-market ingest dates each entry by its own observed_at, not by the run's start day
         import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            n = ingest_by_observed_day(store, {"de": [
+                {"term": "split day", "country": "de", "our_rank": 4, "total_results": 50, "query_status": "ok",
+                 "observed_at": "2031-05-01T20:59:00+00:00"},
+                {"term": "split day 2", "country": "de", "our_rank": 5, "total_results": 50, "query_status": "ok",
+                 "observed_at": "2031-05-04T10:00:00+00:00"}]})
+        assert n == 2
+        days = {r["date"] for r in read_ranks(store) if r["keyword"].startswith("split day")}
+        assert len(days) == 2 and "2031-05-04" in days, days
         from unittest.mock import patch
         original_today = TODAY
         try:
@@ -853,7 +908,7 @@ def self_check():
             TODAY = original_today
     print("\nOK: stale positions, failed requests, dedupe, one-observation keys, unreadable positions,\n"
           "    censored pairs, legacy provenance/schema warnings, date replay, delay guard,\n"
-          "    window states, proceeds-weighted order")
+          "    window states, proceeds-weighted order, per-observation ingest dates")
 
 
 def main():

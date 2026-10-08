@@ -7,6 +7,25 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.7.1 — honest cycle stages, per-market rank ingest, per-term popularity — 2026-10-08
+
+Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
+
+- `copilot.py cycle`: closes with a `STAGE SUMMARY` table (stage / ok·partial·failed·skipped / reason). The funnel
+  step streams `pull_funnel.py` and names its cause (e.g. the 429) in the warning instead of "exited with code 1".
+- `ledger.py refresh`: ingests each storefront as it finishes, dating rows by their own `observed_at` (it used to
+  ingest once at the end under the start day, so a crash or a hung storefront lost every finished market and a
+  run crossing midnight mis-dated rows). Exits **3** when a storefront failed or keys got no response (it exited 0).
+  A retry such as `--markets us` no longer overwrites the earlier `snapshot_<day>.json` with `{}`.
+- `rank_audit.py`: with `--keywords-file` / `--keywords` the header says `[explicit basket]` and the real query
+  count, not "[Niche: whitenoise]" and "fallback keyword lists".
+- `copilot.py keywords popularity --terms`: answers per term from the stored radar (`head N` / `below N` /
+  `no data` / `—`); it used to ignore `--terms` and print the whole radar report when the market had no rows.
+- `references/funnel-analytics.md`: how an app's `pull_funnel.py` should treat a failed Purchases or
+  Installation report (write the week, blank trials) versus a failed Discovery or Downloads report (refuse).
+
+---
+
 ## v2.6.1 — 4 high-converting intent clusters, popularity API thresholds, and localization vacuum checks — 2026-10-03
 
 - **The 4 High-Converting Intent Clusters**: Codified generation of international Exact keywords across four

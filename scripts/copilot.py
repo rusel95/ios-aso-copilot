@@ -15,6 +15,7 @@ import argparse
 import ast
 import datetime as dt
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -221,6 +222,12 @@ def self_check():
         partial, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
                                         (0, "", ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert partial == 2 and "whether there are zero rows is unknown" in output
+        # the stage table is the LAST thing printed, one row per stage, and names the partial one
+        tail = output.rstrip().splitlines()
+        assert "STAGE SUMMARY" in output and len([l for l in tail[-6:] if l[:1] in "123456"]) == 6, tail[-8:]
+        assert any(l.startswith("2 ") and " partial " in l for l in tail[-6:]), tail[-6:]
+        sample = "\n▶ [1/6] A\n  fine\n\n▶ [3/6] Funnel\n  ⚠️ pull_funnel.py exited with code 1; Cause: 429\n\n▶ [4/6] GA\n  (GA4 pull explicitly skipped)\n"
+        assert [r[2] for r in cycle_stage_table(sample)] == ["ok", "failed", "skipped"]
         empty_ga, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
                                          (0, reviews_output, ""), (0, "", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert empty_ga == 2 and "GA4 returned no output" in output
@@ -685,6 +692,27 @@ def cmd_keywords_popularity(args):
     terms = [t.strip() for t in args.terms.split(",")] if getattr(args, "terms", None) else []
     log_debug(f"Querying popularity for country={country}, terms={terms}")
 
+    if terms:
+        # A per-term question gets a per-term answer from the stored weekly radar. Apple lists only each
+        # storefront's head, so most terms are "below the cut": unknown, not zero. Never fall through to
+        # the whole-store report (it used to, silently ignoring --terms, when the market had no rows).
+        from radar import demand_lookup, demand_label
+        demand = demand_lookup(store)
+        explain = {"—": "market never pulled — run `copilot.py radar pull`",
+                   "no data": "Apple lists nothing for this storefront"}
+        answers = [{"market": country.lower(), "term": term,
+                    "popularity": demand_label(demand, country.lower(), term)} for term in terms]
+        if getattr(args, "json", False):
+            print(json.dumps(answers, indent=2, ensure_ascii=False))
+            return 0
+        print(f"\n📊 Apple Search Popularity [{country}] (stored weekly radar; relative 1-100, not searches):")
+        for a_ in answers:
+            label = a_["popularity"]
+            note = explain.get(label) or ("not in Apple's published head: volume unknown, not zero"
+                                          if label.startswith("below") else "")
+            print(f"  {a_['term']}: {label}" + (f"  ({note})" if note else ""))
+        return 0
+
     pop_csv = store / "metrics" / "popularity.csv"
     if pop_csv.is_file():
         import csv
@@ -1147,7 +1175,63 @@ def cmd_radar(args):
                           + args.radar_args).returncode
 
 
+class _Tee:
+    """Pass stdout through unchanged while keeping a copy for the closing stage table."""
+    def __init__(self, real):
+        self.real, self.parts = real, []
+
+    def write(self, s):
+        self.parts.append(s)
+        return self.real.write(s)
+
+    def flush(self):
+        self.real.flush()
+
+    def __getattr__(self, name):
+        return getattr(self.real, name)
+
+
+def cycle_stage_table(text):
+    """Stage | status | reason, read back from the cycle's own `▶ [n/6]` sections.
+
+    The long output scrolls and a caller that tails it loses the warnings; this is the part that
+    must still be on screen. ok = no warning; partial = a warning line; failed = a source error or
+    a non-zero child; skipped = the stage was switched off by a flag.
+    """
+    sections = re.split(r"(?m)^▶ \[(\d)/6\] (.*)$", text)
+    rows = []
+    for i in range(1, len(sections), 3):
+        num, name, body = sections[i], sections[i + 1].rstrip("."), sections[i + 2]
+        # the cycle flags trouble with "⚠️", except one 📝 line (unresponded reviews) that says "unknown"
+        warn = [l.strip() for l in body.splitlines()
+                if "⚠️" in l or ("📝" in l and re.search(r"unknown|no output", l))]
+        if "explicitly skipped" in body and not warn:
+            rows.append((num, name, "skipped", "flag"))
+        elif not warn:
+            rows.append((num, name, "ok", ""))
+        else:
+            hard = re.search(r"Could not|failed|unavailable|exited with code|not found|missing", warn[0])
+            rows.append((num, name, "failed" if hard else "partial", warn[0].replace("⚠️", "").replace("📝", "").strip()[:150]))
+    return rows
+
+
 def cmd_cycle(args):
+    """Run the cycle, then print a stage → status → reason table as the LAST thing on screen."""
+    tee = _Tee(sys.stdout)
+    sys.stdout = tee
+    try:
+        code = _cycle_run(args)
+    finally:
+        sys.stdout = tee.real
+    rows = cycle_stage_table("".join(tee.parts))
+    print("\nSTAGE SUMMARY (a footer above is not a completeness certificate)")
+    print(f"{'#':<2} {'stage':<46} {'status':<8} reason")
+    for num, name, status, reason in rows:
+        print(f"{num:<2} {name[:46]:<46} {status:<8} {reason}")
+    return code
+
+
+def _cycle_run(args):
     """Run the consolidated live-read and local snapshot pass."""
     store = Path(args.store).resolve()
     app = resolve_app_identity(store)
@@ -1224,11 +1308,20 @@ def cmd_cycle(args):
             print("  Running pull_funnel.py (ASC analytics reporting is not real-time — this can take "
                   "several minutes for a storefront with many tracked keywords)...")
             print(f"  Preserving source CSVs under {raw_dir}")
-            rc = subprocess.run(command).returncode
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, bufsize=1)
+            lines = []
+            for line in proc.stdout:
+                lines.append(line.strip())
+                print("  " + line.rstrip("\n"), flush=True)
+            rc = proc.wait()
             if rc == 0:
                 print("  ✓ Funnel metrics updated.")
             else:
-                print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale.")
+                why = next((l for l in lines if re.search(r"refus|rate limit|429|Error", l)),
+                           next((l for l in reversed(lines) if l), "no output"))
+                print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale. "
+                      f"Cause: {why[:200]}")
                 partial = True
     else:
         print("  ⚠️ Funnel pull unavailable — pull_funnel.py not found in store or skill scripts/.")

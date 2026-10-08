@@ -842,14 +842,6 @@ def main() -> None:
 
     markets = ALL_MARKETS if args.markets == "all" else [m.strip() for m in args.markets.split(",")]
 
-    total_q = sum(_query_budget(m) for m in markets)
-    print(f"ASO Rank Audit — {args.bundle} [Niche: {args.niche}]")
-    print(f"Markets: {', '.join(markets)}  |  Budget: ~{total_q} queries")
-    if args.expand_from_hints:
-        print("  Mode: Apple autocomplete hint expansion (proportional budgets)\n")
-    else:
-        print("  Mode: fallback keyword lists (use --expand-from-hints for better coverage)\n")
-
     manual_kw: Optional[dict] = None
     if args.keywords_file:
         kws_path = Path(args.keywords_file)
@@ -860,6 +852,20 @@ def main() -> None:
     elif args.keywords:
         kws = [k.strip() for k in args.keywords.split(",")]
         manual_kw = {m: kws for m in markets}
+
+    # An explicit basket replaces the niche lists, so the header must not name a niche (it printed
+    # another app's "[Niche: whitenoise]") nor a "fallback" mode that is not running.
+    if manual_kw is not None:
+        print(f"ASO Rank Audit — {args.bundle} [explicit basket]")
+        print(f"Markets: {', '.join(markets)}  |  Queries: {sum(len(v) for v in manual_kw.values())}")
+        print("  Mode: explicit basket (--keywords-file / --keywords)\n")
+    else:
+        print(f"ASO Rank Audit — {args.bundle} [Niche: {args.niche}]")
+        print(f"Markets: {', '.join(markets)}  |  Budget: ~{sum(_query_budget(m) for m in markets)} queries")
+        if args.expand_from_hints:
+            print("  Mode: Apple autocomplete hint expansion (proportional budgets)\n")
+        else:
+            print("  Mode: fallback keyword lists (use --expand-from-hints for better coverage)\n")
 
     seeds_list: Optional[list[str]] = None
     if args.seeds:

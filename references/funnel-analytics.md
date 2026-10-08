@@ -33,6 +33,18 @@ When `$STORE/scripts/pull_ga.py` is configured, in-app telemetry bridges the gap
 - **Uninstalls:** not observable in GA4 on iOS — see § Deletions below.
 - **Reconciliation:** Storefront downloads (ASC) are acquisition; `first_open` / `session_start` (GA4) are activation. Comparing downloads to `first_open` measures the drop-off between store install and first launch. Comparing `media_swiped` to `paywall_shown` measures activation depth before monetization.
 
+## Pulling the store funnel when ASC analytics rate-limits
+
+`asc analytics` answers HTTP 429 (retry-after ≈30 min) after a long pull, and a full pull downloads every
+report instance serially (~15 s a segment), so Purchases and Installation/Deletion, the last two reports, are
+the ones that fail. They are extras: impressions, page views and first-time downloads (Discovery + Downloads)
+are the week. An app's `pull_funnel.py` should therefore refuse to write only when **Discovery or Downloads**
+failed, and otherwise write the week with `trial_starts` **blank** and a note naming the missing report
+(blank is "not downloaded", never zero), skip `lifecycle.csv`, and never aggregate a half-downloaded extra.
+`copilot.py cycle` ends with a `STAGE SUMMARY` table (stage / status / reason) so a failed or partial stage
+cannot be lost in the scrollback; read it before trusting any funnel number. To catch up on the extras
+only, wait out the cooldown and download just those two reports; do not re-run the whole pull.
+
 ## Deletions — the end of the lifecycle
 
 App Store Connect's **"App Store Installation and Deletion Standard"** analytics report (same ONGOING

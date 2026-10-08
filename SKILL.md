@@ -105,7 +105,8 @@ ios-aso-copilot keywords vacuum --country pl --term "kompresor wideo"
 # Autocomplete suggestions directly from Apple's hints endpoint
 ios-aso-copilot keywords hints --country pl --term "czyszczenie"
 
-# Search term popularity in storefront (1-100 score)
+# Search term popularity in storefront, per term, from the stored weekly radar (`radar pull`):
+# `head N` (Apple's 1-100), `below N` (not listed: unknown, not zero), `no data`, or `—` (never pulled)
 ios-aso-copilot keywords popularity --country pl --terms "kompresor,czyszczenie"
 
 # Competitor discovery across multiple seed queries
@@ -289,8 +290,11 @@ The ledger's inputs are `$STORE/metrics/ranks.csv` (append-only observations, on
 (per-territory customer price and Apple proceeds, pulled from ASC — never estimated). Refresh the
 first with `python3 "$COPILOT" ledger --store "$STORE" refresh --bundle "$BUNDLE_ID"`, using the app's
 exact bundle ID from its project configuration. This re-queries the basket `ranks.csv`
-already holds and ingests the result; add `--failed-only` to retry keys whose latest request status
-is `error`, after correcting terminal auth or configuration problems. Apple
+already holds and ingests it **one storefront at a time**, dating each row by its own `observed_at`
+(a crash or a hung storefront does not cost the ones already finished). It exits **3** when any storefront
+failed or any key got no response: what finished is already in `ranks.csv`, the basket is not complete.
+Add `--failed-only` to retry keys whose latest request status
+is `error`, after correcting terminal auth or configuration problems; retry one storefront with `--markets us`. Apple
 currently documents an approximate 20 calls per minute, subject to change ([Search API](https://performance-partners.apple.com/search-api)).
 The ledger's 3s minimum is a local guard based on this account's recorded failures, not a guarantee
 that Apple's service will accept every request. Do not parallelize or shorten it to save time; at 1s
@@ -460,8 +464,8 @@ virtual environment. Do not install packages or credentials as part of a status 
   refuses any position deeper than the result list that query returned — a value carried over from an
   older snapshot is not an observation.
 - `ledger.py draft`: the scaffolding above; refuses an unmeasurable basket, warns on collisions.
-- `ledger.py refresh`: re-queries the tracked basket per storefront and ingests it; `--failed-only`
-  retries keys whose latest request status is `error`. Every command reports the store rows it could
+- `ledger.py refresh`: re-queries the tracked basket per storefront and ingests each as it finishes (exit 3
+  if incomplete); `--failed-only` retries keys whose latest request status is `error`. Every command reports the store rows it could
   not use, not just `report`.
 - `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
 - `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
