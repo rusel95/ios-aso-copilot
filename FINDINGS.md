@@ -263,3 +263,36 @@ none were localized into Polish (foreign apps with English titles and 0–76 rat
 Vacuum": native users search in their language, but no competitor has localized ASO or title tokens. Exact match
 keywords targeting this vacuum convert at extremely low acquisition costs.
 
+
+
+---
+
+## Full run on a real app, twice in two days — what the skill caught, what it hid, what changed (v2.7.1)
+
+**Date:** 2026-10-07 and 2026-10-08  
+**Source:** two `--full` iterations on Compresso (iOS, 39 storefronts, 785-key rank basket, 14 Apple Ads campaigns, 71 hypotheses); the second run after the fixes below [live:asc + GA4/BigQuery + Apple Ads + iTunes Search@2026-10-08]
+
+### What worked (keep)
+- The ledger's "close before proposing" order paid for itself: **0 hypotheses due on day one, 2 on day two**, and both were judged the same run instead of piling up.
+- `ledger.py` flagged 12 rank hypotheses with no `queries:` basket and 4 records still `queued` after their version went on sale (a manual-release `went_live` was a week stale). Neither is visible from `STATE.md`.
+- `radar.py` separated "below Apple's cut" from zero; `copilot.py status`/`cycle` refused to read another app's identity.
+- Funnel numbers by segment, not pooled: a 73 % first-session step looked like a win until the cohort split showed it was 83 % paid traffic from one country, a population the baseline never contained.
+
+### What it got wrong or hid (fixed in v2.7.1)
+| Defect | How it showed up | Fix |
+|---|---|---|
+| **Empty result lists recorded as "beyond depth 200"** | native queries in si, bg, lt, lv, ee, md and the Dravidian scripts return `resultCount: 0`; 38 tracked keys read as "absent", including every key of two live hypotheses | status `no-results`; a key whose latest reading is empty leaves every comparison and is named in the coverage line |
+| `rank_audit` hung 46 min, then 80 min, on one storefront | `timeout=8` bounds each socket wait, not the request; a throttled server dripping the body never trips it | 30 s total deadline → an `error` row |
+| `refresh` ingested only at the very end, under the start day, and exited 0 when incomplete | a hung market threatened 38 finished ones; a run crossing midnight would mis-date rows | ingest per market, dated by each entry's `observed_at`; exit 3 when incomplete; a retry no longer overwrites the day's snapshot with `{}`; each key keeps its group |
+| `cycle` footer said "PARTIAL" and nothing else | the funnel stage had failed (ASC analytics 429); the warning scrolled away | closing `STAGE SUMMARY` table; the funnel names its cause; a GA4 pull that exits 2 keeps its tables |
+| An app's funnel script discarded a whole week when only Purchases/Installation failed | Discovery + Downloads were complete | write the week with `trial_starts` blank and the reason (see `references/funnel-analytics.md`) |
+| `keywords popularity --terms` ignored `--terms` | printed the whole radar report | per-term `head N` / `below N` / `no data` / `—` |
+| `rank_audit` header named another app's niche with an explicit basket | "[Niche: whitenoise]" on a compression app | `[explicit basket]` and the real query count |
+
+### What the skill still cannot do (be honest about it)
+- **Read the App Review rejection text.** `asc review status` says `REJECTED / UNRESOLVED_ISSUES`; the reason lives in Resolution Center (web only). A rejected candidate version silently blocks every "ship in the next version" item.
+- **Verify a rank hypothesis in a storefront it never tracked.** A record can name a market that is not in `ranks.csv` at all (found: Portugal, Vietnam, Indonesia, India's baseline file never ingested). `ledger.py report` now shows `+N unpaired`/`zero-result` per row, but only after the fact; check `markets × queries ⊆ ranks.csv` when drafting.
+- **Estimate payer economics.** The cost-per-install ÷ net-proceeds ratio is an ordering aid; without purchases by country it does not say whether an ad market earns its keep.
+
+### Lesson for the playbook
+Before opening a rank hypothesis in a new storefront or script, run one live `curl` of the native query. If `resultCount` is 0, pick a different primary signal (ASC impressions by territory) up front. Track the Apple Ads keywords that actually served impressions in the same ledger (group `asa-observed`) — impressions are the only per-query proof that someone searches the phrase, and the organic position of the same phrase shows whether paid and organic overlap.
