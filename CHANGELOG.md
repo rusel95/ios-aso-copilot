@@ -11,6 +11,9 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
 
+- `copilot.py brief`: one screen with App Store Connect state (health, blockers, build, TestFlight, versions, subscriptions, IAP), the Top-200
+  bands per storefront (`ledger.py bands`: keys in top10/30/100/200/out now, inside the top 200 at first observation / previous refresh /
+  now), every hypothesis with its state, and the store funnel digest. It reads and writes nothing.
 - `copilot.py cycle` prints a **FUNNEL DIGEST** before the stage table: the App Store funnel by country (impressions, page views,
   first-time downloads, PV/impr, dl/impr, dl/PV, trials) and the opt-in install lifecycle (installs, deleted %, ≤1 day), read from
   `weekly.csv`/`lifecycle.csv`, flagged STALE after 3 days; the GA4 report is shown whole (cap 250 lines, was 80, which cut off the

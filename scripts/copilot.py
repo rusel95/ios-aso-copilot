@@ -1277,6 +1277,57 @@ def funnel_digest(store, today=None):
                   f"{pct(r.get('deletions_optin'), r.get('first_installs_optin')):>10}{r.get('deleted_within_1d', ''):>8}")
 
 
+def cmd_brief(args):
+    """One screen of everything already on disk or one cheap read away: App Store Connect state, Top-200 bands per
+    storefront, every hypothesis with its state, the store funnel. No network except `asc` reads; writes nothing."""
+    store = Path(args.store).resolve()
+    app = resolve_app_identity(store)
+    print(f"BRIEF · {app['brand']} · app {app['app_id']} · {dt.date.today()}")
+
+    print("\nAPP STORE CONNECT")
+    rc, out, err = run_cmd(["asc", "status", "--app", app["app_id"]])
+    try:
+        d = json.loads(out[out.index("{"):]) if rc == 0 else {}
+    except ValueError:
+        d = {}
+    if not d:
+        print(f"  ⚠️ asc status unavailable: {err.strip()[:160] or f'exit {rc}'}")
+    else:
+        s, b, tf, v = d.get("summary", {}), d.get("builds", {}).get("latest", {}), d.get("testflight", {}), d.get("appstore", {})
+        print(f"  health: {s.get('health')} · next: {s.get('nextAction')}")
+        for blocker in s.get("blockers", []):
+            print(f"  blocker: {blocker}")
+        print(f"  working version: {v.get('version')} {v.get('state')} · latest build {b.get('version')} ({b.get('buildNumber')}) "
+              f"{b.get('processingState')}, uploaded {str(b.get('uploadedDate', ''))[:16]} · TestFlight {tf.get('internalBuildState')}")
+    rc, out, err = run_cmd(["asc", "versions", "list", "--app", app["app_id"], "--platform", "IOS"])
+    try:
+        versions = json.loads(out[out.index("{"):])["data"] if rc == 0 else []
+    except ValueError:
+        versions = []
+    if versions:
+        print("  versions: " + " · ".join(f"{x['attributes']['versionString']} {x['attributes']['appStoreState']}" for x in versions[:5]))
+    for label, cmd in (("subscriptions", ["asc", "subscriptions", "list", "--app", app["app_id"]]),
+                       ("in-app purchases", ["asc", "iap", "list", "--app", app["app_id"]])):
+        rc, out, err = run_cmd(cmd)
+        try:
+            items = json.loads(out[out.index("{"):])["data"] if rc == 0 else []
+        except ValueError:
+            items = []
+        if items:
+            print(f"  {label}: " + " · ".join(f"{i['attributes'].get('productId', '?').rsplit('.', 1)[-1]} {i['attributes'].get('state')}" for i in items))
+
+    import ledger
+    ledger.bands(store)
+
+    print("\nHYPOTHESES (state as of today; `ledger.py report` has the per-key detail)")
+    rc, out, err = run_cmd([sys.executable, str(SKILL_DIR / "scripts" / "ledger.py"), "--store", str(store), "report"])
+    section = out.split("## A", 1)[-1].split("## B", 1)[0] if rc == 0 and "## A" in out else ""
+    print(section.strip() or f"  ⚠️ ledger report unavailable: {err.strip()[:160]}")
+
+    funnel_digest(store)
+    return 0
+
+
 def cmd_cycle(args):
     """Run the cycle, then print the funnel digest and a stage → status → reason table LAST."""
     tee = _Tee(sys.stdout)
@@ -1553,6 +1604,7 @@ def build_parser():
     p_aresume.add_argument("--campaign-id", required=True, help="Campaign ID")
 
     # cycle
+    subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel", parents=[common_parent])
     p_cycle = subparsers.add_parser("cycle", help="Run the consolidated data collection pass", parents=[common_parent])
     p_cycle.add_argument("--skip-pull", action="store_true", help="Skip remote ASC funnel download")
     p_cycle.add_argument("--skip-ga", action="store_true", help="Skip GA4 pull")
@@ -1613,6 +1665,8 @@ def main():
         return cmd_keywords(args)
     elif args.command == "ads":
         return cmd_ads(args)
+    elif args.command == "brief":
+        return cmd_brief(args)
     elif args.command == "cycle":
         return cmd_cycle(args)
     elif args.command == "reviews":

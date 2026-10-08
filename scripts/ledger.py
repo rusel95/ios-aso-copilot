@@ -539,6 +539,63 @@ def report(store: Path, limit: int):
 
 
 # ---------------------------------------------------------------- draft
+def band_of(pos):
+    """top10 / top30 / top100 / top200 / out (None = not found within the queried depth)."""
+    if pos is None:
+        return "out"
+    return "t10" if pos <= 10 else "t30" if pos <= 30 else "t100" if pos <= 100 else "t200"
+
+
+def bands(store: Path):
+    """Top-200 at a glance: for every storefront, how many tracked non-brand keys sit in each band now, and how many
+    were inside the top 200 at their first observation and at the previous refresh date. Empty-result keys are out."""
+    rows = read_ranks(store)
+    brand = read_brand_tokens(store)
+    pairs = series(rows)
+    dates = sorted({r["date"] for r in rows if r["status"] != "error"})
+    if not dates:
+        print("No observations in metrics/ranks.csv.")
+        return
+    latest = dates[-1]
+    prev = dates[-2] if len(dates) > 1 else None
+    per = {}
+    for (market, key), obs in pairs.items():
+        if any(brand_hit(b, key) for b in brand):
+            continue
+        c = per.setdefault(market, {"keys": 0, "first_in": 0, "prev_in": 0, "best": None,
+                                    **{f"now_{b}": 0 for b in ("t10", "t30", "t100", "t200", "out")}})
+        last = obs[-1]
+        before = [o for o in obs if prev and o["date"] <= prev][-1:] or [obs[0]]
+        c["keys"] += 1
+        c[f"now_{band_of(last['position'])}"] += 1
+        c["first_in"] += obs[0]["position"] is not None
+        c["prev_in"] += before[0]["position"] is not None
+        if last["position"] is not None:
+            c["best"] = last["position"] if c["best"] is None else min(c["best"], last["position"])
+    empty = sorted({m for m, _ in zero_result_keys(rows)})
+    print(f"\nTOP-200 BANDS (non-brand keys; latest refresh {latest}, previous {prev or '—'}; "
+          f"iTunes Search order, not device rank)")
+    print(f"{'market':<7}{'keys':>5} | {'top10':>5}{'top30':>6}{'top100':>7}{'top200':>7}{'out':>5} | "
+          f"{'in@first':>9}{'in@prev':>8}{'in@now':>7} | best")
+    tot = {k: 0 for k in ("keys", "t10", "t30", "t100", "t200", "out", "first_in", "prev_in")}
+
+    def score(c):
+        return (-c["now_t10"], -c["now_t30"], -c["now_t100"], -c["now_t200"])
+    for market, c in sorted(per.items(), key=lambda kv: score(kv[1])):
+        now_in = c["keys"] - c["now_out"]
+        print(f"{market:<7}{c['keys']:>5} | {c['now_t10']:>5}{c['now_t30']:>6}{c['now_t100']:>7}{c['now_t200']:>7}"
+              f"{c['now_out']:>5} | {c['first_in']:>9}{c['prev_in']:>8}{now_in:>7} | {c['best'] or '—'}")
+        tot["keys"] += c["keys"]
+        for b in ("t10", "t30", "t100", "t200", "out"):
+            tot[b] += c[f"now_{b}"]
+        tot["first_in"] += c["first_in"]
+        tot["prev_in"] += c["prev_in"]
+    print(f"{'TOTAL':<7}{tot['keys']:>5} | {tot['t10']:>5}{tot['t30']:>6}{tot['t100']:>7}{tot['t200']:>7}{tot['out']:>5} | "
+          f"{tot['first_in']:>9}{tot['prev_in']:>8}{tot['keys'] - tot['out']:>7} |")
+    if empty:
+        print(f"Unmeasurable (API returns no results, left out above): storefronts {', '.join(empty)}")
+
+
 def draft(store: Path, market: str, queries: list, window: int, out: Path | None):
     """Scaffold a hypothesis that is measurable BEFORE it is written.
 
@@ -974,7 +1031,7 @@ def self_check():
 def main():
     global TODAY
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh"], default="report")
+    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh", "bands"], default="report")
     p.add_argument("snapshot", nargs="?")
     p.add_argument("--store", type=Path)
     p.add_argument("--as-of", type=dt.date.fromisoformat,
@@ -1020,6 +1077,10 @@ def main():
                        args.out_dir or args.store / "reports" / "snapshots")
         print_problems(sys.stderr)
         return done
+    if args.command == "bands":
+        bands(args.store)
+        print_problems(sys.stderr)
+        return 0
     if args.command == "draft":
         if not args.market:
             p.error("draft needs --market and --queries")
