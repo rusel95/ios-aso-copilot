@@ -15,10 +15,11 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
   step streams `pull_funnel.py` and names its cause (e.g. the 429) in the warning instead of "exited with code 1".
 - `ledger.py`: a query the API answers with **zero results** is recorded as `no-results`, not `beyond-depth`. Native queries in
   si, bg, lt, lv, ee, md and the Dravidian scripts return an empty list, so "absent from the top 200" was never true; those keys
-  (37 in Compresso) are dropped from every comparison, named in the coverage line and flagged per hypothesis in section A
+  (38 in Compresso) are dropped from every comparison while their latest reading is empty (a key that later answers is measurable again; one empty answer never erases history), named in the coverage line and flagged per hypothesis in section A
   (`+N zero-result: unmeasurable`). Older rows of such keys are dropped too, so no migration is needed.
 - `ledger.py ingest_by_observed_day(..., group=)`: callers can track extra baskets (e.g. Apple Ads keywords that served
   impressions, group `asa-observed`) without a second ingest path.
+- `ledger.py refresh` keeps each key's own `group` (it would have relabelled `asa-observed` keys as `target`).
 - `copilot.py cycle`: a GA4 pull that exits 2 (partial) keeps its tables and says why, instead of "GA4 pull failed: exit 2"
   with the data dropped; the funnel failure cause is the last error line (the exception), not a traceback source line.
 - `ledger.py refresh`: ingests each storefront as it finishes, dating rows by their own `observed_at` (it used to

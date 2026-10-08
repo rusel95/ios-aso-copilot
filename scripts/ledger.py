@@ -268,10 +268,15 @@ def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
 
 # ---------------------------------------------------------------- report
 def zero_result_keys(rows):
-    """Keys whose queries only ever returned an empty list: unmeasurable, including the older rows that
-    recorded the same empty answer as "beyond-depth" before `no-results` existed."""
-    return {(r["market"], r["keyword"]) for r in rows if r["status"] == "no-results"} - \
-           {(r["market"], r["keyword"]) for r in rows if r["status"] == "ok"}
+    """Keys whose LATEST non-error reading is an empty result list: unmeasurable right now, including the
+    older rows that recorded the same empty answer as "beyond-depth" before `no-results` existed. A key
+    that later starts returning results (and so a real beyond-depth or a position) is measurable again;
+    one transient empty answer does not erase its history."""
+    last = {}
+    for i, r in sorted(enumerate(rows), key=lambda ir: (ir[1]["date"], ir[0])):
+        if r["status"] != "error":
+            last[(r["market"], r["keyword"])] = r["status"]
+    return {key for key, status in last.items() if status == "no-results"}
 
 
 def series(rows):
@@ -283,7 +288,7 @@ def series(rows):
     out = {}
     empty = zero_result_keys(rows)
     for r in rows:
-        if r["status"] == "error" or (r["market"], r["keyword"]) in empty:
+        if r["status"] in ("error", "no-results") or (r["market"], r["keyword"]) in empty:
             continue
         out.setdefault((r["market"], r["keyword"]), []).append(r)
     for key in out:
@@ -617,7 +622,7 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     return hid
 
 # ---------------------------------------------------------------- refresh
-def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target") -> int:
+def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target", groups: dict | None = None) -> int:
     """Ingest a snapshot dict, dating each entry by the local day its own `observed_at` names.
 
     A long refresh can cross midnight, and a crash must not cost the markets that already finished:
@@ -631,13 +636,16 @@ def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target") -
                 day = dt.datetime.fromisoformat(e["observed_at"]).astimezone().date().isoformat()
             except (KeyError, TypeError, ValueError):
                 day = str(TODAY)               # an entry that names no time falls back to the run's date
-            by_day.setdefault(day, {}).setdefault(country, []).append(e)
+            # `groups` carries each key's own group (e.g. `asa-observed`) through a refresh instead of
+            # relabelling every re-observed key as `target`
+            g = (groups or {}).get((str(e.get("country") or country).lower(), e.get("term")), group)
+            by_day.setdefault((day, g), {}).setdefault(country, []).append(e)
     new = 0
     with tempfile.TemporaryDirectory() as tmp:
-        for day, snap in sorted(by_day.items()):
-            path = Path(tmp) / f"{day}.json"
+        for n, ((day, g), snap) in enumerate(sorted(by_day.items())):
+            path = Path(tmp) / f"{n}_{day}.json"
             path.write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
-            new += ingest(store, path, day, "itunes-search-api", 200, group)
+            new += ingest(store, path, day, "itunes-search-api", 200, g)
     return new
 
 
@@ -676,6 +684,7 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     script = Path(__file__).resolve().parent / "rank_audit.py"
     out_dir.mkdir(parents=True, exist_ok=True)
     merged, ok, err, ingested = {}, 0, 0, 0
+    groups = {key: (r.get("group") or "target") for key, r in latest.items()}
     failed_markets: list[str] = []
     missing_by_market: dict[str, list[str]] = {}
     for market in sorted(basket):
@@ -732,7 +741,7 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
                   file=sys.stderr, flush=True)
             failed_markets.append(market)
         else:
-            ingested += ingest_by_observed_day(store, market_snapshot)
+            ingested += ingest_by_observed_day(store, market_snapshot, groups=groups)
         missing = requested - returned_terms
         if missing:
             missing_by_market[market] = sorted(missing)
@@ -922,6 +931,23 @@ def self_check():
         assert n == 2
         days = {r["date"] for r in read_ranks(store) if r["keyword"].startswith("split day")}
         assert len(days) == 2 and "2031-05-04" in days, days
+        # a key whose latest reading is an empty list is unmeasurable; once it answers again it is measurable
+        # and a single empty answer does not erase older legitimate history
+        def row(date, status, pos=None):
+            return {"date": date, "market": "si", "keyword": "stiskanje videa", "status": status, "position": pos}
+        assert zero_result_keys([row("2031-01-01", "beyond-depth"), row("2031-01-02", "no-results")]) == \
+            {("si", "stiskanje videa")}
+        assert zero_result_keys([row("2031-01-01", "no-results"), row("2031-01-02", "beyond-depth")]) == set()
+        assert zero_result_keys([row("2031-01-01", "ok", 5), row("2031-01-02", "no-results"),
+                                 row("2031-01-03", "ok", 6)]) == set()
+        kept = series([row("2031-01-01", "no-results"), row("2031-01-02", "beyond-depth")])
+        assert [r["date"] for r in kept[("si", "stiskanje videa")]] == ["2031-01-02"], "an empty answer is no observation"
+        with contextlib.redirect_stdout(io.StringIO()):
+            ingest_by_observed_day(store, {"de": [{"term": "carry group", "country": "de", "our_rank": 9,
+                                                   "total_results": 50, "query_status": "ok",
+                                                   "observed_at": "2031-06-01T10:00:00+00:00"}]},
+                                   groups={("de", "carry group"): "asa-observed"})
+        assert [r["group"] for r in read_ranks(store) if r["keyword"] == "carry group"] == ["asa-observed"]
         from unittest.mock import patch
         original_today = TODAY
         try:
