@@ -497,10 +497,20 @@ def _query_budget(country: str) -> int:
     return 20                  # UA, SA, IL, SE, HK, SG, TW, and every unweighted storefront
 
 
-def _get(url: str, headers: dict | None = None, timeout: float = 8.0) -> bytes:
+def _get(url: str, headers: dict | None = None, timeout: float = 8.0, deadline: float = 30.0) -> bytes:
+    """GET with a TOTAL deadline. `timeout` bounds each socket wait, so a throttled server that drips
+    a 200-result body byte by byte never trips it: on 2026-10-07 the `us` storefront sat for 46 minutes
+    on one such response. Past `deadline` seconds the request becomes an `error` row, like any other."""
     req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
+    start, chunks = time.monotonic(), []
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+        while True:
+            chunk = r.read(65536)
+            if not chunk:
+                return b"".join(chunks)
+            chunks.append(chunk)
+            if time.monotonic() - start > deadline:
+                raise TimeoutError(f"response still arriving after {deadline:.0f}s")
 
 
 def fetch_hints(term: str, country: str) -> list[str]:
@@ -776,7 +786,20 @@ def self_check() -> None:
         assert ranks["unmeasured seed"] is None
     assert compute_scores(absent, "us")["popularity"] is None
     assert "unknown | error" in format_report("com.test", {"us": [failed]})
-    print("OK: request errors stay unknown; supplied seeds have no measured popularity; no forecast scores")
+
+    class Drip:                      # a throttled server: one byte per read, forever
+        def __enter__(self): return self
+        def __exit__(self, *exc): return False
+        def read(self, n): return b"x"
+    ticks = iter(range(0, 10_000, 20))
+    with patch(__name__ + ".urllib.request.urlopen", return_value=Drip()), \
+            patch(__name__ + ".time.monotonic", side_effect=lambda: next(ticks)):
+        try:
+            _get("https://example.invalid/")
+            raise AssertionError("a dripping response must hit the total deadline")
+        except TimeoutError as exc:
+            assert "still arriving" in str(exc)
+    print("OK: request errors stay unknown; a dripping response times out; supplied seeds have no measured popularity; no forecast scores")
 
 
 def main() -> None:
