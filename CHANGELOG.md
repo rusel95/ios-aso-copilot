@@ -17,6 +17,8 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
   ingest once at the end under the start day, so a crash or a hung storefront lost every finished market and a
   run crossing midnight mis-dated rows). Exits **3** when a storefront failed or keys got no response (it exited 0).
   A retry such as `--markets us` no longer overwrites the earlier `snapshot_<day>.json` with `{}`.
+- `rank_audit.py`: `_get` has a 30 s TOTAL deadline. `timeout=8` only bounds each socket wait, so a throttled server dripping the
+  body kept the `us` storefront stuck for 46 minutes, twice; it is now an `error` row like any failed request.
 - `rank_audit.py`: with `--keywords-file` / `--keywords` the header says `[explicit basket]` and the real query
   count, not "[Niche: whitenoise]" and "fallback keyword lists".
 - `copilot.py keywords popularity --terms`: answers per term from the stored radar (`head N` / `below N` /
