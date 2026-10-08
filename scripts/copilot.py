@@ -1220,8 +1220,65 @@ def cycle_stage_table(text):
     return rows
 
 
+def funnel_digest(store, today=None):
+    """The store funnel and install lifecycle the cycle already holds, as a table with its conversions.
+
+    Reads metrics/weekly.csv and metrics/lifecycle.csv (the newest `recorded` block of each) so the numbers a
+    reader needs are on screen without opening a file. A block older than 3 days is called STALE: this store's
+    weekly.csv once sat 11 days behind its source and nobody could tell from the output.
+    """
+    import csv
+    today = today or dt.date.today()
+
+    def newest(name):
+        path = store / "metrics" / name
+        if not path.is_file():
+            return None, []
+        rows = list(csv.DictReader(path.open(encoding="utf-8")))
+        if not rows:
+            return None, []
+        rec = max(r.get("recorded", "") for r in rows)
+        return rec, [r for r in rows if r.get("recorded") == rec]
+
+    def pct(a, b):
+        try:
+            return f"{100 * float(a) / float(b):.1f}%" if float(b) else "—"
+        except (TypeError, ValueError):
+            return "—"
+
+    def age(rec):
+        try:
+            days = (today - dt.date.fromisoformat(rec)).days
+        except ValueError:
+            return ""
+        return f" — STALE: {days} days old" if days > 3 else ""
+
+    print("\nFUNNEL DIGEST (store → install; cumulative since the week_start of each block)")
+    rec, rows = newest("weekly.csv")
+    if not rows:
+        print("  store funnel: no metrics/weekly.csv rows — run `copilot.py funnel --pull`")
+    else:
+        print(f"  App Store funnel, {rows[0].get('week_start')} → {rec}{age(rec)}  [store:metrics/weekly.csv]")
+        print(f"  {'segment':<8}{'impr':>8}{'page views':>11}{'1st dl':>8}{'PV/impr':>9}{'dl/impr':>9}{'dl/PV':>8}{'trials':>8}")
+        for r in rows:
+            print(f"  {r.get('segment', ''):<8}{r.get('impressions', ''):>8}{r.get('product_page_views', ''):>11}"
+                  f"{r.get('downloads', ''):>8}{pct(r.get('product_page_views'), r.get('impressions')):>9}"
+                  f"{pct(r.get('downloads'), r.get('impressions')):>9}{pct(r.get('downloads'), r.get('product_page_views')):>8}"
+                  f"{(r.get('trial_starts') or 'n/a'):>8}")
+        print("  (dl/PV can exceed 100%: Apple counts downloads from the search card without a page view)")
+    rec, rows = newest("lifecycle.csv")
+    if not rows:
+        print("  lifecycle: no metrics/lifecycle.csv rows")
+    else:
+        print(f"  Opt-in install lifecycle, {rows[0].get('week_start')} → {rec}{age(rec)}  [store:metrics/lifecycle.csv]")
+        print(f"  {'segment':<8}{'installs':>9}{'deleted':>9}{'deleted %':>10}{'≤1 day':>8}")
+        for r in rows:
+            print(f"  {r.get('segment', ''):<8}{r.get('first_installs_optin', ''):>9}{r.get('deletions_optin', ''):>9}"
+                  f"{pct(r.get('deletions_optin'), r.get('first_installs_optin')):>10}{r.get('deleted_within_1d', ''):>8}")
+
+
 def cmd_cycle(args):
-    """Run the cycle, then print a stage → status → reason table as the LAST thing on screen."""
+    """Run the cycle, then print the funnel digest and a stage → status → reason table LAST."""
     tee = _Tee(sys.stdout)
     sys.stdout = tee
     try:
@@ -1229,6 +1286,7 @@ def cmd_cycle(args):
     finally:
         sys.stdout = tee.real
     rows = cycle_stage_table("".join(tee.parts))
+    funnel_digest(Path(args.store).resolve())
     print("\nSTAGE SUMMARY (a footer above is not a completeness certificate)")
     print(f"{'#':<2} {'stage':<46} {'status':<8} reason")
     for num, name, status, reason in rows:
@@ -1353,18 +1411,18 @@ def _cycle_run(args):
                 partial = True
             else:
                 lines = out.splitlines()
-                for l in lines[:80]:
+                for l in lines[:250]:
                     print(f"  {l}")
-                if len(lines) > 80:
-                    print(f"  … {len(lines) - 80} additional GA4 output lines omitted.")
+                if len(lines) > 250:
+                    print(f"  … {len(lines) - 250} additional GA4 output lines omitted.")
         elif rc == 2 and out.strip():
             # pull_ga.py uses exit 2 for "partial" and prints everything it did get; the cycle used to
             # report "failed: exit 2" and drop the tables (and the reason) on the floor.
             lines = out.splitlines()
-            for l in lines[:80]:
+            for l in lines[:250]:
                 print(f"  {l}")
-            if len(lines) > 80:
-                print(f"  … {len(lines) - 80} additional GA4 output lines omitted.")
+            if len(lines) > 250:
+                print(f"  … {len(lines) - 250} additional GA4 output lines omitted.")
             why = next((l.strip(" ⚠️") for l in reversed(lines) if "⚠️" in l), "see the GA4 output above")
             print(f"  ⚠️ GA4 pull partial (exit 2): {why[:160]}")
             partial = True

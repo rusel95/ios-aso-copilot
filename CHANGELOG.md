@@ -11,6 +11,10 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
 
+- `copilot.py cycle` prints a **FUNNEL DIGEST** before the stage table: the App Store funnel by country (impressions, page views,
+  first-time downloads, PV/impr, dl/impr, dl/PV, trials) and the opt-in install lifecycle (installs, deleted %, ≤1 day), read from
+  `weekly.csv`/`lifecycle.csv`, flagged STALE after 3 days; the GA4 report is shown whole (cap 250 lines, was 80, which cut off the
+  sequential funnel).
 - `copilot.py cycle`: closes with a `STAGE SUMMARY` table (stage / ok·partial·failed·skipped / reason). The funnel
   step streams `pull_funnel.py` and names its cause (e.g. the 429) in the warning instead of "exited with code 1".
 - `ledger.py`: a query the API answers with **zero results** is recorded as `no-results`, not `beyond-depth`. Native queries in
