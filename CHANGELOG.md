@@ -7,6 +7,11 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.7.3 — brand-token keys leave section B and `draft` — 2026-10-09
+
+- `ledger.py report`: section B now skips brand-token keys (whole word, `**Brand tokens**:` in config.md) and prints how many it dropped, as section C and `bands` already did. `draft` refuses a basket that contains a brand-token query. Self-check covers both (section B with and without a brand token).
+- `SKILL.md` evidence rule reworded to say brand queries are out of every count; they remain an indexation check only. Landed in `cc61cc6`; the changelog entry and the section B assertion were added afterwards.
+
 ## v2.7.2 — attribution check for Apple Ads flights — 2026-10-09
 
 - `references/apple-ads.md` §1: a flight is credited with a rank or install result only after the per-keyword report shows the named keys delivered; save the exports at close because an expired campaign's live lookup can return 0 keywords. Found when a saved September export showed that an Israeli flight credited to four Hebrew keys had delivered only through one English keyword.

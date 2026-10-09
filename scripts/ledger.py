@@ -957,6 +957,13 @@ def self_check():
         with contextlib.redirect_stdout(io.StringIO()) as plain:
             section_c(pairs, read_markets(store), hyps, 10, [], demand_lookup(store))
         assert "Demand" not in plain.getvalue(), "no radar data, no Demand column"
+        with contextlib.redirect_stdout(io.StringIO()) as b_brand:
+            section_b(pairs, read_markets(store), 10, ["komprimieren"])
+        assert "brand-term keys excluded" in b_brand.getvalue() and "| de |" not in b_brand.getvalue(), \
+            "section B must drop brand-token keys and say how many it dropped"
+        with contextlib.redirect_stdout(io.StringIO()) as b_plain:
+            section_b(pairs, read_markets(store), 10, [])
+        assert "| de |" in b_plain.getvalue(), "without brand tokens section B keeps the keys"
         (store / "metrics" / "popularity_cut.csv").write_text(
             "week,captured,market,genre,listed,min_popularity_100,source\n"
             "2026-09-20,2026-09-29,de,PHOTO_VIDEO,300,45,test\n", encoding="utf-8")
