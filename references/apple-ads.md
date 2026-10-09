@@ -17,6 +17,7 @@ Keep the complete inventory joined by IDs to the campaign-scoped keyword report 
 | Search Match OFF | Exact still includes close variants. Keep OFF for a controlled Exact experiment; use a separate bounded discovery test when authorized. |
 | Entire campaign has little delivery | Verify targeting, app availability, ad eligibility, language/product fit and budget before isolating a bid experiment. |
 | Some keywords deliver, others do not | Distinguish weak phrases from natural rare seeds. Do not delete core seeds just because their row is missing or impressions are zero. |
+| A flight is credited with a rank or install result | Read the per-keyword report (joined by keyword id) before naming keys. A campaign total is not attribution: in one Compresso flight all 91 impressions came from a single English keyword (BROAD 68, EXACT 16) plus Search Match, and the four native-language keys the hypothesis named recorded none. A key missing from the keyword report has no recorded impressions. The live lookup of an expired campaign can return 0 keywords, so save the report and keyword exports when a flight closes and read those. |
 
 Apple describes relevance and bids as auction factors, with ineligible irrelevant apps excluded:
 [Search results](https://ads.apple.com/app-store/help/ad-placements/0082-search-results).

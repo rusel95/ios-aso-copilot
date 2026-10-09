@@ -7,6 +7,10 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.7.2 — attribution check for Apple Ads flights — 2026-10-09
+
+- `references/apple-ads.md` §1: a flight is credited with a rank or install result only after the per-keyword report shows the named keys delivered; save the exports at close because an expired campaign's live lookup can return 0 keywords. Found when a saved September export showed that an Israeli flight credited to four Hebrew keys had delivered only through one English keyword.
+
 ## v2.7.1 — honest cycle stages, per-market rank ingest, per-term popularity — 2026-10-08
 
 Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
