@@ -260,7 +260,7 @@ the ledger exists to make that state visible instead of comfortable.
   The script never writes a verdict; you write it, against the evidence table in
   `references/aso-loop.md`. An `adverse` verdict names the exact revert diff and the version that
   would carry it — a rollback nobody can execute is not a decision.
-- **B · Progress and regress per key.** Every tracked key, paired first-to-latest. A censored
+- **B · Progress and regress per key.** Every tracked non-brand key, paired first-to-latest (brand-token queries are strictly excluded from all calculations, reports, and rankings). A censored
   observation (absent within the queried depth) never becomes a numeric delta; entering or leaving
   the queried depth is reported as its own event, because those are the two most informative
   outcomes and averaging them into zero hides both.
@@ -418,12 +418,10 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
   a basis for an "easy Top 3" or "high ROI" claim. The bundled rank script no longer fabricates these scores.
 - Sparse written reviews, RSS recency, app age and lifetime ratings cannot establish query demand,
   download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
-- **NEVER use brand-name rank as evidence of market demand, competitive advantage, or launch opportunity.**
-  Own-name visibility (e.g. `compresso`) is at most an indexation observation. It gives no evidence of
-  query volume, user demand, or competitive advantage; do not infer either zero or positive demand from it.
-  Never use it as a positive baseline or reason to prioritize a storefront. Generic, relevant category
-  queries (e.g. `video compressor`, `free up space`) are candidates for market research, but a rank or
-  autocomplete suggestion still does not measure their search volume. Require a separate demand signal.
+- **NEVER include brand queries in calculations, and NEVER use brand-name rank as evidence of market demand, competitive advantage, launch opportunity, or ranking success.**
+  **Brand-token queries are strictly excluded from all ASO calculations, ranking metrics, movement reports (Section B), priority scoring (Section C), hypothesis drafting, and top-position band counts (Top 3 / Top 10 / Top 20 / Top 200).**
+  Own-name visibility (e.g. `compresso`, `compresso: <phrase>`) is at most a technical indexation check. Nobody searches for an unknown brand name without prior exposure; counting `#1 compresso` or claiming 'we are Top 3 in 20 countries' based on brand terms is a vanity metric and false signal.
+  Never include brand queries in any calculations of market coverage, growth, or opportunity. Generic, relevant category queries (e.g. `video compressor`, `free up space`) are candidates for market research, but a rank or autocomplete suggestion still does not measure their search volume. Require a separate demand signal.
 - Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
   exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
 - Product claims must match shipped behavior. Reject keywords implying unsupported features. Use

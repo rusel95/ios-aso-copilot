@@ -379,14 +379,20 @@ def section_a(hyps, pairs, markets, empty=frozenset()):
     return counts
 
 
-def section_b(pairs, markets, limit):
-    print("\n## B · Every tracked key — progress and regress\n")
+def section_b(pairs, markets, limit, brand=()):
+    print("\n## B · Every tracked key — progress and regress (non-brand)\n")
     numeric, censored = [], []
+    brand_skipped = 0
     for (market, keyword), obs in pairs.items():
+        if any(brand_hit(token, keyword) for token in brand):
+            brand_skipped += 1
+            continue
         label, delta = movement(obs[0], obs[-1])
         row = (market, keyword, obs[0]["date"], obs[0]["position"], obs[-1]["date"],
                obs[-1]["position"], delta, label)
         (numeric if delta is not None else censored).append(row)
+    if brand_skipped:
+        print(f"_{brand_skipped} brand-term keys excluded: rank on brand measures indexation only, not demand._\n")
     numeric.sort(key=lambda r: (-(r[6] or 0), r[0]))
     if not numeric:
         print("_No paired numeric movement yet — a delta needs two comparable observations "
@@ -533,9 +539,10 @@ def report(store: Path, limit: int):
               "cannot be computed from nothing; ingest a snapshot first. This is the honest state, "
               "not a bug.")
     print_problems()
+    brand = read_brand_tokens(store)
     section_a(hyps, pairs, markets, empty)
-    section_b(pairs, markets, limit)
-    section_c(pairs, markets, hyps, limit, read_brand_tokens(store), demand_lookup(store))
+    section_b(pairs, markets, limit, brand)
+    section_c(pairs, markets, hyps, limit, brand, demand_lookup(store))
 
 
 # ---------------------------------------------------------------- draft
@@ -609,6 +616,13 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     queries = [q.strip().lower() for q in queries if q.strip()]
     if not queries:
         sys.exit("--queries is required: an experiment with no basket cannot be judged")
+    # 0. Brand queries are strictly excluded: they measure indexation only, never demand or acquisition.
+    brands = read_brand_tokens(store)
+    brand_queries = [q for q in queries if any(brand_hit(b, q) for b in brands)]
+    if brand_queries:
+        sys.exit(f"Refusing to draft: {brand_queries} contains brand token(s). "
+                 f"Brand queries measure indexation only, not demand. "
+                 f"Brand terms must not be hypothesis targets.")
 
     # 1. Refuse first, scaffold second. This is the failure this store already has nine of.
     # A row whose only observation is a failed request is a term we tried to look up, not one we
@@ -955,6 +969,7 @@ def self_check():
         assert "| video komprimieren | head 55 |" in table and "| fotos komprimieren | below 45 |" in table, table
         (store / "metrics" / "popularity_cut.csv").unlink()
         (store / "metrics" / "popularity.csv").unlink()
+        (store / "config.md").write_text("**Brand tokens**: compresso\n", encoding="utf-8")
         import io, contextlib
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -970,6 +985,13 @@ def self_check():
                 raise AssertionError(f"must refuse a basket it cannot measure: {bad}")
             except SystemExit as exc:
                 assert "no successful observation" in str(exc), exc
+
+        (store / "config.md").write_text("**Brand tokens**: compresso\n", encoding="utf-8")
+        try:
+            draft(store, "de", ["compresso: fotos komprimieren"], 21, None)
+            raise AssertionError("draft must refuse brand queries")
+        except SystemExit as exc:
+            assert "contains brand token(s)" in str(exc), exc
 
         try:
             refresh(store, "test.bundle", [], False, 1.0, store / "snapshots")
