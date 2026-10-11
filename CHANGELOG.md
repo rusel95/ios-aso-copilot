@@ -7,6 +7,12 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.7.4 — per-country hand-written Exact lists, and two attribution traps — 2026-10-11
+
+- `references/apple-ads.md` §10: a per-country hand-written basket is built in stages: (1) a research brief per storefront from a native-level agent (vocabulary, typing habits, errors, triggers, a category plan, autocomplete seeds); (2) a SERIAL Apple autocomplete pull (MZSearchHints answers HTTP 429 when several storefronts run in parallel: 221 of ~1,700 calls; treat `ERROR` rows as unknown and re-fetch them serially at >= 1.2 s); (3) the agent writes the phrases by hand in a strict TSV with a Ukrainian gloss, no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. The writers stopped at 700-890 phrases rather than pad with variants Exact already absorbs: report the true count, not the quota.
+- Before calling an earlier basket "machine-generated", read `decisions.md`: the Nordic October baskets already held model-written natural phrases (added at a lower bid for ~2.5 days), so "hand-written vs scripted" was not the new variable; the bid level and the full window were.
+- A price ladder is part of a hypothesis only when its steps are written before launch (phase, trigger, who approves); a bid that clears nothing at $0.20 can mean price, not demand, so say which in the verdict.
+
 ## v2.7.3 — brand-token keys leave section B and `draft` — 2026-10-09
 
 - `ledger.py report`: section B now skips brand-token keys (whole word, `**Brand tokens**:` in config.md) and prints how many it dropped, as section C and `bands` already did. `draft` refuses a basket that contains a brand-token query. Self-check covers both (section B with and without a brand token).
