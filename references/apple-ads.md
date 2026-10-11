@@ -489,6 +489,10 @@ explicit `review_reason`. Adjacent storage/organizing queries remain a separate 
 Record model/pass/date and whether a native human reviewed it; Python does not certify fluency.
 Rejected examples and reasons stay in the file to prevent regeneration of the same defects.
 
+#### Per-country hand-written baskets (Compresso Nordic, 2026-10-11)
+
+Stages: (1) one native-level agent per storefront writes a research brief (vocabulary, typing habits, realistic errors, search triggers, a category plan, 80-120 autocomplete seeds); (2) the seeds go through Apple autocomplete **serially** (MZSearchHints answers HTTP 429 when storefronts run in parallel; `ERROR` rows are unknown, not "no suggestion", and are re-fetched at >= 1.2 s); (3) the agent writes the phrases by hand in a strict 6-column TSV (`text, lang, cat, path, class, uk`) with a Ukrainian gloss and no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. Real counts, not the quota: the Nordic writers stopped at 700-890 phrases instead of padding with variants Exact already absorbs. Before calling an earlier basket machine-made, read `decisions.md` for hand-written additions.
+
 ### C. Validate and export deterministically
 
 CSV fields are exactly documented by `scripts/ads_keywords.py`: `text,language,intent,source,evidence,
