@@ -822,12 +822,12 @@ def main():
             "  (Знайти Property ID можна в Google Analytics Console → Admin → Property Settings → Property ID)."
         )
 
-    firebase_ok = verify_firebase_app(app_info, store)
-
-    # 2. Resolve Credentials
+    # 2. Resolve Credentials first: the Firebase Management check reads the same env var
     credentials_path = args.credentials or find_default_credentials(app_info)
     if credentials_path:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+    firebase_ok = verify_firebase_app(app_info, store)
 
     try:
         client = BetaAnalyticsDataClient()
