@@ -418,10 +418,18 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
   a basis for an "easy Top 3" or "high ROI" claim. The bundled rank script no longer fabricates these scores.
 - Sparse written reviews, RSS recency, app age and lifetime ratings cannot establish query demand,
   download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
-- **NEVER include brand queries in calculations, and NEVER use brand-name rank as evidence of market demand, competitive advantage, launch opportunity, or ranking success.**
-  **Brand-token queries are strictly excluded from all ASO calculations, ranking metrics, movement reports (Section B), priority scoring (Section C), hypothesis drafting, and top-position band counts (Top 3 / Top 10 / Top 20 / Top 200).**
-  Own-name visibility (e.g. `compresso`, `compresso: <phrase>`) is at most a technical indexation check. Nobody searches for an unknown brand name without prior exposure; counting `#1 compresso` or claiming 'we are Top 3 in 20 countries' based on brand terms is a vanity metric and false signal.
-  Never include brand queries in any calculations of market coverage, growth, or opportunity. Generic, relevant category queries (e.g. `video compressor`, `free up space`) are candidates for market research, but a rank or autocomplete suggestion still does not measure their search volume. Require a separate demand signal.
+- **NEVER include brand queries or own-metadata phrases in calculations, and NEVER use brand/own-title rank as evidence of market demand, competitive advantage, launch opportunity, or ranking success.**
+  **Brand-token and own-metadata queries are strictly excluded from all ASO calculations, ranking metrics, movement reports (Section B), priority scoring (Section C), hypothesis drafting, and top-position band counts (Top 1 / Top 3 / Top 10 / Top 20 / Top 200).**
+  - **Brand tokens:** App brand name in any language (e.g. `hush`, `compresso`), developer names, and trademarked terms.
+  - **Own-metadata strings:** Any query that reproduces the app's own localized Title/Name (e.g. `Hush: <Title>`, `<Title>`), full localized Subtitle, or multi-word fragments thereof (e.g. `Білий та коричневий шум`, `Biały Szum i Sen`, `Deszczowe Dźwięki`, `Regnlyde til Søvn`, `Braune Regen`). Ranking #1 or Top 3 for an exact phrase pulled from the app's own title or subtitle is a trivial metadata indexing artifact, NOT organic search traffic or user demand. Any such query must be tagged `[EXCLUDE: OWN_METADATA_STRING]`.
+  - Counting `#1` on the app's own title/subtitle or claiming "we are Top 3 in 20 countries" based on own-metadata phrases is a vanity metric and false signal. Only genuine generic search queries (generic category terms, color noises, symptom queries) count.
+- **Form Top Target Query Baskets via Search Popularity & Reachability (Not Guessed Phrases):**
+  Target queries per storefront must NOT be invented arbitrary phrases. They must be constructed and validated through proven search demand:
+  1. **Demand Validation:** Every target query must have verified search volume via **Apple Autocomplete (`MZSearchHints`)** or **Apple Ads Search Popularity (score 20–60)**. If Apple does not suggest the term in autocomplete or its search popularity is negligible (<15), real users do not type it — reject it.
+  2. **Tri-Tier Target Portfolio per Focus Market (20 queries total):**
+     - **Tier 1 — High-Intent Reachable Long-Tail (10 keys, Popularity 20–45):** Specific color noises, sleep fans, rain variations (e.g. `коричневий шум`, `rosa rauschen`, `bruine ruis`, `brun støy`, `sovljud`, `ventilateur sommeil`). Competitor review counts are moderate, enabling Hush to realistically capture Top 1–5.
+     - **Tier 2 — Symptom & Persona Niches (5 keys, Popularity 25–50):** Acute user problems with high intent-to-install (e.g. `тинітус`/`tinnitus`, `коліки`/`kolik`, `adhd`, `wiegelied`/`lullaby`).
+     - **Tier 3 — Broad Category Head Terms (5 keys, Popularity 50–80):** High-volume category terms (e.g. `білий шум`, `white noise`, `weißes rauschen`) to monitor general visibility, but never as the sole criterion for a hypothesis win.
 - Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
   exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
 - Product claims must match shipped behavior. Reject keywords implying unsupported features. Use
