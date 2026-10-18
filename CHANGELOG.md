@@ -7,6 +7,23 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.9.0 — Google search intelligence that says when it cannot tell — 2026-10-18
+
+Closes R-45 (and partially R-11). Google Trends and Google Autocomplete next to the Apple-side tools, read AFTER them:
+- `copilot.py google trends` — head-to-head interest for up to 5 terms; `--related` for top and rising queries, `--geo` for the
+  regional split.
+- `copilot.py google suggest` — live Google Autocomplete for a seed; `--matrix` expands it over question, platform, size, device and
+  tool modifiers.
+- `copilot.py google batch` — many terms against one anchor, four candidates plus the anchor per Trends request. It never prints a
+  number it cannot support: an anchor that reads 0 or a throttled (empty) response is `n/a`, a candidate Trends rounds to 0 next to
+  the anchor is "below Trends' floor", and an anchor whose weekly index averages under 8 prints a warning that the table is only an
+  order and names a mid-volume term to re-run with. `--json` carries `notes`, `unavailable`, `anchor_means` and `warnings`.
+- One pytrends loader for both commands (`<skill>/.venv`, no home-directory path: the repo is public and shared across apps); a
+  self-check covers the normalisation (`copilot.py --self-check`).
+- `references/google-search-intelligence.md`: the evidence order (Apple autocomplete, ranks, Ads delivery, then Google), what Trends
+  is (web search, mixed languages, relative), the traps seen in real runs, and a worked Google-against-Apple table. It states no field
+  weights: Apple publishes none.
+
 ## v2.7.4 — per-country hand-written Exact lists, and two attribution traps — 2026-10-11
 
 - `references/apple-ads.md` §10: a per-country hand-written basket is built in stages: (1) a research brief per storefront from a native-level agent (vocabulary, typing habits, errors, triggers, a category plan, autocomplete seeds); (2) a SERIAL Apple autocomplete pull (MZSearchHints answers HTTP 429 when several storefronts run in parallel: 221 of ~1,700 calls; treat `ERROR` rows as unknown and re-fetch them serially at >= 1.2 s); (3) the agent writes the phrases by hand in a strict TSV with a Ukrainian gloss, no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. The writers stopped at 700-890 phrases rather than pad with variants Exact already absorbs: report the true count, not the quota.

@@ -60,9 +60,18 @@ triggers:
   - add locale
   - localize
   - ios-localization
-argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar] [flags]"
+  - google trends
+  - google suggest
+  - google batch
+  - google aso
+  - гугл асо
+  - seo to aso
+  - гугл тренди
+  - гугл підказки
+  - гугл аналіз
+argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar | google] [flags]"
 metadata:
-  version: 2.7.0
+  version: 2.9.0
 ---
 
 # iOS ASO Copilot
@@ -144,6 +153,40 @@ ios-aso-copilot ga --days 14                    # In-app GA4 telemetry
 ios-aso-copilot radar report                    # Apple search popularity & impression share
 ios-aso-copilot ledger report                   # Hypotheses & keyword ledger
 ```
+
+#### 6. Google Search Intelligence (SEO → ASO Bridge)
+See `references/google-search-intelligence.md` for complete playbooks and mathematical normalization rules.
+```bash
+# 1. Compare relative search interest volume across keywords in a country (0-100 index)
+ios-aso-copilot google trends "стиснути відео" "зменшити відео" --country UA
+# Discover rising/breakout queries (+80%, +160%, Breakout)
+ios-aso-copilot google trends "compress video" --country US --related
+# Regional interest breakdown (oblasts/states)
+ios-aso-copilot google trends "стиснути відео" "зменшити відео" --country UA --geo
+
+# 2. Live Google Autocomplete suggestions across storefronts and languages
+ios-aso-copilot google suggest "стиснути відео" --country UA --lang uk
+# Deep multi-angle intent matrix (platforms, size limits, quality friction, devices, questions)
+ios-aso-copilot google suggest "стиснути відео" --country UA --lang uk --matrix
+ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
+
+# 3. Multi-term batch against one anchor (an ORDER; put the anchor mid-list, the tool warns when its index is under 8)
+ios-aso-copilot google batch \
+  --anchor "<a mid-volume term>" \
+  --terms "term one,term two,term three" \
+  --country UA
+
+# 4. The App Store side of the same question: what Apple completes (empty list = no App Store evidence)
+ios-aso-copilot keywords hints --term "<full term>" --country ua
+```
+Google is web search, not the App Store. It can pick between two synonyms and show how people phrase a problem, and it is read
+AFTER the Apple side (`keywords hints`, rank reads, Ads delivery). Rules and a worked table: `references/google-search-intelligence.md`.
+1. **Synonyms**: compare candidates with `google trends` / `batch` (a mid-volume anchor), then confirm each one in Apple's autocomplete
+   before it takes a title, subtitle or keyword slot. No field-weight numbers: Apple publishes none.
+2. **Situations people describe** (`для телеграм`, `до 10 мб`): ideas for copy and Exact seeds; never a feature the app lacks, never
+   another app's name in the keyword field (Guideline 2.3.7).
+3. **Product-page copy for Google** describes real features only.
+4. **`batch` is an order, not a size** when the anchor's index is low; it prints `n/a` instead of a number it cannot support.
 
 ---
 
@@ -456,6 +499,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | Off-store channels | `references/channel-playbooks.md` |
 | Short video scripts and briefs | `references/ugc-playbook.md` |
 | Storefront expansion, .xcstrings, CLDR plurals, screenshot cards | `references/localization-playbook.md` |
+| Google search intelligence (SEO to ASO bridge, Trends, Autocomplete matrix) | `references/google-search-intelligence.md` |
 | Per-app teaching and reasoning | `$STORE/HANDBOOK.md` |
 | Missing capabilities and acceptance criteria | `ROADMAP.md` |
 

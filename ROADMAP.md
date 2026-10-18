@@ -72,6 +72,7 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
 - R-17: wire verified observations into the cycle after R-13/R-29; do not restore forecast leaderboards.
 - R-18/R-19: npm publication or additional packaging only when distribution demand exists.
 - R-22: review reply drafting; retain author approval for public responses.
+- R-45: Google Search Intelligence & SEO-to-ASO bridge (Google Trends batch anchor-normalization, Google Autocomplete 6-bucket intent matrix, Safari Web-to-App Description SEO). **Shipped 2026-10-18** (v2.9.0 via `copilot.py google [trends|suggest|batch]`). Still open: optional Google Keyword Planner API OAuth connector via Google Cloud Service Accounts for absolute monthly volume brackets.
 
 ## Operating order for a target app
 
