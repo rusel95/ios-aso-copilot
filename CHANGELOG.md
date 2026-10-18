@@ -7,6 +7,14 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## v2.9.1 — The "Budget Exhaustion Snatcher" (Floor Sweeper ASA Playbook) — 2026-10-18
+
+Documents the "Budget Exhaustion Snatcher" strategy in `references/apple-ads.md` §10.B:
+- **Concept:** High-volume head and mid terms (`cleaner`, `очистити пам'ять`, `storage cleaner`, `видалити фото`) are normally dominated by high-bidding competitors ($0.60–$1.50+ CPT) whose finite daily budgets ($15–$50/day) deplete rapidly by midday or early afternoon.
+- **Mechanics:** Once aggressive competitors exhaust their daily caps, Apple's second-price auction drops to the next qualified bid or category reserve floor ($0.15–$0.30 CPT). A low-bid ($0.20–$0.30 CPT), EXACT-match, budget-capped ($5.00/day) campaign automatically snatches high-intent installs during afternoon, evening, and night windows at a 70–85% discount.
+- **Safety Boundaries:** Pure EXACT match, Search Match OFF, negative keywords active, and a strict daily budget ceiling to ensure zero risk during peak competitor hours ($0.00 spend) and bounded loss protection.
+- Validated on Ukraine H080: expanded from 251 to 463 EXACT keywords at $0.30 CPT cap with $5.00/day ceiling.
+
 ## v2.9.0 — Google search intelligence that says when it cannot tell — 2026-10-18
 
 Closes R-45 (and partially R-11). Google Trends and Google Autocomplete next to the Apple-side tools, read AFTER them:

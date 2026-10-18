@@ -1280,7 +1280,7 @@ def cmd_google_trends(args):
     if TrendReq is None:
         return code
 
-    pytrend = TrendReq(hl="en-US", tz=180)
+    pytrend = TrendReq(hl="en-US", tz=180, timeout=(10, 30))
 
     # 1. Related queries mode
     if do_related:
@@ -1596,7 +1596,7 @@ def cmd_google_batch(args):
 
     log_info(f"Starting Google Trends Batch Profiling: {len(unique_cands)} candidates against Anchor '{anchor}' in {country} ({timeframe})...")
 
-    pytrend = TrendReq(hl="en-US", tz=180)
+    pytrend = TrendReq(hl="en-US", tz=180, timeout=(10, 30))
 
     chunk_size = 4
     chunks = [unique_cands[i:i + chunk_size] for i in range(0, len(unique_cands), chunk_size)]

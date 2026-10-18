@@ -69,9 +69,12 @@ triggers:
   - гугл тренди
   - гугл підказки
   - гугл аналіз
+  - budget exhaustion snatcher
+  - floor sweeper
+  - ловчий виснаженого аукціону
 argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar | google] [flags]"
 metadata:
-  version: 2.9.0
+  version: 2.9.1
 ---
 
 # iOS ASO Copilot

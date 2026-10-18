@@ -469,6 +469,22 @@ If a query in the native language (e.g. `kompresor wideo` in PL) returns only fo
 rating counts (<50), it confirms a **Localization Vacuum**: native users search the query, but no competitor
 has localized their listing. This represents the highest-converting opportunity for localized Exact match.
 
+#### 5. "Budget Exhaustion Snatcher" (Floor Sweeper / Night Owl Strategy)
+In high-volume utility, storage, and cleaning categories, aggressive enterprise/subscription competitors monopolize the primary head terms (`cleaner`, `storage cleaner`, `phone cleaner`, `очистити пам'ять`, `очистить память`, `видалити фото`) with bids of $0.60–$1.50+ CPT. Competing head-to-head during peak hours on a low budget is economically non-viable.
+
+However, nearly all high-bidding competitors operate under **finite daily budgets** ($15–$50/day). Because of elevated CPTs, their daily budgets burn out rapidly—frequently exhausting between 11:00 and 16:00 local storefront time.
+
+Once dominant competitors burn through their daily budget:
+1. **Auction Collapse**: Apple's second-price auction mechanics instantly collapse the winning clearance threshold to the next active qualified bid or the category reserve floor ($0.15–$0.30 CPT).
+2. **The Snatcher Role**: An advertiser targeting these exact head and high-volume mid terms with a strict low bid ceiling ($0.20–$0.30 CPT Exact) and a fixed daily budget ($5.00/day) steps in to win top placement during afternoon, evening, and night windows at a 70–85% discount.
+3. **Zero Risk Profile**: During peak morning hours when competitors bid $1.00+, the low-bid campaign delivers zero impressions and costs **$0.00**. When competitors exhaust their caps, it passively harvests premium high-intent users at penny prices.
+4. **Mandatory Guardrails**:
+   - `matchType: EXACT` only (never Broad, which bleeds budget on irrelevant queries).
+   - `Search Match: OFF` (automated keyword expansion will burn budget prematurely).
+   - Negative keywords for non-paying intents (`free`, `безкоштовно`, `бесплатно`) and own brand tokens.
+   - Hard daily budget cap ($5.00/day) to prevent runaway spend if all competitors pause simultaneously.
+   - Validated on Ukraine H080 (October 2026): 463 Exact keywords, $0.30 CPT cap, capturing post-budget-exhaustion search volume.
+
 #### Expansion Prompt
 Use the following prompt with the real seeds, product contract, and the 4 clusters above:
 
