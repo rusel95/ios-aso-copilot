@@ -71,7 +71,7 @@ DEFAULT_MARKET_WEIGHT = 3
 # Apple storefront header values for the MZSearchHints autocomplete endpoint — imported from the
 # single shared source (storefronts.py) covering all 155 App Store storefronts. Previously this
 # dict hard-coded only 24 markets and was missing `ro`, `no`, and others that this skill actually
-# tracks hypotheses for (marketing/hypotheses/H007-*.md targets `no`, H013 targets `ro`) — meaning
+# tracks hypotheses for markets such as `no` or `ro` — meaning
 # `--expand-from-hints` silently produced 0 queries for any market outside this list, with no error,
 # because `country in STOREFRONTS` in `run_audit()` just fell through to the fallback branch.
 sys.path.insert(0, str(Path(__file__).resolve().parent))

@@ -20,8 +20,8 @@ name, the subtitle or the keyword field.
 
 - **Relative and mixed.** 0–100 against the peak of the same request, over every language a country uses. In Ukraine `память` is
   both "Ukrainian without the apostrophe" and an ordinary Russian word; a Russian-form query can be the largest term in the table
-  (`очистить память`, `сжать видео` in the 2026-10-18 run) and say nothing about how Ukrainians type Ukrainian.
-- **Phrase shape differs.** Google's biggest Ukrainian-script term was `зменшити відео`; Apple completes
+  (for example `очистить память` and `сжать видео`) and say nothing about how Ukrainians type Ukrainian.
+- **Phrase shape differs.** In one run Google's biggest term was `зменшити відео`; Apple completes
   `зменшити розмір відео/фото/файлу` and never `зменшити відео`.
 - **The anchor decides the precision.** Trends returns whole numbers. A run anchored on an index of ~6 printed `1,307.6` for `очистити пам'ять`,
   `176.4` for `очистити память` and `2,694.0` for the Russian `очистить память`. `google batch` now warns when the anchor's weekly index averages under 8, says the table is only
@@ -36,7 +36,7 @@ name, the subtitle or the keyword field.
 ## Rules that are easy to write down wrongly
 
 - **No field weights.** Apple publishes none. "Title = 3–5x subtitle" and "10/7/5" were both written as facts in one session and
-  contradict each other. A keyword-field word and a title word ranked alike in the Compresso history (`зменшити`/`розмір` in the
+  contradict each other. A keyword-field word and a title word can rank alike (in one real app's history, `зменшити`/`розмір` in the
   keyword field, `відео` in the name: #6–#15 for `зменшити розмір відео` over a month).
 - **Other apps' names stay out of the keyword field** (App Review Guideline 2.3.7) and out of feature claims. A system share sheet is
   not "quick send to Telegram and Viber".
@@ -48,29 +48,15 @@ name, the subtitle or the keyword field.
 ## Commands
 
 ```bash
-ios-aso-copilot google trends "A" "B" --country UA            # up to 5 terms, 12 months; --related, --geo
-ios-aso-copilot google suggest "seed" --country UA --lang uk --matrix
-ios-aso-copilot google batch --anchor "<mid-volume term>" --terms "a,b,c" --country UA   # or --file terms.txt; --json
-ios-aso-copilot keywords hints --term "<full term>" --country ua                          # the Apple side
+ios-aso-copilot google trends "A" "B" --country US            # up to 5 terms, 12 months; --related, --geo
+ios-aso-copilot google suggest "seed" --country US --lang en --matrix
+ios-aso-copilot google batch --anchor "<mid-volume term>" --terms "a,b,c" --country US   # or --file terms.txt; --json
+ios-aso-copilot keywords hints --term "<full term>" --country us                          # the Apple side
 ```
 
-## Worked example — Ukraine, 2026-10-18 (Compresso)
+## Worked example (pattern, not data)
 
-Anchor `зменшити відео` = 100. Apple column = what the autocomplete returns for the full term. Rank = iTunes Search `ua`.
-
-| Term | Google | Apple autocomplete | Compresso rank |
-|---|---:|---|---|
-| `очистить память` | 731.5 | exact | not in 183 results |
-| `сжать видео` | 703.9 | exact | #36 |
-| `зменшити розмір фото` | 270.1 | exact | #23 |
-| `стиснути фото` | 109.4 | exact | #8 |
-| `зменшити відео` | 100 | none | #8 |
-| `стиснути відео` | 26.0 | exact | #18 |
-| `зменшити розмір відео` | 24.4 | exact | #9 |
-| `стиснення відео` | 9.7 | exact | not in 141 results |
-| `звільнити пам'ять` | 2.8 | none | not in 47 results |
-| `відео компресор` | 1.6 | exact | #59 |
-
-Reading: the two biggest Google terms are Russian; the term Google likes most (`зменшити відео`) is not an App Store query at all;
-`звільнити пам'ять` had been proposed for a subtitle with no Apple evidence; `стиснення відео` is the one Apple-attested phrase the
-name does not serve. Full table, raw files and the caveats: `marketing/reports/ua_aso_audit_2026-10-18/` in the Compresso repo.
+Pick a mid-volume anchor and set it to 100. Read the Google column as an order, the Apple column as what the autocomplete
+returns for the full term, and the rank column as the iTunes Search position for the same storefront. A term that Apple's
+autocomplete never returns is not an App Store query, however large its Google index. Keep the full table, the raw files
+and the caveats in the app's own `marketing/reports/` folder, not in this skill.

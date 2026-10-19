@@ -61,7 +61,7 @@ KNOWN_EVENTS = {
     "app_backgrounded": ("Перехід у фоновий режим", "lifecycle"),
     "app_update": ("Оновлення додатку", "lifecycle"),
 
-    # Core Features & Activation (WhiteNoise / Hush)
+    # Core features & activation (app-specific events; example: audio playback)
     "first_playback": ("Перше успішне відтворення", "core"),
     "playback_requested": ("Спроба запустити звук", "core"),
     "playback_started": ("Старт відтворення звуків", "core"),
@@ -79,7 +79,7 @@ KNOWN_EVENTS = {
     "free_listening_limit_reached": ("Досягнуто ліміту пробного прослуховування", "core"),
     "listening_session_started": ("Перша реальна гра у сесії застосунку", "core"),
 
-    # Core Features & Activation (MediaCleaner / Compresso)
+    # Core features & activation (app-specific events; example: media cleanup)
     "media_swiped": ("Свайп / рішення по фото/відео", "core"),
     "cleanup_screen_shown": ("Показ екрану очищення", "core"),
     "cleanup_completed": ("Успішне завершення очищення", "core"),
@@ -237,7 +237,9 @@ def verify_firebase_app(app_info: dict, store: Path):
         return False
 
     analytics_enabled = remote.get("IS_ANALYTICS_ENABLED")
-    local_path = store.parent / "WhiteNoise" / "GoogleService-Info.plist"
+    # the app repo keeps its GoogleService-Info.plist one folder below the repo root
+    plist_candidates = sorted(store.parent.glob("*/GoogleService-Info.plist"))
+    local_path = plist_candidates[0] if plist_candidates else store.parent / "GoogleService-Info.plist"
     local_analytics = None
     if local_path.exists():
         try:

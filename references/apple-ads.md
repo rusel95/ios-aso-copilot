@@ -17,7 +17,7 @@ Keep the complete inventory joined by IDs to the campaign-scoped keyword report 
 | Search Match OFF | Exact still includes close variants. Keep OFF for a controlled Exact experiment; use a separate bounded discovery test when authorized. |
 | Entire campaign has little delivery | Verify targeting, app availability, ad eligibility, language/product fit and budget before isolating a bid experiment. |
 | Some keywords deliver, others do not | Distinguish weak phrases from natural rare seeds. Do not delete core seeds just because their row is missing or impressions are zero. |
-| A flight is credited with a rank or install result | Read the per-keyword report (joined by keyword id) before naming keys. A campaign total is not attribution: in one Compresso flight all 91 impressions came from a single English keyword (BROAD 68, EXACT 16) plus Search Match, and the four native-language keys the hypothesis named recorded none. A key missing from the keyword report has no recorded impressions. The live lookup of an expired campaign can return 0 keywords, so save the report and keyword exports when a flight closes and read those. |
+| A flight is credited with a rank or install result | Read the per-keyword report (joined by keyword id) before naming keys. A campaign total is not attribution: in one real flight all 91 impressions came from a single English keyword (BROAD 68, EXACT 16) plus Search Match, and the four native-language keys the hypothesis named recorded none. A key missing from the keyword report has no recorded impressions. The live lookup of an expired campaign can return 0 keywords, so save the report and keyword exports when a flight closes and read those. |
 
 Apple describes relevance and bids as auction factors, with ineligible irrelevant apps excluded:
 [Search results](https://ads.apple.com/app-store/help/ad-placements/0082-search-results).
@@ -37,7 +37,7 @@ lists each genre's head terms, so a niche term is usually absent — censored, n
 `insights impression-share` only covers terms the app's ads already showed on. (`KeywordSuggestionV6`
 rejects a term/country filter; the legacy v5 popularity endpoint 404s.)
 
-**The MediaCleaner precedent this generalizes from** (`docs/closed-questions.md`, "Should Compresso
+**A precedent this generalizes from** (an app's decision log, "Should the app
 ship a macOS port?", researched 2026-08-01): a genuinely unfilled competitive gap existed — no macOS
 tool compressed the Photos library in place — but the analysis did not stop at "no competitors,
 therefore opportunity." It asked *why* the gap might be empty of demand rather than just of
@@ -120,7 +120,7 @@ Use a small reviewed batch of broad seeds as an operational choice, not a claim 
 gets `budget / N` spend. Keywords have no equal budget allocation. Adding many low-volume or weak
 seeds makes interpretation harder; it does not mathematically starve each term of a fixed share.
 
-Compresso's September 2026 historical broad expansion found off-topic terms, including `immich`;
+A real account's September 2026 historical broad expansion found off-topic terms, including `immich`;
 that observation motivated smaller discovery batches, but it did not isolate a causal batch-size effect.
 For a new test, choose the batch size from the current budget, intent coverage and review capacity.
 A default proposal of 5–10 broad seeds is an operator heuristic, not an Apple limit.
@@ -133,13 +133,13 @@ The Exact rotation policy in §10 requires a stable observation window.
 
 ## 3c. Measuring Demand: Popularity, Impression Share, and the Low-Volume Wall
 
-Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's account):
+Three Apple sources, each with a blind spot (verified 2026-09-28 on one real account):
 
 1. **Head popularity** — `asc ads insights search-term-popularity find`
    (`POST v1/insights/apps/search-term-popularity/query`): `searchPopularity1to100` per term ×
    storefront × week (`WEEKLY_SUN_SAT`, UTC; `pageSize` ≤ 5000, page with `offset`; filter
    `countryOrRegion` and optionally `searchTerm` `CONTAINS`). Only each genre's head: ~100–350 terms,
-   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 7 of Compresso's 728
+   lowest listed score ~40–68 by storefront; RU, LT and MD returned no rows. 7 of 728
    tracked non-brand pairs appeared. An absent term is below the cut, not zero.
 2. **Impression share** — `asc ads insights impression-share find`
    (`POST v1/insights/apps/impression-share/query`): share range, rank and popularity 1–5 per term the
@@ -148,7 +148,7 @@ Three Apple sources, each with a blind spot (verified 2026-09-28 on Compresso's 
    `{"field":"promotedObjectId","operator":"IN","value":["<adamId>"]}` — `EQUALS` returns 400, and the
    CLI rejects a `values` key.
 3. **Search terms** — `reports apps search-terms` withholds every term under 10 impressions as low
-   volume. In Compresso's September flights that was **96% of spend and 95% of taps**, and all of
+   volume. In that account's September flights that was **96% of spend and 95% of taps**, and all of
    every EXACT keyword's traffic. For the long tail, the **keyword report**
    (`reports apps keywords`, ORTZ) aggregates traffic matched to that bid keyword, including close variants.
    It does not disclose every actual query. Its rows carry a keyword id; join them to
@@ -161,7 +161,7 @@ limit is a ceiling per ad group, not a required basket size. Exact includes spel
 reordered words and translations, so count neither permutations nor keywords as independent searches.
 [Match types](https://ads.apple.com/app-store/help/keywords/0059-understand-keyword-match-types),
 [keyword limits and relevance](https://ads.apple.com/app-store/help/keywords/0014-add-and-manage-keywords).
-Compresso's old Exact/Broad CPI contrast was observational, dominated by one Exact head term;
+The old Exact/Broad CPI contrast in that account was observational, dominated by one Exact head term;
 it does not establish the ROI of a newly generated long tail.
 
 ### The radar: `scripts/radar.py`
@@ -178,7 +178,7 @@ One weekly, read-only pull turns the three sources above into history in the sto
 
 config.md, all optional; without profile and account the radar refuses to guess an account:
 `**Apple Ads profile**:` (an `asc ads auth` profile name), `**Apple Ads account**:` (numeric ad account id),
-`**Apple Ads genres**:` (the app's categories in Apple's spelling; Compresso is UTILITIES + PHOTO_AND_VIDEO in ASC and
+`**Apple Ads genres**:` (the app's categories in Apple's spelling; this app is UTILITIES + PHOTO_AND_VIDEO in ASC and
 `PRODUCTIVITY_UTILITIES` + `PHOTO_VIDEO` here; the others are `GAMES`, `BUSINESS`, `EDUCATION`, `ENTERTAINMENT`, `FINANCE`,
 `FOOD_DRINK`, `HEALTH_FITNESS`, `LIFESTYLE`, `NEW_PUBLICATION`, `SHOPPING`, `SOCIAL_NETWORKING`, `SPORTS`, `TRAVEL`),
 `**Apple Ads topic words**:` (substrings; head terms containing one are stored).
@@ -188,7 +188,7 @@ a storefront where Apple lists nothing (RU, LT and MD in 2026-09) is `no data`, 
 published yet falls back one week and stores nothing for the empty one; a market already stored for a week is not pulled
 twice. Pull weekly: Apple's weeks run Sunday to Saturday.
 
-First real run (Compresso, week 2026-09-20): 7 of 728 tracked non-brand pairs inside the head — jp `動画圧縮` 55 (our
+First real run (one app, week 2026-09-20): 7 of 728 tracked non-brand pairs inside the head — jp `動画圧縮` 55 (our
 search-API position 160), cn `视频压缩` 48, us `video compressor` 48, four India `compressor` queries at 44–46. Head terms on the app's topic that
 were not tracked: us `clean up iphone` 63, it `clean up iphone gratis` 58, au `clean up iphone free` 57, mx `clean up
 gratis` 55. Popularity is a relative score, not a search count, and the cut differs by storefront (44 in GB, 56 in NO), so
@@ -371,12 +371,12 @@ When testing a paid acquisition hypothesis, maintain the same rigorous standard 
 ```markdown
 ---
 id: H0xx
-markets: ua
-queries: стиснути відео; зменшити розмір відео
+markets: <market>
+queries: <query A>; <query B>
 status: live
 phase_at_start: P2-cold
 change: >
-  Launched targeted 7-day Apple Search Ads campaign in Ukraine (ua) at $5.00/day.
+  Launched targeted 7-day Apple Search Ads campaign in <market> at $<budget>/day.
   Exact match ($0.75 bid ceiling) and Search Match ON ($0.75 default).
 mechanism: >
   1. Buying clean in-app conversion telemetry in GA4 (install -> permissions -> paywall -> trial).
@@ -399,7 +399,7 @@ primary_signal: paid_delivery
 
 The output target is **accepted natural phrases**, not 5,000 rows. A set of action × object ×
 modifier permutations, random set iteration followed by `[:5000]`, translated token fragments and
-synthetic typos must not feed an upload. In the Compresso 2026-10-01 audit the historical IL/RO
+synthetic typos must not feed an upload. In one 2026-10-01 audit the historical IL/RO
 programs reproduced this selection defect and dropped relevant tracked seeds; that is a generator
 bug, not evidence of market demand or a reason to raise all bids.
 
@@ -475,15 +475,15 @@ In high-volume utility, storage, and cleaning categories, aggressive enterprise/
 However, nearly all high-bidding competitors operate under **finite daily budgets** ($15–$50/day). Because of elevated CPTs, their daily budgets burn out rapidly—frequently exhausting between 11:00 and 16:00 local storefront time.
 
 Once dominant competitors burn through their daily budget:
-1. **Auction Collapse**: Apple's second-price auction mechanics instantly collapse the winning clearance threshold to the next active qualified bid or the category reserve floor ($0.15–$0.30 CPT).
-2. **The Snatcher Role**: An advertiser targeting these exact head and high-volume mid terms with a strict low bid ceiling ($0.20–$0.30 CPT Exact) and a fixed daily budget ($5.00/day) steps in to win top placement during afternoon, evening, and night windows at a 70–85% discount.
-3. **Zero Risk Profile**: During peak morning hours when competitors bid $1.00+, the low-bid campaign delivers zero impressions and costs **$0.00**. When competitors exhaust their caps, it passively harvests premium high-intent users at penny prices.
+1. **Auction assumption (unverified)**: if strong bidders exhaust their budgets, the clearing price may fall toward the reserve floor ($0.15–$0.30 CPT). Apple does not document this; measure it in the account before relying on it.
+2. **The snatcher role**: a campaign with exact-match keywords, a low bid ceiling ($0.20–$0.30 CPT) and a fixed daily budget ($5.00/day) can win placement when strong bidders are out of budget. Whether it does is an empirical question.
+3. **Limited downside**: while competitors still bid higher, the low-bid campaign mostly delivers little, so its cost stays capped by the bid and the budget. Check actual spend against the budget.
 4. **Mandatory Guardrails**:
    - `matchType: EXACT` only (never Broad, which bleeds budget on irrelevant queries).
    - `Search Match: OFF` (automated keyword expansion will burn budget prematurely).
    - Negative keywords for non-paying intents (`free`, `безкоштовно`, `бесплатно`) and own brand tokens.
    - Hard daily budget cap ($5.00/day) to prevent runaway spend if all competitors pause simultaneously.
-   - Validated on Ukraine H080 (October 2026): 463 Exact keywords, $0.30 CPT cap, capturing post-budget-exhaustion search volume.
+   - Status: untested. There is no measured result yet; read the flight before relying on it.
 
 #### Expansion Prompt
 Use the following prompt with the real seeds, product contract, and the 4 clusters above:
@@ -496,18 +496,18 @@ Use the following prompt with the real seeds, product contract, and the 4 cluste
 > 4) Heavy asset formats (4K video, MP4, large files)
 > Each phrase must express one understandable job this product can satisfy.
 > Keep relevant seeds unchanged. Do not pad with typos, years, or competitor brands.
-> Return text, language, intent, source, evidence, full Ukrainian translation, expected product path.
+> Return text, language, intent, source, evidence, full English translation, expected product path.
 > New phrases have evidence=model; never invent demand, competition or a score.
 
 Then review every phrase in a separate pass: native-language naturalness, expected result, one task,
-product path, and a complete Ukrainian translation. Return `core`, `adjacent` or `reject` and an
+product path, and a complete English translation. Return `core`, `adjacent` or `reject` and an
 explicit `review_reason`. Adjacent storage/organizing queries remain a separate evaluation bucket.
 Record model/pass/date and whether a native human reviewed it; Python does not certify fluency.
 Rejected examples and reasons stay in the file to prevent regeneration of the same defects.
 
-#### Per-country hand-written baskets (Compresso Nordic, 2026-10-11)
+#### Per-country hand-written baskets
 
-Stages: (1) one native-level agent per storefront writes a research brief (vocabulary, typing habits, realistic errors, search triggers, a category plan, 80-120 autocomplete seeds); (2) the seeds go through Apple autocomplete **serially** (MZSearchHints answers HTTP 429 when storefronts run in parallel; `ERROR` rows are unknown, not "no suggestion", and are re-fetched at >= 1.2 s); (3) the agent writes the phrases by hand in a strict 6-column TSV (`text, lang, cat, path, class, uk`) with a Ukrainian gloss and no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. Brief the writers with the real business model: for a paid app reject price-intent words (free, gratis, ilmainen, ilmaiseksi, kostenlos, ...) and their typos, keep "free up space" (storage). Real counts, not the quota: the Nordic writers stopped at 700-890 phrases instead of padding with variants Exact already absorbs. Before calling an earlier basket machine-made, read `decisions.md` for hand-written additions.
+Stages: (1) one native-level agent per storefront writes a research brief (vocabulary, typing habits, realistic errors, search triggers, a category plan, 80-120 autocomplete seeds); (2) the seeds go through Apple autocomplete **serially** (MZSearchHints answers HTTP 429 when storefronts run in parallel; `ERROR` rows are unknown, not "no suggestion", and are re-fetched at >= 1.2 s); (3) the agent writes the phrases by hand in a strict 6-column TSV (`text, lang, cat, path, class, uk`) with an English gloss and no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. Brief the writers with the real business model: for a paid app reject price-intent words (free, gratis, ilmainen, ilmaiseksi, kostenlos, ...) and their typos, keep "free up space" (storage). Real counts, not the quota: the writers stopped at 700-890 phrases instead of padding with variants Exact already absorbs. Before calling an earlier basket machine-made, read `decisions.md` for hand-written additions.
 
 ### C. Validate and export deterministically
 
@@ -517,14 +517,14 @@ translation_uk,classification,product_path,review_reason,protected` (`protected`
 ```bash
 python3 "$SKILL_DIR/scripts/ads_keywords.py" \
   --input "$STORE/ads/batch/candidates.csv" --output "$STORE/ads/batch/reviewed" \
-  --brand compresso --brand 'media cleaner'
+  --brand myapp --brand 'my app'
 python3 "$SKILL_DIR/scripts/ads_keywords.py" --self-check
 ```
 
 Replace the example brands with this app's brand and the competitor tokens excluded by the user's
 strategy. The script writes accepted/rejected CSV with reasons and a newline keyword basket. It
 normalizes NFC/case/whitespace, deduplicates exact normalized texts, checks required review fields
-and control/length limits, filters whole brand tokens (`compresso` must not drop `compressor`), and
+and control/length limits, filters whole brand tokens (a brand must not drop a generic word that contains it), and
 selects stably: protected seeds → disclosed relevant terms → observed keywords → seeds → suggestions
 → model expansions. A protected invalid seed stops export; excess protected seeds stop cap slicing.
 Word-order family labels are for review; never delete an order variant solely because the label matches.

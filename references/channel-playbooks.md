@@ -127,48 +127,38 @@ No network requests for processing, completely private. Would love your feedback
 
 ---
 
-## 3B. Developer & Tech Community Playbooks (LinkedIn, DOU, dev.ua, GitHub)
+## 3B. Developer & Tech Community Playbooks (LinkedIn, forums, blogs, GitHub)
 
 When marketing as software engineers to other software engineers, never use consumer marketing speak or generic claims. The winning angle is **engineering transparency, technical hurdles, architecture choices, and honest founder journey**.
 
 ### 1. LinkedIn: The Founder & Engineering Craft Story
 - **Audience**: Peers, engineering leaders, tech early adopters.
 - **Narrative Archetype**: *"Why I built a native iOS utility on Swift 6 with zero backend"*.
-- **Key Talking Points**:
-  - Almost every "phone cleaner" in the App Store is a scam: they upload media to remote servers, compress with lossy web-grade codecs, and charge predatory $6.99/week subscriptions.
-  - Engineering challenge: How to achieve hardware-accelerated 4K HEVC compression locally using VideoToolbox and Metal without blowing through iOS memory limits (OOM jetsam).
-  - Preserving 10-bit HDR Gain Maps and lossless audio passthrough bit-for-bit.
-  - Transparent business model: free trial month, localized one-time/monthly pricing.
-- **Attribution**: Use `?ct=linkedin_founder_post`.
+- **Key Talking Points**: the technical problem the app solves, one concrete engineering hurdle and how it was handled, the privacy model, and a transparent business model (trial length, pricing).
+- **Attribution**: Use a campaign token such as `?ct=linkedin_founder_post`.
 
-### 2. DOU.ua: Community Forum & Engineering Blog
-- **Audience**: Ukrainian developer community (highly critical, tech-savvy, strong iOS representation).
+### 2. Regional Developer Forums and Blogs
+- **Audience**: The developer community of one market (for example, DOU.ua or dev.ua in Ukraine). Engineers there are critical and value architecture detail.
 - **Formats**:
-  1. **DOU Forum (Розділ «Свій бізнес / Стартапи» або «iOS»)**:
-     - Title: *"Створив Compresso — офлайн-компресор відео та фото для iOS на Swift 6: як це влаштовано зсередини"*.
-     - Focus: Open discussion of architectural choices, SwiftData challenges, memory management, App Store Review battles. Ask for feedback on UX and edge-case device performance.
-  2. **DOU Tech Article / Blog**:
-     - Deep dive: *"Як стискати 4K відео на iOS без хмари: VideoToolbox, оптимізація пам'яті та строга паралельність у Swift 6"*.
-- **Attribution**: Use `?ct=dou_ua`.
+  1. **Forum discussion** in the section for indie or startup projects: an open question about an architectural choice, with a request for feedback on UX and device performance.
+  2. **Deep-dive article**: one technical problem, its solution, and the trade-offs, written for other iOS engineers.
+- **Attribution**: Use a campaign token per outlet, such as `?ct=<outlet>`.
 
-### 3. dev.ua: Pet-Project & Startup Spotlight
-- **Audience**: Broader Ukrainian tech ecosystem (engineers, PMs, tech journalists).
-- **Format**: Editorial pitch or blog submission to dev.ua's regular *"Стартапи / Pet-проєкти"* column.
-- **Angle**: *"Український iOS-розробник створив утиліту для збереження пам'яті iPhone без підписок за $7/тиждень"*. Emphasize independence, privacy, on-device execution, and European launch.
-- **Attribution**: Use `?ct=dev_ua`.
+### 3. Pet-Project and Startup Spotlights
+- **Audience**: The wider tech ecosystem (engineers, PMs, tech journalists).
+- **Format**: Editorial pitch to a regular startup or pet-project column.
+- **Angle**: independence, privacy, on-device execution, and the launch market.
+- **Attribution**: Use a campaign token per outlet.
 
-### 4. The Unobvious Play: GitHub Companion Benchmark Repository
-- **Concept**: Publish a clean, standalone open-source repository: `ios-video-compression-benchmarks`.
-- **Content**:
-  - Benchmark code comparing `AVAssetExportSession` vs raw `VTCompressionSession` (VideoToolbox).
-  - Implementation sample of Laplacian variance edge detection for photo sharpness scoring.
-  - Memory usage and bitrate charts.
-  - Header badge: *"Used in production by [Compresso on the App Store](https://apps.apple.com/app/id6790447224?ct=github_benchmarks)"*.
-- **Why it works**: Engineers searching Google/GitHub for iOS video compression techniques discover the repo, star it, and download the App Store app as proof-of-concept. Creates perpetual, high-trust organic referral traffic.
+### 4. The Unobvious Play: a Companion Open-Source Repository
+- **Concept**: Publish a clean, standalone open-source repository with the reusable part of the app's engineering (for example, a benchmark of two encoding APIs).
+- **Content**: benchmark code, a small reusable sample, and charts of memory use and output size.
+- **Header badge**: *"Used in production by <App> on the App Store"*, linking to the app with a campaign token.
+- **Why it works**: engineers searching for the technique find the repo, star it, and download the app as proof of concept.
 
 ### 5. Telegram & Slack iOS Communities
-- Channels: *iOS Dev UA*, *CocoaHeads Ukraine*, *iOS Developers Slack* (channel `#showcase`).
-- Tone: Humble peer review request: *"Привіт усім! Написав на чистому Swift 6 утиліту для локального стиснення відео. Буду дуже вдячний за тест на ваших медіатеках і фідбек по UX/перформансу"*.
+- Channels: regional iOS community chats and the iOS Developers Slack (a showcase channel).
+- Tone: a humble request for peer testing, with a specific question about performance or UX.
 
 
 ---
@@ -196,7 +186,7 @@ Every campaign action must have:
 2. **Channel & Type**: `reddit_comment`, `reddit_post`, `threads`, `x_post`, `asa`.
 3. **Target Community / Link**: Subreddit URL or target thread search link.
 4. **Attribution Campaign Token (`ct`)**: Recorded in `marketing/campaigns.csv`.
-5. **Exact Ready-to-Post Copy**: Provided in English and Ukrainian.
+5. **Exact Ready-to-Post Copy**: Provided in English and in the market's language.
 6. **Measurable Prediction**: (e.g. 25 clicks, 5 downloads within 7 days).
 7. **Kill Criterion**: (e.g. < 3 clicks in 7 days or post removed).
 
@@ -221,9 +211,8 @@ Every `campaign_token` (`ct`) is strictly unique across all time. Reusing a toke
 
 ---
 
-## 7. Directory & Launchpad Indexing Strategy (94 Platforms)
+## 7. Directory & Launchpad Indexing Strategy
 
-For off-store web directory submissions, see the dedicated reference:
-- **[directory-launch-strategy.md](directory-launch-strategy.md)** — Master matrix of 94 startup directories, launchpads, and product indexing platforms evaluated by Domain Rating (DR), relevance to Compresso, copy angles, and a 3-wave execution plan.
+Off-store web directory submissions (startup directories, launchpads, product indexes) follow the same rule as every channel here: list the app once per directory, with a campaign token, and read the referral and install numbers before submitting more.
 
 

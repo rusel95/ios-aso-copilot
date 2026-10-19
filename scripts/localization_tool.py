@@ -371,7 +371,7 @@ def apply_catalog(project_root: Path, target_locale: str, input_path: Path) -> i
 
 def audit_storefronts(store_path: Path, project_root: Path) -> int:
     """Audit coverage and zero-waste quality across in-app strings, metadata, and Xcode."""
-    print("=== Compresso Storefront & Localization Audit ===\n")
+    print("=== Storefront & Localization Audit ===\n")
 
     xcstrings_path = find_xcstrings(project_root)
     pbxproj_path = find_pbxproj(project_root)
@@ -560,9 +560,9 @@ def scaffold_storefront(store_path: Path, project_root: Path, locale: str, marke
     app_info_file.parent.mkdir(parents=True, exist_ok=True)
     if not app_info_file.exists():
         content = {
-            "name": f"Compresso: Title ({locale})",
+            "name": f"AppName: Title ({locale})",
             "subtitle": "Subtitle text here",
-            "privacyPolicyUrl": "https://rusel95.github.io/rusel95-apps-legal/MediaCleaner/privacy-policy.html"
+            "privacyPolicyUrl": "https://example.com/privacy-policy.html"
         }
         app_info_file.write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"Created: {app_info_file}")
@@ -578,7 +578,7 @@ def scaffold_storefront(store_path: Path, project_root: Path, locale: str, marke
                 "description": f"Full localized description for {lang_name}...",
                 "keywords": "token1,token2,token3,token4,token5",
                 "promotionalText": "Promotional hook text (<=170 chars)",
-                "supportUrl": "https://rusel95.github.io/rusel95-apps-legal/MediaCleaner/support.html",
+                "supportUrl": "https://example.com/support.html",
                 "whatsNew": f"Full {lang_name} localization and performance polish."
             }
             ver_file.write_text(json.dumps(v_content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

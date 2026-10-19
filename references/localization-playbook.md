@@ -42,7 +42,7 @@ Not all App Store markets yield equal return. Prioritize storefront expansion us
 
 ## 3. In-App String Catalogs (`.xcstrings`) & Apple HIG Standards
 
-Compresso uses Xcode 15+ String Catalogs (`.xcstrings`). When adding a new locale:
+Use Xcode 15+ String Catalogs (`.xcstrings`). When adding a new locale:
 
 ### Required Actions
 1. **Catalog Completeness**: All user-facing keys must have a translated entry. Never leave empty values.
@@ -113,7 +113,7 @@ Every localized PR and string update must be audited against these 30 patterns:
 When generating metadata for a new locale:
 
 1. **Title (≤ 30 characters)**:
-   - Pattern: `Compresso: <Primary Local High-Intent Keyword Phrase>`
+   - Pattern: `<App>: <Primary Local High-Intent Keyword Phrase>`
    - Must contain the brand and the #1 search query for the market.
 2. **Subtitle (≤ 30 characters)**:
    - Pattern: `<Secondary Benefit / Action Phrase>`

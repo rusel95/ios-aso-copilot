@@ -125,7 +125,7 @@ ios-aso-copilot keywords popularity --country pl --terms "kompresor,czyszczenie"
 ios-aso-copilot keywords competitors --country pl --seeds "kompresor wideo,czyszczenie telefonu"
 
 # Deterministic validation and review export
-ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --brand compresso
+ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --brand myapp
 ```
 
 #### 4. Apple Ads Management
@@ -134,7 +134,7 @@ ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --bran
 ios-aso-copilot ads campaigns [--status ENABLED] [--country PL] [--json]
 
 # List ad groups in a campaign
-ios-aso-copilot ads adgroups --campaign-id 2144795546
+ios-aso-copilot ads adgroups --campaign-id <campaign-id>
 
 # List targeting keywords
 ios-aso-copilot ads keywords --adgroup-id 2151522366
@@ -143,8 +143,8 @@ ios-aso-copilot ads keywords --adgroup-id 2151522366
 ios-aso-copilot ads add-keywords --adgroup-id 2151522366 --terms "kompresja mp4,zmniejsz wideo" --bid 0.30
 
 # Pause or resume campaign
-ios-aso-copilot ads pause --campaign-id 2144795546
-ios-aso-copilot ads resume --campaign-id 2144795546
+ios-aso-copilot ads pause --campaign-id <campaign-id>
+ios-aso-copilot ads resume --campaign-id <campaign-id>
 ```
 
 #### 5. Data Cycles & Telemetry
@@ -161,26 +161,26 @@ ios-aso-copilot ledger report                   # Hypotheses & keyword ledger
 See `references/google-search-intelligence.md` for complete playbooks and mathematical normalization rules.
 ```bash
 # 1. Compare relative search interest volume across keywords in a country (0-100 index)
-ios-aso-copilot google trends "стиснути відео" "зменшити відео" --country UA
+ios-aso-copilot google trends "compress video" "shrink video" --country US
 # Discover rising/breakout queries (+80%, +160%, Breakout)
 ios-aso-copilot google trends "compress video" --country US --related
 # Regional interest breakdown (oblasts/states)
-ios-aso-copilot google trends "стиснути відео" "зменшити відео" --country UA --geo
+ios-aso-copilot google trends "compress video" "shrink video" --country US --geo
 
 # 2. Live Google Autocomplete suggestions across storefronts and languages
-ios-aso-copilot google suggest "стиснути відео" --country UA --lang uk
+ios-aso-copilot google suggest "compress video" --country US --lang en
 # Deep multi-angle intent matrix (platforms, size limits, quality friction, devices, questions)
-ios-aso-copilot google suggest "стиснути відео" --country UA --lang uk --matrix
+ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
 ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
 
 # 3. Multi-term batch against one anchor (an ORDER; put the anchor mid-list, the tool warns when its index is under 8)
 ios-aso-copilot google batch \
   --anchor "<a mid-volume term>" \
   --terms "term one,term two,term three" \
-  --country UA
+  --country US
 
 # 4. The App Store side of the same question: what Apple completes (empty list = no App Store evidence)
-ios-aso-copilot keywords hints --term "<full term>" --country ua
+ios-aso-copilot keywords hints --term "<full term>" --country us
 ```
 Google is web search, not the App Store. It can pick between two synonyms and show how people phrase a problem, and it is read
 AFTER the Apple side (`keywords hints`, rank reads, Ads delivery). Rules and a worked table: `references/google-search-intelligence.md`.
@@ -263,7 +263,7 @@ predeclared signal has comparable evidence. The mode permits local evidence/repo
 not authorize metadata publishing, campaign changes, or spend changes. An explicit narrower user
 request still takes precedence.
 
-Example: `[$ios-aso-copilot](SKILL.md) --full Hush, App ID 6449785515`.
+Example: `[$ios-aso-copilot](SKILL.md) --full MyApp, App ID <app-id>`.
 
 | Request | Narrow route | What it does |
 |---|---|---|
@@ -466,16 +466,16 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
   download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
 - **NEVER include brand queries or own-metadata phrases in calculations, and NEVER use brand/own-title rank as evidence of market demand, competitive advantage, launch opportunity, or ranking success.**
   **Brand-token and own-metadata queries are strictly excluded from all ASO calculations, ranking metrics, movement reports (Section B), priority scoring (Section C), hypothesis drafting, and top-position band counts (Top 1 / Top 3 / Top 10 / Top 20 / Top 200).**
-  - **Brand tokens:** App brand name in any language (e.g. `hush`, `compresso`), developer names, and trademarked terms.
-  - **Own-metadata strings:** Any query that reproduces the app's own localized Title/Name (e.g. `Hush: <Title>`, `<Title>`), full localized Subtitle, or multi-word fragments thereof (e.g. `Білий та коричневий шум`, `Biały Szum i Sen`, `Deszczowe Dźwięki`, `Regnlyde til Søvn`, `Braune Regen`). Ranking #1 or Top 3 for an exact phrase pulled from the app's own title or subtitle is a trivial metadata indexing artifact, NOT organic search traffic or user demand. Any such query must be tagged `[EXCLUDE: OWN_METADATA_STRING]`.
+  - **Brand tokens:** App brand name in any language (e.g. `myapp`, `brandname`), developer names, and trademarked terms.
+  - **Own-metadata strings:** Any query that reproduces the app's own localized Title/Name (e.g. `MyApp: <Title>`, `<Title>`), full localized Subtitle, or multi-word fragments thereof (e.g. a localized subtitle copied verbatim, or two of its words in order). Ranking #1 or Top 3 for an exact phrase pulled from the app's own title or subtitle is a trivial metadata indexing artifact, NOT organic search traffic or user demand. Any such query must be tagged `[EXCLUDE: OWN_METADATA_STRING]`.
   - Counting `#1` on the app's own title/subtitle or claiming "we are Top 3 in 20 countries" based on own-metadata phrases is a vanity metric and false signal. Only genuine generic search queries (generic category terms, color noises, symptom queries) count.
 - **Form Top Target Query Baskets via Search Popularity & Reachability (Not Guessed Phrases):**
   Target queries per storefront must NOT be invented arbitrary phrases. They must be constructed and validated through proven search demand:
   1. **Demand Validation:** Every target query must have verified search volume via **Apple Autocomplete (`MZSearchHints`)** or **Apple Ads Search Popularity (score 20–60)**. If Apple does not suggest the term in autocomplete or its search popularity is negligible (<15), real users do not type it — reject it.
   2. **Tri-Tier Target Portfolio per Focus Market (20 queries total):**
-     - **Tier 1 — High-Intent Reachable Long-Tail (10 keys, Popularity 20–45):** Specific color noises, sleep fans, rain variations (e.g. `коричневий шум`, `rosa rauschen`, `bruine ruis`, `brun støy`, `sovljud`, `ventilateur sommeil`). Competitor review counts are moderate, enabling Hush to realistically capture Top 1–5.
-     - **Tier 2 — Symptom & Persona Niches (5 keys, Popularity 25–50):** Acute user problems with high intent-to-install (e.g. `тинітус`/`tinnitus`, `коліки`/`kolik`, `adhd`, `wiegelied`/`lullaby`).
-     - **Tier 3 — Broad Category Head Terms (5 keys, Popularity 50–80):** High-volume category terms (e.g. `білий шум`, `white noise`, `weißes rauschen`) to monitor general visibility, but never as the sole criterion for a hypothesis win.
+     - **Tier 1 — High-Intent Reachable Long-Tail (10 keys, Popularity 20–45):** Specific color noises, sleep fans, rain variations (e.g. `brown noise for sleep`, `rain sounds for focus`). Competitor review counts are moderate, which makes a Top 1–5 rank realistic.
+     - **Tier 2 — Symptom & Persona Niches (5 keys, Popularity 25–50):** Acute user problems with high intent-to-install (e.g. a symptom or a user group, such as `<symptom term>` or `<persona term>`).
+     - **Tier 3 — Broad Category Head Terms (5 keys, Popularity 50–80):** High-volume category terms (e.g. `white noise`, or a broad category name in each market's language) to monitor general visibility, but never as the sole criterion for a hypothesis win.
 - Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
   exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
 - Product claims must match shipped behavior. Reject keywords implying unsupported features. Use

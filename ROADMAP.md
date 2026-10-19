@@ -67,8 +67,8 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
   `--failed-only` and retain explicit replay limits.
 - R-43: source or remove the unsourced figures left in `ugc-playbook.md` and `channel-playbooks.md` (muted-viewing share,
   page-CVR norm, CPT and budget ranges). Templates already ship placeholders (v2.5.0).
-- R-44: section C shows demand but does not weight by it. Revisit once the radar covers enough of the basket; on Compresso
-  7 of 728 tracked non-brand pairs sit inside Apple's head, so a weight today would be mostly noise.
+- R-44: section C shows demand but does not weight by it. Revisit once the radar covers enough of the basket; on a real app
+  a few tracked non-brand pairs sit inside Apple's head, so a weight today would be mostly noise.
 - R-17: wire verified observations into the cycle after R-13/R-29; do not restore forecast leaderboards.
 - R-18/R-19: npm publication or additional packaging only when distribution demand exists.
 - R-22: review reply drafting; retain author approval for public responses.

@@ -314,7 +314,7 @@ def self_check():
                 def interest_over_time(self):
                     return frames.pop(0)
 
-            batch_args = argparse.Namespace(anchor=anchor, terms=terms, file=None, country="UA",
+            batch_args = argparse.Namespace(anchor=anchor, terms=terms, file=None, country="US",
                                             timeframe="today 12-m", delay=0, json=True)
             with patch(f"{__name__}._trend_req", return_value=(FakeReq, None)):
                 with contextlib.redirect_stdout(io.StringIO()) as out:
@@ -1270,7 +1270,7 @@ def cmd_google_trends(args):
         log_error("Specify at least one keyword term to compare.")
         return 1
 
-    country = getattr(args, "country", "UA")
+    country = getattr(args, "country", "US")
     timeframe = getattr(args, "timeframe", "today 12-m")
     as_json = getattr(args, "json", False)
     do_related = getattr(args, "related", False)
@@ -1397,7 +1397,7 @@ def cmd_google_suggest(args):
         log_error("Specify a search term to inspect suggestions.")
         return 1
 
-    country = getattr(args, "country", "UA")
+    country = getattr(args, "country", "US")
     lang = getattr(args, "lang", "uk")
     limit = getattr(args, "limit", 15)
     matrix = getattr(args, "matrix", False)
@@ -1546,7 +1546,7 @@ def cmd_google_batch(args):
     anchor = getattr(args, "anchor", None)
     terms_arg = getattr(args, "terms", None)
     file_arg = getattr(args, "file", None)
-    country = getattr(args, "country", "UA")
+    country = getattr(args, "country", "US")
     timeframe = getattr(args, "timeframe", "today 12-m")
     delay = getattr(args, "delay", 1.5)
     as_json = getattr(args, "json", False)
@@ -2138,14 +2138,14 @@ def build_parser():
 
     p_gtrend = goog_subs.add_parser("trends", help="Compare search interest via Google Trends", parents=[common_parent])
     p_gtrend.add_argument("terms", nargs="+", help="Keywords to compare (up to 5)")
-    p_gtrend.add_argument("--country", "-c", default="UA", help="Two-letter country code (default: UA)")
+    p_gtrend.add_argument("--country", "-c", default="US", help="Two-letter country code (default: US)")
     p_gtrend.add_argument("--timeframe", "-t", default="today 12-m", help="Timeframe (default: today 12-m)")
     p_gtrend.add_argument("--related", action="store_true", help="Fetch top and rising related queries for first term")
     p_gtrend.add_argument("--geo", action="store_true", help="Fetch subregion / oblast interest breakdown")
 
     p_gsug = goog_subs.add_parser("suggest", help="Live Google search autocomplete hints", parents=[common_parent])
     p_gsug.add_argument("term", help="Root search query or seed word")
-    p_gsug.add_argument("--country", "-c", default="UA", help="Two-letter country code (default: UA)")
+    p_gsug.add_argument("--country", "-c", default="US", help="Two-letter country code (default: US)")
     p_gsug.add_argument("--lang", "-l", default="uk", help="Language code (default: uk)")
     p_gsug.add_argument("--limit", type=int, default=15, help="Max results (default: 15)")
     p_gsug.add_argument("--matrix", action="store_true", help="Deep multi-angle intent matrix expansion")
@@ -2154,7 +2154,7 @@ def build_parser():
     p_gbatch.add_argument("--anchor", "-a", required=True, help="Anchor keyword (normalized to 100.0)")
     p_gbatch.add_argument("--terms", help="Comma-separated candidate keywords")
     p_gbatch.add_argument("--file", "-f", help="Path to text or CSV file with candidate keywords")
-    p_gbatch.add_argument("--country", "-c", default="UA", help="Two-letter country code (default: UA)")
+    p_gbatch.add_argument("--country", "-c", default="US", help="Two-letter country code (default: US)")
     p_gbatch.add_argument("--timeframe", "-t", default="today 12-m", help="Timeframe (default: today 12-m)")
     p_gbatch.add_argument("--delay", type=float, default=1.5, help="Polite delay in seconds between batches (default: 1.5)")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate model-reviewed Apple Ads candidates; local CSV exports only, no network or writes to Ads.
 
-    ads_keywords.py --input candidates.csv --output reviewed --brand compresso --brand 'media cleaner'
+    ads_keywords.py --input candidates.csv --output reviewed --brand pixel --brand 'pixel app'
     ads_keywords.py --self-check
 
 The model supplies complete phrases, product paths and a second-pass review. Python checks the
@@ -104,18 +104,18 @@ def self_check():
     def row(text, protected='false', **kw):
         return dict(zip(FIELDS, [text, 'en', 'video', 'model:check', 'model', 'Стиснути відео',
                                 'core', 'Photos compression', 'natural phrase; one supported task', protected]), **kw)
-    rows = [row('  VIDEÓ   compressor '), row('videó compressor'), row('compresso video'),
+    rows = [row('  VIDEÓ   compressor '), row('videó compressor'), row('pixel video'),
             row('video compressor', 'true'), row('compress video'), row('video compress')]
-    accepted, rejected = select(rows, ['compresso'], 2)
+    accepted, rejected = select(rows, ['pixel'], 2)
     assert accepted[0]['text'] == 'video compressor' and len(accepted) == 2
     assert {r['reason'] for r in rejected} >= {'exact_normalized_duplicate', 'brand_token', 'capacity_deferred'}
-    assert select(rows[::-1], ['compresso'], 2) == (accepted, rejected)
+    assert select(rows[::-1], ['pixel'], 2) == (accepted, rejected)
     family, _ = select([row('compress video'), row('video compress')])
     assert len(family) == 2 and family[0]['word_order_family'] == family[1]['word_order_family']
     spelling, duplicates = select([row('Straße', 'true'), row('STRASSE')])
     assert spelling[0]['text'] == 'straße' and len(spelling) == len(duplicates) == 1
     try:
-        select([row('compresso', 'true')], ['compresso'])
+        select([row('pixel', 'true')], ['pixel'])
     except ValueError:
         pass
     else:
@@ -123,7 +123,7 @@ def self_check():
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp)
         write_csv(p / 'in.csv', rows, FIELDS)
-        assert export(p / 'in.csv', p / 'out', ['compresso'], 2)['accepted'] == 2
+        assert export(p / 'in.csv', p / 'out', ['pixel'], 2)['accepted'] == 2
         assert (p / 'out' / 'keywords.txt').read_text().splitlines()[0] == 'video compressor'
     print('OK: normalization, compressor vs brand, deterministic cap, protected seeds, word-order labels, CSV export')
 

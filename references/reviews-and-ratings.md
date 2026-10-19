@@ -31,7 +31,7 @@ asc reviews respond --review-id "<REVIEW_ID>" --response "Дякуємо за в
 
 1. **Volume & Thresholds**:
    * App Store algorithms require a critical mass of ratings in each storefront before displaying an aggregate score (usually ~4-5 ratings in a given territory).
-   * Compresso currently has **9 ratings (8 in Ukraine, 1 in Poland)**, all **5.0 stars**.
+   * An example app currently has **9 ratings (8 in one storefront, 1 in another)**, all **5.0 stars**.
    * Other storefronts (US, Germany, France, Japan, etc.) show "Not Enough Ratings".
    * Strategy: Prompt timing (governed by the 3-per-year rolling ceiling in `FreeMonthTrackingService`) must trigger right after a successful `cleanup_completed` when user satisfaction is highest.
 

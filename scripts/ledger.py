@@ -133,8 +133,8 @@ def hyp_markets(h):
 
 
 def brand_hit(token: str, keyword: str) -> bool:
-    """A brand token is a whole word. `compresso` is our name; `compressor` is a generic query that merely
-    contains it, and a substring test used to drop 332 of Compresso's 778 tracked pairs from section C."""
+    """A brand token is a whole word. `pixel` is the app's name; `pixelator` is a generic query that merely
+    contains it, and a substring test once dropped hundreds of tracked pairs from section C."""
     token, keyword = token.casefold(), keyword.casefold()
     at = keyword.find(token)
     while at != -1:
@@ -945,8 +945,8 @@ def self_check():
         assert read_brand_tokens(store) == ["komprimieren"]
         assert not section_c(pairs, read_markets(store), hyps, 10, ["komprimieren"]), \
             "a brand term is not an acquisition target"
-        assert brand_hit("compresso", "compresso: стиснути фото") and brand_hit("compresso", "Compresso")
-        assert brand_hit("compresso", "compresso写真圧縮") and not brand_hit("compresso", "video compressor"), \
+        assert brand_hit("pixel", "pixel: resize photos") and brand_hit("pixel", "Pixel")
+        assert brand_hit("pixel", "pixel写真圧縮") and not brand_hit("pixel", "pixelator"), \
             "a generic query that contains the brand's letters is not a brand query"
         scored = section_c(pairs, read_markets(store), hyps, 10, [])
         assert scored and scored[0][1] == "de" and scored[0][5] == 29.88
@@ -976,7 +976,7 @@ def self_check():
         assert "| video komprimieren | head 55 |" in table and "| fotos komprimieren | below 45 |" in table, table
         (store / "metrics" / "popularity_cut.csv").unlink()
         (store / "metrics" / "popularity.csv").unlink()
-        (store / "config.md").write_text("**Brand tokens**: compresso\n", encoding="utf-8")
+        (store / "config.md").write_text("**Brand tokens**: pixel\n", encoding="utf-8")
         import io, contextlib
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -993,9 +993,9 @@ def self_check():
             except SystemExit as exc:
                 assert "no successful observation" in str(exc), exc
 
-        (store / "config.md").write_text("**Brand tokens**: compresso\n", encoding="utf-8")
+        (store / "config.md").write_text("**Brand tokens**: pixel\n", encoding="utf-8")
         try:
-            draft(store, "de", ["compresso: fotos komprimieren"], 21, None)
+            draft(store, "de", ["pixel: fotos komprimieren"], 21, None)
             raise AssertionError("draft must refuse brand queries")
         except SystemExit as exc:
             assert "contains brand token(s)" in str(exc), exc

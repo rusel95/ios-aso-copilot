@@ -7,13 +7,21 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## Unreleased — de-identified for the public repo
+
+- Removed the author's own app data: app and bundle IDs, the two-app showcase in the README, Apple Ads account and campaign IDs, hypothesis IDs, one-app worked examples and personal paths. Each example is now a placeholder or a pattern.
+- Removed the single-app launch plan (`references/directory-launch-strategy.md`). The channel playbook keeps its structure with placeholders.
+- Country defaults moved from Ukraine (`UA`) to the United States (`US`) in `copilot.py` (`google`, and the commands that read `--country`). Pass `--country` explicitly.
+- `pull_ga.py` looks for `GoogleService-Info.plist` one folder below the repo root instead of a hard-coded app folder.
+- The §10.B auction assumption in `apple-ads.md` is marked unverified; the v2.9.1 entry no longer claims a validated result.
+
 ## v2.9.1 — The "Budget Exhaustion Snatcher" (Floor Sweeper ASA Playbook) — 2026-10-18
 
 Documents the "Budget Exhaustion Snatcher" strategy in `references/apple-ads.md` §10.B:
 - **Concept:** High-volume head and mid terms (`cleaner`, `очистити пам'ять`, `storage cleaner`, `видалити фото`) are normally dominated by high-bidding competitors ($0.60–$1.50+ CPT) whose finite daily budgets ($15–$50/day) deplete rapidly by midday or early afternoon.
-- **Mechanics:** Once aggressive competitors exhaust their daily caps, Apple's second-price auction drops to the next qualified bid or category reserve floor ($0.15–$0.30 CPT). A low-bid ($0.20–$0.30 CPT), EXACT-match, budget-capped ($5.00/day) campaign automatically snatches high-intent installs during afternoon, evening, and night windows at a 70–85% discount.
+- **Mechanics (unverified):** if aggressive competitors exhaust their daily caps, the clearing price may fall toward the reserve floor ($0.15–$0.30 CPT). Apple does not document this; it is a hypothesis to measure, not a fact.
 - **Safety Boundaries:** Pure EXACT match, Search Match OFF, negative keywords active, and a strict daily budget ceiling to ensure zero risk during peak competitor hours ($0.00 spend) and bounded loss protection.
-- Validated on Ukraine H080: expanded from 251 to 463 EXACT keywords at $0.30 CPT cap with $5.00/day ceiling.
+- Per-country EXACT basket expanded and re-capped in one live flight (a configuration change; no measured result yet).
 
 ## v2.9.0 — Google search intelligence that says when it cannot tell — 2026-10-18
 
@@ -34,9 +42,9 @@ Closes R-45 (and partially R-11). Google Trends and Google Autocomplete next to 
 
 ## v2.7.4 — per-country hand-written Exact lists, and two attribution traps — 2026-10-11
 
-- `references/apple-ads.md` §10: a per-country hand-written basket is built in stages: (1) a research brief per storefront from a native-level agent (vocabulary, typing habits, errors, triggers, a category plan, autocomplete seeds); (2) a SERIAL Apple autocomplete pull (MZSearchHints answers HTTP 429 when several storefronts run in parallel: 221 of ~1,700 calls; treat `ERROR` rows as unknown and re-fetch them serially at >= 1.2 s); (3) the agent writes the phrases by hand in a strict TSV with a Ukrainian gloss, no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. The writers stopped at 700-890 phrases rather than pad with variants Exact already absorbs: report the true count, not the quota.
-- Before calling an earlier basket "machine-generated", read `decisions.md`: the Nordic October baskets already held model-written natural phrases (added at a lower bid for ~2.5 days), so "hand-written vs scripted" was not the new variable; the bid level and the full window were.
-- Brief key writers with the real business model: for a paid app, price-intent words (free, gratis, ilmainen, ilmaiseksi, kostenlos, ...) and typos of them are rejected, "free up space" (storage) stays. The Nordic briefs said "free tier" and 101 such keys went live before Ruslan caught it; they were paused the same day.
+- `references/apple-ads.md` §10: a per-country hand-written basket is built in stages: (1) a research brief per storefront from a native-level agent (vocabulary, typing habits, errors, triggers, a category plan, autocomplete seeds); (2) a SERIAL Apple autocomplete pull (MZSearchHints answers HTTP 429 when several storefronts run in parallel: 221 of ~1,700 calls; treat `ERROR` rows as unknown and re-fetch them serially at >= 1.2 s); (3) the agent writes the phrases by hand in a strict TSV with an English gloss, no generators; (4) a different agent reviews every row (core / adjacent / reject plus a reason); (5) `ads_keywords.py`. The writers stopped at 700-890 phrases rather than pad with variants Exact already absorbs: report the true count, not the quota.
+- Before calling an earlier basket "machine-generated", read `decisions.md`: an earlier basket already held model-written natural phrases (added at a lower bid for ~2.5 days), so "hand-written vs scripted" was not the new variable; the bid level and the full window were.
+- Brief key writers with the real business model: for a paid app, price-intent words (free, gratis, ilmainen, ilmaiseksi, kostenlos, ...) and typos of them are rejected, "free up space" (storage) stays. Briefs that said "free tier" put 101 such keys live before anyone caught it; they were paused the same day.
 - A price ladder is part of a hypothesis only when its steps are written before launch (phase, trigger, who approves); a bid that clears nothing at $0.20 can mean price, not demand, so say which in the verdict.
 
 ## v2.7.3 — brand-token keys leave section B and `draft` — 2026-10-09
@@ -50,7 +58,7 @@ Closes R-45 (and partially R-11). Google Trends and Google Autocomplete next to 
 
 ## v2.7.1 — honest cycle stages, per-market rank ingest, per-term popularity — 2026-10-08
 
-Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
+Found while running the full cycle for a real app on 2026-10-07 (ASC analytics 429, a hung `us` storefront).
 
 - `copilot.py brief`: one screen with App Store Connect state (health, blockers, build, TestFlight, versions, subscriptions, IAP), the Top-200
   bands per storefront (`ledger.py bands`: keys in top10/30/100/200/out now, inside the top 200 at first observation / previous refresh /
@@ -63,7 +71,7 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
   step streams `pull_funnel.py` and names its cause (e.g. the 429) in the warning instead of "exited with code 1".
 - `ledger.py`: a query the API answers with **zero results** is recorded as `no-results`, not `beyond-depth`. Native queries in
   si, bg, lt, lv, ee, md and the Dravidian scripts return an empty list, so "absent from the top 200" was never true; those keys
-  (38 in Compresso) are dropped from every comparison while their latest reading is empty (a key that later answers is measurable again; one empty answer never erases history), named in the coverage line and flagged per hypothesis in section A
+  (38 in one app) are dropped from every comparison while their latest reading is empty (a key that later answers is measurable again; one empty answer never erases history), named in the coverage line and flagged per hypothesis in section A
   (`+N zero-result: unmeasurable`). Older rows of such keys are dropped too, so no migration is needed.
 - `ledger.py ingest_by_observed_day(..., group=)`: callers can track extra baskets (e.g. Apple Ads keywords that served
   impressions, group `asa-observed`) without a second ingest path.
@@ -108,7 +116,7 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
 - Ads playbook replaces unsupported reserve-price/auction formulas, equal budget splitting, daily hard-cap promises and
   zero-impressions → automatic bid escalation. Adds native end-time controls, staged repairs with complete read-back,
   distinct evidence types, stable 14/28-day rotation heuristics and attribution limits. Existing authorization persists.
-- Verified offline self-checks and used the exports for an authorized Compresso Hebrew/English repair; app-specific
+- Verified offline self-checks and used the exports for an authorized Hebrew/English repair; app-specific
   payloads, current budgets and live results belong in that app's marketing store, not in the generic skill.
 
 ---
@@ -137,7 +145,7 @@ Found while running the full cycle for Compresso on 2026-10-07 (ASC analytics 42
   that holds one term and a failed look.
 - The demand lookup and the report match by term, not by how a row was picked at pull time: a head row stored as `topic`
   counts as tracked once the term is tracked, so the ledger's Demand column and the tracked table follow the basket.
-- Compresso's count is 7 of 728 tracked non-brand pairs inside Apple's head (v2.5.0 printed 6: it missed `video compressor`
+- The app's count is 7 of 728 tracked non-brand pairs inside Apple's head (v2.5.0 printed 6: it missed `video compressor`
   in the US).
 
 ---
@@ -154,8 +162,8 @@ Partially closes R-10 (Apple demand source) and R-26 (per-keyword paid reporting
   (<10 impression) search terms. Config: four optional `**Apple Ads …**` labels; without profile and account it refuses.
 - `ledger.py`: section C gains a **Demand** column (`head N`, `below N`, `no data`, `—`) when the radar has data. It
   informs the order and does not enter the score.
-- `ledger.py` **bug**: a brand token was matched as a substring, so `compresso` dropped every `compressor` query from
-  section C. On Compresso that hid 282 of 778 tracked pairs (332 excluded, now 50). Brand tokens now match as whole words.
+- `ledger.py` **bug**: a brand token was matched as a substring, so a short brand token dropped every generic query containing it (`pixelator` for `pixel`) from
+  section C. On one real app that hid 282 of 778 tracked pairs (332 excluded, now 50). Brand tokens now match as whole words.
 - `economics.py --net-per-payer … --pay-rate … --tap-to-install … [--cpt …]`: the per-tap bid ceiling the README already
   promised, with a `derived:` tag naming every input.
 - `campaign_link.py` **bug class**: templates shipped unmeasured figures ("24 GB in 3 minutes", "90 % of your storage",
@@ -163,7 +171,7 @@ Partially closes R-10 (Apple demand source) and R-26 (per-keyword paid reporting
   self-check fails on any percentage (other than an architectural 100 %), dollar amount or GB/MB figure in a template.
 - Docs: `apple-ads.md` §3c (radar, per-tap ceiling, ads → ASO loop, why ad matching is not keyword-field matching),
   `state-store.md` schemas, `ugc-playbook.md` §8 photo carousels, `channel-playbooks.md` Threads build-in-public angle.
-- Verified against MediaCleaner: real pull for 39 storefronts (week 2026-09-20), report, ledger with the Demand column,
+- Verified against a real app: real pull for 39 storefronts (week 2026-09-20), report, ledger with the Demand column,
   `copilot.py --self-check`, `radar.py --self-check`, `ledger.py --self-check`, `economics.py --self-check`,
   `campaign_link.py --self-check`. Not yet run on a second store.
 
@@ -184,7 +192,7 @@ Partially closes R-12; automatic bounded retries and persistent run manifests re
   review bodies stay out of the cycle output.
 - `ledger.py` supports an explicit `--as-of` for replayable reports/drafts and rejects refresh delays
   below its local minimum. These controls improve consistency; live provider responses can still change.
-- Verified against MediaCleaner with isolated before/after cycles and a same-input ledger comparison.
+- Verified against a real app with isolated before/after cycles and a same-input ledger comparison.
   The same-input report was identical; live timing was not comparable because the source export sizes differed.
 
 ---
@@ -306,9 +314,9 @@ instruction to use hint expansion rather than manual keyword lists.
 **npx installer** — `bin/cli.js` enables `npx ios-marketing-ops install` to symlink the skill
 into `~/.claude/skills/` or `~/.kiro/skills/` with `--kiro`/`--path` flags.
 
-**Repository** — extracted from `~/.claude/skills/ios-marketing-ops/` into standalone git repo
-at `~/Desktop/ios-marketing-ops/`, pushed to github.com/rusel95/ios-marketing-ops.
-`~/.claude/skills/ios-marketing-ops` is now a symlink to the Desktop repo.
+**Repository** — extracted from a local skills folder into a standalone git repo
+and pushed to a public repository.
+The local skills folder is now a symlink to that repo.
 
 **Files changed:**
 - `scripts/rank_audit.py` — new, 400 lines

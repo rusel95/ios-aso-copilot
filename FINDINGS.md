@@ -133,7 +133,7 @@ assumptions leaked during a full status + rank_audit run.
 ## ASA — Oversized Discovery batch caused budget atomization and an off-topic auto-discovered query
 
 **Date:** 2026-09-20
-**Source:** live `asc ads` API calls against Compresso's UA (`2144693006`) and PL (`2144698265`)
+**Source:** live `asc ads` API calls against one app's UA and PL campaigns
 campaigns [live:asc-ads-api@2026-09-20]
 
 ### What happened
@@ -149,7 +149,7 @@ endpoint 400s) for 2026-09-16 → 09-20 showed:
   window.
 - PL: the BROAD batch auto-discovered the search term **"immich"** — 13 impressions, $0 spend,
   0 taps. Immich is an open-source self-hosted photo-backup app; it has no topical relationship to
-  Compresso's compression/cleanup product. This is a live instance of the bleeding-query pattern in
+  the app's compression/cleanup product. This is a live instance of the bleeding-query pattern in
   `references/apple-ads.md` §6 Step B.2, except it was BROAD-match auto-discovery finding an
   off-topic query rather than a user searching a wrong-intent phrase directly — the risk case that
   large, unreviewed BROAD batches create.
@@ -176,7 +176,7 @@ while spend is still near $0.
 
 **Date:** 2026-09-20
 **Source:** live usage of `rank_audit.py`, `harvest_keywords.py`, `copilot.py cycle`, and `ledger.py
-report` against Compresso's real store, during the NO/IL/RO ASA candidate research documented in
+report` against a real app's store, during the NO/IL/RO ASA candidate research documented in
 the previous entry.
 
 ### Bug 1 — `harvest_keywords.py` and `rank_audit.py` each hard-coded a different, incomplete storefront list
@@ -270,7 +270,7 @@ keywords targeting this vacuum convert at extremely low acquisition costs.
 ## Full run on a real app, twice in two days — what the skill caught, what it hid, what changed (v2.7.1)
 
 **Date:** 2026-10-07 and 2026-10-08  
-**Source:** two `--full` iterations on Compresso (iOS, 39 storefronts, 785-key rank basket, 14 Apple Ads campaigns, 71 hypotheses); the second run after the fixes below [live:asc + GA4/BigQuery + Apple Ads + iTunes Search@2026-10-08]
+**Source:** two `--full` iterations on one real iOS app (39 storefronts, 785-key rank basket, 14 Apple Ads campaigns, 71 hypotheses); the second run after the fixes below [live:asc + GA4/BigQuery + Apple Ads + iTunes Search@2026-10-08]
 
 ### What worked (keep)
 - The ledger's "close before proposing" order paid for itself: **0 hypotheses due on day one, 2 on day two**, and both were judged the same run instead of piling up.

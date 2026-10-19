@@ -122,7 +122,7 @@ One file per external traffic experiment (Reddit, Threads, Twitter/X, Product Hu
 | `tracked_link` | URL | full App Store URL with `ct` and optional `pt` |
 | `prediction` | text + numbers | expected clicks and installs within window (default 7–14 days) |
 | `kill_criterion` | text + numbers | removal/ban, or < N clicks in window |
-| `copy_template` | text / markdown | exact native copy (English & Ukrainian) prepared for posting |
+| `copy_template` | text / markdown | exact native copy (one text per language) prepared for posting |
 | `went_live` | date | day the post/comment/ad was actually published |
 | `window_days` | integer | default 7 days for social comments, 14 days for ads/showcases |
 | `verdict` | `worked` / `no-effect` / `adverse` / `withheld` | outcome judged via ASC Campaign Analytics |
