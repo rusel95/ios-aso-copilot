@@ -72,9 +72,16 @@ triggers:
   - budget exhaustion snatcher
   - floor sweeper
   - ловчий виснаженого аукціону
-argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar | google] [flags]"
+  - чарти
+  - топ категорій
+  - утиліти
+  - позиція в категорії
+  - app store charts
+  - category charts
+  - charts
+argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar | google | charts] [flags]"
 metadata:
-  version: 2.9.1
+  version: 2.10.0
 ---
 
 # iOS ASO Copilot
@@ -190,6 +197,21 @@ AFTER the Apple side (`keywords hints`, rank reads, Ads delivery). Rules and a w
    another app's name in the keyword field (Guideline 2.3.7).
 3. **Product-page copy for Google** describes real features only.
 4. **`batch` is an order, not a size** when the anchor's index is low; it prints `n/a` instead of a number it cannot support.
+#### 7. App Store Category Charts
+```bash
+# Check ranking in primary categories (Utilities, Photo & Video) in Ukraine (default)
+ios-aso-copilot charts
+
+# Check specific storefront and category with custom depth
+ios-aso-copilot charts --country ua --genre utilities --limit 100
+
+# Multi-country or multi-genre check with JSON output
+ios-aso-copilot charts --country ua,pl,us --genre utilities,photo_video --json
+
+# Top Paid or Top Grossing charts
+ios-aso-copilot charts --country ua --genre utilities --chart-type top-paid
+```
+Queries Apple's official, open iTunes RSS feed directly. Discovers real-time category standings (Top Free, Top Paid, Top Grossing) across storefronts without authentication. Returns the exact rank and neighboring apps if in Top 100, or the threshold cut-off app.
 
 ---
 

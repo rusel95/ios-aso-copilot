@@ -269,6 +269,22 @@ def self_check():
             assert vdata["localized_in_top5"] == 0
             assert vdata["results_count"] == 2
 
+        # Test category charts parser & functions
+        mock_chart_resp = json.dumps({
+            "feed": {
+                "entry": [
+                    {"id": {"attributes": {"im:id": "111"}}, "im:name": {"label": "Other App"}, "im:artist": {"label": "Dev A"}, "category": {"attributes": {"label": "Utilities"}}},
+                    {"id": {"attributes": {"im:id": "1234567890"}}, "im:name": {"label": "Compresso"}, "im:artist": {"label": "Dev B"}, "category": {"attributes": {"label": "Utilities"}}}
+                ]
+            }
+        }).encode("utf-8")
+        with patch("urllib.request.urlopen") as mock_url:
+            mock_url.return_value.__enter__.return_value.read.return_value = mock_chart_resp
+            c_apps, c_err = fetch_category_chart("ua", 6002, limit=10)
+            assert not c_err and len(c_apps) == 2
+            c_match = find_app_in_chart(c_apps, "1234567890", "Compresso")
+            assert c_match and c_match["rank"] == 2
+
         # Test cmd_info with mock store and mock run_cmd
         info_args = argparse.Namespace(store=str(store), json=True, debug=False, info=False, quiet=False)
         with patch(f"{__name__}.run_cmd", return_value=(0, "mock", "")):
@@ -283,6 +299,7 @@ def self_check():
         assert parser.parse_args(["--json", "info"]).json is True
         assert parser.parse_args(["keywords", "vacuum", "-c", "pl", "-t", "kompresor"]).keywords_action == "vacuum"
         assert parser.parse_args(["ads", "campaigns", "--status", "ENABLED"]).ads_action == "campaigns"
+        assert parser.parse_args(["charts", "--country", "ua"]).command == "charts"
 
         # google batch: unsupported numbers are n/a, not invented or zero
         assert google_ratio(40.0, 8.0) == 500.0 and google_ratio(0.0, 8.0) == 0.0
@@ -419,6 +436,209 @@ def prepare_funnel_pull(pull_script, store, app_id):
     return command, raw_dir, ""
 
 
+# ---------------------------------------------------------------- category charts
+GENRE_MAP = {
+    "utilities": 6002,
+    "utility": 6002,
+    "productivity_utilities": 6002,
+    "photo_video": 6008,
+    "photo-video": 6008,
+    "photo": 6008,
+    "productivity": 6007,
+    "lifestyle": 6012,
+    "business": 6000,
+    "education": 6017,
+    "entertainment": 6016,
+    "finance": 6015,
+    "games": 6014,
+    "health_fitness": 6013,
+    "music": 6011,
+    "navigation": 6010,
+    "news": 6009,
+    "social": 6005,
+    "weather": 6001,
+}
+
+GENRE_NAMES = {
+    6002: "Utilities",
+    6008: "Photo & Video",
+    6007: "Productivity",
+    6012: "Lifestyle",
+    6000: "Business",
+    6017: "Education",
+    6016: "Entertainment",
+    6015: "Finance",
+    6014: "Games",
+    6013: "Health & Fitness",
+    6011: "Music",
+    6010: "Navigation",
+    6009: "News",
+    6005: "Social Networking",
+    6001: "Weather",
+}
+
+CHART_TYPE_MAP = {
+    "top-free": "topfreeapplications",
+    "free": "topfreeapplications",
+    "topfreeapplications": "topfreeapplications",
+    "top-paid": "toppaidapplications",
+    "paid": "toppaidapplications",
+    "toppaidapplications": "toppaidapplications",
+    "top-grossing": "topgrossingapplications",
+    "grossing": "topgrossingapplications",
+    "topgrossingapplications": "topgrossingapplications",
+}
+
+
+def fetch_category_chart(country: str, genre_id: int, chart_type: str = "topfreeapplications", limit: int = 100, timeout: float = 8.0):
+    """Fetch App Store Category Chart from Apple's official iTunes RSS feed."""
+    log_debug(f"Fetching category chart: country={country}, genre={genre_id}, type={chart_type}, limit={limit}")
+    url = f"https://itunes.apple.com/{country.lower()}/rss/{chart_type}/limit={limit}/genre={genre_id}/json"
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        log_error(f"iTunes RSS request failed for {url}: {exc}")
+        return None, str(exc)
+
+    entries = data.get("feed", {}).get("entry", [])
+    if isinstance(entries, dict):
+        entries = [entries]
+
+    apps = []
+    for i, e in enumerate(entries, 1):
+        app_id = e.get("id", {}).get("attributes", {}).get("im:id", "")
+        name = e.get("im:name", {}).get("label", "")
+        developer = e.get("im:artist", {}).get("label", "")
+        category = e.get("category", {}).get("attributes", {}).get("label", "")
+        apps.append({
+            "rank": i,
+            "app_id": app_id,
+            "name": name,
+            "developer": developer,
+            "category": category,
+        })
+    return apps, ""
+
+
+def find_app_in_chart(apps, target_app_id: str, brand_name: str = ""):
+    target_id_str = str(target_app_id).strip() if target_app_id else ""
+    brand_cf = brand_name.casefold().strip() if brand_name else ""
+    for a in apps:
+        if target_id_str and str(a.get("app_id", "")).strip() == target_id_str:
+            return a
+        if brand_cf and brand_cf in a.get("name", "").casefold():
+            return a
+    return None
+
+
+def cmd_charts(args):
+    """Inspect App Store Category Charts (Top Free/Paid/Grossing) for target app standings."""
+    store = Path(args.store).resolve()
+    app = resolve_app_identity(store)
+
+    country_arg = getattr(args, "country", None) or "ua"
+    countries = [c.strip().lower() for c in country_arg.split(",") if c.strip()]
+
+    chart_type_arg = getattr(args, "chart_type", "top-free") or "top-free"
+    chart_type = CHART_TYPE_MAP.get(chart_type_arg.lower(), "topfreeapplications")
+
+    limit = getattr(args, "limit", 100) or 100
+
+    genre_arg = getattr(args, "genre", None)
+    genre_ids = []
+    if genre_arg:
+        for g in genre_arg.split(","):
+            g = g.strip().lower()
+            if g.isdigit():
+                genre_ids.append(int(g))
+            elif g in GENRE_MAP:
+                genre_ids.append(GENRE_MAP[g])
+            else:
+                log_warn(f"Unknown genre '{g}'; supported: {', '.join(sorted(GENRE_MAP.keys()))}")
+    else:
+        configured_genres = app.get("ads_genres", [])
+        for cg in configured_genres:
+            cg_clean = cg.lower().replace(" ", "_").replace("-", "_")
+            if cg_clean in GENRE_MAP:
+                genre_ids.append(GENRE_MAP[cg_clean])
+        if not genre_ids:
+            genre_ids = [6002, 6008]
+
+    all_results = []
+    for country in countries:
+        for gid in genre_ids:
+            gname = GENRE_NAMES.get(gid, f"Genre {gid}")
+            apps, err = fetch_category_chart(country, gid, chart_type=chart_type, limit=limit)
+            if err or apps is None:
+                all_results.append({
+                    "country": country.upper(),
+                    "genre": gname,
+                    "genre_id": gid,
+                    "chart_type": chart_type,
+                    "error": err,
+                    "found": False,
+                    "rank": None,
+                })
+                continue
+
+            match = find_app_in_chart(apps, app["app_id"], app["brand"])
+            res = {
+                "country": country.upper(),
+                "genre": gname,
+                "genre_id": gid,
+                "chart_type": chart_type,
+                "chart_size": len(apps),
+                "found": match is not None,
+                "rank": match["rank"] if match else None,
+                "matched_app": match,
+                "threshold_app": apps[-1] if apps else None,
+            }
+            if match:
+                r = match["rank"]
+                res["neighbors"] = {
+                    "prev": apps[r - 2] if r > 1 else None,
+                    "next": apps[r] if r < len(apps) else None,
+                }
+            all_results.append(res)
+
+    if getattr(args, "json", False):
+        print(json.dumps(all_results, indent=2, ensure_ascii=False))
+        return 0
+
+    print("=================================================================")
+    print(f"📈 App Store Category Charts · {app['brand']} (ID: {app['app_id']})")
+    print("=================================================================\n")
+
+    for r in all_results:
+        c = r["country"]
+        g = r["genre"]
+        if r.get("error"):
+            print(f"⚠️  [{c}] {g} (ID: {r['genre_id']}): Error fetching chart: {r['error']}")
+            continue
+
+        if r["found"]:
+            m = r["matched_app"]
+            print(f"🎉 [{c}] {g}: #{r['rank']} in Top {r['chart_size']}!")
+            print(f"    App: {m['name']} (by {m['developer']})")
+            nbr = r.get("neighbors", {})
+            if nbr.get("prev"):
+                print(f"    ▲ #{r['rank']-1}: {nbr['prev']['name']} ({nbr['prev']['developer']})")
+            if nbr.get("next"):
+                print(f"    ▼ #{r['rank']+1}: {nbr['next']['name']} ({nbr['next']['developer']})")
+        else:
+            th = r.get("threshold_app")
+            th_str = f"#{th['rank']}: {th['name']} by {th['developer']}" if th else "no entries"
+            print(f"📊 [{c}] {g}: Not in Top {r['chart_size']}")
+            print(f"    Chart cut-off threshold: {th_str}")
+        print()
+
+    print("=================================================================")
+    return 0
+
+
 def cmd_status(args):
     """Quick high-level snapshot."""
     store = Path(args.store).resolve()
@@ -482,6 +702,24 @@ def cmd_status(args):
     else:
         print(f"  ⚠️ Ledger report unavailable — {ledger_py} not found.")
         partial = True
+
+    # 4. App Store Category Charts
+    print("\n--- 4. App Store Category Charts ---")
+    try:
+        apps, err = fetch_category_chart("ua", 6002, limit=100, timeout=3.0)
+        if not err and apps:
+            match = find_app_in_chart(apps, app["app_id"], app["brand"])
+            if match:
+                print(f"  🎉 {app['brand']} is #{match['rank']} in Top Free Utilities [UA]!")
+            else:
+                th = apps[-1] if apps else None
+                th_name = f"#{th['rank']} {th['name']} by {th['developer']}" if th else "no entries"
+                print(f"  Not in Top 100 Utilities [UA] (Threshold: {th_name}). Run 'copilot charts' for details.")
+        else:
+            print(f"  Category chart query unavailable ({err or 'no data'}).")
+    except Exception as exc:
+        print(f"  Category chart query skipped ({exc}).")
+
     return 2 if partial else 0
 
 
@@ -2158,6 +2396,13 @@ def build_parser():
     p_gbatch.add_argument("--timeframe", "-t", default="today 12-m", help="Timeframe (default: today 12-m)")
     p_gbatch.add_argument("--delay", type=float, default=1.5, help="Polite delay in seconds between batches (default: 1.5)")
 
+    # charts
+    p_charts = subparsers.add_parser("charts", help="Inspect App Store Category Charts (Top Free/Paid/Grossing)", parents=[common_parent])
+    p_charts.add_argument("--country", "-c", default="ua", help="Country code or comma-separated codes (default: ua)")
+    p_charts.add_argument("--genre", "-g", help="Genre name (utilities, photo_video, productivity) or numeric ID")
+    p_charts.add_argument("--chart-type", default="top-free", choices=["top-free", "top-paid", "top-grossing"], help="Chart type (default: top-free)")
+    p_charts.add_argument("--limit", type=int, default=100, help="Number of apps in chart (default: 100, max: 200)")
+
     return parser
 
 
@@ -2201,6 +2446,8 @@ def main():
         return cmd_radar(args)
     elif args.command == "google":
         return cmd_google(args)
+    elif args.command == "charts":
+        return cmd_charts(args)
     return 0
 
 
