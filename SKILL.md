@@ -154,6 +154,22 @@ ios-aso-copilot ads pause --campaign-id <campaign-id>
 ios-aso-copilot ads resume --campaign-id <campaign-id>
 ```
 
+#### 5. Channel Campaigns & Multi-Layer Attribution
+```bash
+# List all registered external campaigns and channel proposals
+ios-aso-copilot campaign --list
+
+# Generate App Store campaign link with auto-detected Provider Token (pt=) and media type (mt=8):
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads
+
+# Generate tracked link, check anti-collision cooldowns, and scaffold a C<NNN> hypothesis:
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --scaffold-hypo --target "Threads Indie Founders"
+```
+
+**Attribution Architecture**:
+1. **Apple Search Ads (Paid Store Ads)**: App enables `Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()`. RevenueCat automatically contacts Apple AdServices and stamps customer profiles with `attribution_campaign` and `attribution_keyword`. Inspect via `rc charts show actives --segment attribution_campaign`.
+2. **External Traffic & Social (Threads, Reddit, Web)**: Tracked via Apple App Store Campaign links (`?pt=<PROVIDER_TOKEN>&ct=<CAMPAIGN_TOKEN>&mt=8`). Auto-injects `**Provider Token**` from `marketing/config.md`. Inspect downloads, paying users, and proceeds in **App Store Connect → App Analytics → Sources → Campaigns**.
+
 #### 5. Data Cycles & Telemetry
 ```bash
 ios-aso-copilot cycle [--skip-pull] [--skip-ga]  # Full 6-step collection pass

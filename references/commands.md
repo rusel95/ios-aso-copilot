@@ -210,3 +210,18 @@ Mutations (creating/updating campaigns, raising budgets, adding keywords) spend 
 ## RespectASO
 
 Read `references/respectaso.md` for the installed MCP tool groups. Access/status and non-saving queries are reads; settings changes, saved data, background AI usage and session cancellation have distinct effects. Parse embedded errors even when MCP `isError` is false.
+
+## Campaign Link & Channel Attribution (`campaign`)
+
+Generate collision-protected App Store campaign links with automatic Provider Token (`pt=`) injection and inspect registered external campaigns:
+
+```bash
+# List all registered external channel campaigns and proposals
+ios-aso-copilot campaign --list
+
+# Generate a campaign link for Threads with automatic Provider Token from config.md:
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads
+
+# Generate link, check anti-collision cooldowns, and scaffold a C<NNN> hypothesis:
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --scaffold-hypo --target "Threads Indie Founders"
+```

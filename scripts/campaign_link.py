@@ -36,6 +36,38 @@ def resolve_app_id(store_dir, explicit_app):
             pass
     return "<APP_ID>"
 
+def resolve_pt(store_dir, explicit_pt):
+    if explicit_pt:
+        return explicit_pt
+    env_pt = os.environ.get("APPLE_PROVIDER_TOKEN") or os.environ.get("ASC_PROVIDER_TOKEN")
+    if env_pt:
+        return env_pt
+    config_path = os.path.join(store_dir, "config.md")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = f.read()
+                m = re.search(r'\*\*Provider Token\*\*:\s*([0-9]+)', cfg)
+                if m:
+                    return m.group(1)
+        except Exception:
+            pass
+    # Check ad_account.json reports if available
+    ad_account_matches = glob.glob(os.path.join(store_dir, "reports", "*", "ad_account.json"))
+    for p in ad_account_matches:
+        try:
+            import json
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                delegations = data.get("response", {}).get("result", {}).get("delegations", [])
+                for d in delegations:
+                    if d.get("resourceType") == "CONTENT_PROVIDER" and d.get("resourceId"):
+                        return str(d["resourceId"])
+        except Exception:
+            pass
+    return ""
+
+
 def load_existing_hypotheses(store_dir):
     hypo_dir = os.path.join(store_dir, "hypotheses")
     records = []
@@ -273,6 +305,7 @@ def main():
         for kind in ("reddit_reply", "reddit_showcase", "threads", "x", "ugc_video"):
             for lang, text in get_copy_templates(kind, "https://example.com/id1").items():
                 assert not unmeasured_figures(text), (kind, lang, unmeasured_figures(text))
+        assert resolve_pt("/tmp/nonexistent", "999888") == "999888"
         print("Self-check passed successfully.")
         return
 
@@ -310,11 +343,13 @@ def main():
         sys.exit(1)
 
     app_id = resolve_app_id(args.store, args.app)
-    base_url = f"https://apps.apple.com/app/id{app_id}"
-    params = [f"ct={ct}"]
-    if args.pt:
-        params.append(f"pt={args.pt}")
-    full_url = f"{base_url}?{'&'.join(params)}"
+    pt = resolve_pt(args.store, args.pt)
+    if pt:
+        base_url = f"https://apps.apple.com/app/apple-store/id{app_id}"
+        full_url = f"{base_url}?pt={pt}&ct={ct}&mt=8"
+    else:
+        base_url = f"https://apps.apple.com/app/id{app_id}"
+        full_url = f"{base_url}?ct={ct}"
 
     # Append to marketing/campaigns.csv if store directory exists
     csv_dir = args.store

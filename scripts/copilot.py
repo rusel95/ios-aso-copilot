@@ -1445,6 +1445,34 @@ def cmd_ga(args):
     return subprocess.run(cmd).returncode
 
 
+
+def cmd_campaign(args):
+    """Delegate to campaign_link.py."""
+    store = Path(args.store).resolve()
+    script = SKILL_DIR / "scripts" / "campaign_link.py"
+    if not script.exists():
+        print(f"campaign_link.py not found at {script}")
+        return 1
+    forward_args = [sys.executable, str(script), "--store", str(store)]
+    if getattr(args, "list", False):
+        forward_args.append("--list")
+    if getattr(args, "campaign", ""):
+        forward_args.extend(["--campaign", args.campaign])
+    if getattr(args, "channel", ""):
+        forward_args.extend(["--channel", args.channel])
+    if getattr(args, "type", ""):
+        forward_args.extend(["--type", args.type])
+    if getattr(args, "pt", ""):
+        forward_args.extend(["--pt", args.pt])
+    if getattr(args, "target", ""):
+        forward_args.extend(["--target", args.target])
+    if getattr(args, "scaffold_hypo", False):
+        forward_args.append("--scaffold-hypo")
+    if getattr(args, "force", False):
+        forward_args.append("--force")
+    return subprocess.run(forward_args).returncode
+
+
 def cmd_ledger(args):
     """Delegate to ledger.py."""
     store = Path(args.store).resolve()
@@ -2360,6 +2388,17 @@ def build_parser():
     p_ga.add_argument("--include-debug", action="store_true", help="Include debug / simulator traffic")
     p_ga.add_argument("--export-csv", action="store_true", help="Export funnel metrics to <store>/metrics/ga4_funnel.csv")
 
+    # campaign
+    p_camp = subparsers.add_parser("campaign", help="App Store Campaign Link & Hypothesis Anti-Collision Generator", parents=[common_parent])
+    p_camp.add_argument("--list", action="store_true", help="List registered campaigns and hypotheses")
+    p_camp.add_argument("--campaign", default="", help="Campaign token (e.g. threads_build_in_public)")
+    p_camp.add_argument("--channel", default="threads", help="Channel (e.g. threads, reddit, x, linkedin)")
+    p_camp.add_argument("--type", default="threads", choices=["reddit_reply", "reddit_showcase", "threads", "x", "ugc_video", "other"], help="Copy template type")
+    p_camp.add_argument("--pt", default="", help="Provider Token (auto-detected if omitted)")
+    p_camp.add_argument("--target", default="", help="Target audience / community")
+    p_camp.add_argument("--scaffold-hypo", action="store_true", help="Create C<NNN> markdown hypothesis in hypotheses/")
+    p_camp.add_argument("--force", action="store_true", help="Bypass anti-collision warnings")
+
     # ledger
     p_led = subparsers.add_parser("ledger", help="Manage hypothesis and keyword ledger", parents=[common_parent])
     p_led.add_argument("ledger_args", nargs=argparse.REMAINDER, help="Arguments passed to ledger.py")
@@ -2440,6 +2479,8 @@ def main():
         return cmd_funnel(args)
     elif args.command == "ga":
         return cmd_ga(args)
+    elif args.command == "campaign":
+        return cmd_campaign(args)
     elif args.command == "ledger":
         return cmd_ledger(args)
     elif args.command == "radar":
