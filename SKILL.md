@@ -48,6 +48,11 @@ triggers:
   - сценарій відео
   - google analytics
   - firebase analytics
+  - telemetry
+  - bigquery telemetry
+  - retention cohort
+  - телеметрія
+  - когорти
   - гугл аналітика
   - свайпи
   - локалізація
@@ -79,7 +84,7 @@ triggers:
   - app store charts
   - category charts
   - charts
-argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | ledger | radar | google | charts] [flags]"
+argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | telemetry | ledger | radar | google | charts] [flags]"
 metadata:
   version: 2.10.0
 ---
@@ -176,6 +181,7 @@ ios-aso-copilot cycle [--skip-pull] [--skip-ga]  # Full 6-step collection pass
 ios-aso-copilot funnel [--pull]                 # ASC Funnel metrics
 ios-aso-copilot reviews ratings                 # Customer reviews & ratings
 ios-aso-copilot ga --days 14                    # In-app GA4 telemetry
+ios-aso-copilot telemetry [--days 30]           # BigQuery in-app telemetry (funnel, retention, engine, paywall)
 ios-aso-copilot radar report                    # Apple search popularity & impression share
 ios-aso-copilot ledger report                   # Hypotheses & keyword ledger
 ```
@@ -309,6 +315,7 @@ Example: `[$ios-aso-copilot](SKILL.md) --full MyApp, App ID <app-id>`.
 | Review only | `python3 "$COPILOT" reviews ratings --store "$STORE"` or `python3 "$COPILOT" reviews unreplied --store "$STORE"` | Reads ratings or unresponded reviews |
 | Existing funnel snapshot | `python3 "$COPILOT" funnel --store "$STORE"` | Reads local `weekly.csv`; no pull |
 | Refresh funnel / in-app data | `python3 "$COPILOT" funnel --pull --store "$STORE"` / `python3 "$COPILOT" ga --days 14 --store "$STORE"` | Makes remote reads and writes local snapshots; funnel CSVs use a unique app-specific temp directory |
+| BigQuery Telemetry & Cohorts | `python3 "$COPILOT" telemetry --store "$STORE" --export-md` | Pulls 4-pillar raw BigQuery telemetry (Funnel, Compression Engine, Retention curve, Paywall CVR) |
 | One-screen brief (ASC state, Top-200 bands per storefront, all hypotheses, store funnel) | `python3 "$COPILOT" brief --store "$STORE"` | Reads only (`asc` reads + local files); the Top-200 table alone is `ledger.py --store "$STORE" bands` |
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
 | Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
@@ -535,6 +542,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | Keyword selection and experiment verdicts | `references/aso-loop.md` |
 | Metrics and denominators | `references/funnel-analytics.md` |
 | In-app telemetry and GA4 extraction | `references/google-analytics.md` |
+| BigQuery Telemetry & 4-Pillar Analytics | `references/bigquery-telemetry.md` |
 | Reviews, ratings, and sentiment analysis | `references/reviews-and-ratings.md` |
 | Paid acquisition, auction dynamics, cold-start rules, harvesting | `references/apple-ads.md` |
 | PPO, CPP, reviews and content | `references/playbooks.md` |

@@ -75,6 +75,8 @@ def resolve_app_identity(store: Path):
         for label, key in (("**App ID**:", "app_id"), ("**Version**:", "version"),
                            ("**Brand tokens**:", "brand"), ("**GA4 Property ID**:", "ga4_property_id"),
                            ("**Firebase Property ID**:", "ga4_property_id"),
+                           ("**Firebase Project ID**:", "firebase_project_id"),
+                           ("**BigQuery Project ID**:", "bigquery_project_id"),
                            ("**Apple Ads profile**:", "ads_profile"),
                            ("**Apple Ads account**:", "ads_account"),
                            ("**Apple Ads genres**:", "ads_genres"),
@@ -1477,6 +1479,25 @@ def cmd_ga(args):
     return subprocess.run(cmd).returncode
 
 
+def cmd_telemetry(args):
+    """Pull BigQuery in-depth product telemetry (funnel, core engine, retention, paywall)."""
+    store = Path(args.store).resolve()
+    script = SKILL_DIR / "scripts" / "pull_bigquery_telemetry.py"
+    if not script.exists():
+        script = store / "scripts" / "pull_bigquery_telemetry.py"
+    if not script.exists():
+        print(f"BigQuery telemetry script not found at {script}")
+        return 2
+
+    cmd = [sys.executable, str(script), "--store", str(store), "--days", str(args.days)]
+    if getattr(args, "export_md", False):
+        cmd.append("--export-md")
+    if getattr(args, "export_json", False):
+        cmd.append("--export-json")
+
+    return subprocess.run(cmd).returncode
+
+
 
 def cmd_campaign(args):
     """Delegate to campaign_link.py."""
@@ -2506,6 +2527,12 @@ def build_parser():
     p_ga.add_argument("--include-debug", action="store_true", help="Include debug / simulator traffic")
     p_ga.add_argument("--export-csv", action="store_true", help="Export funnel metrics to <store>/metrics/ga4_funnel.csv")
 
+    # telemetry
+    p_tel = subparsers.add_parser("telemetry", help="Pull BigQuery raw product telemetry (funnel, retention, engine, paywall)", parents=[common_parent])
+    p_tel.add_argument("--days", type=int, default=0, help="Days window (0 for all-time)")
+    p_tel.add_argument("--export-md", action="store_true", help="Export markdown report to <store>/metrics/telemetry_latest.md")
+    p_tel.add_argument("--export-json", action="store_true", help="Export json to <store>/metrics/telemetry_latest.json")
+
     # campaign
     p_camp = subparsers.add_parser("campaign", help="App Store Campaign Link & Hypothesis Anti-Collision Generator", parents=[common_parent])
     p_camp.add_argument("--list", action="store_true", help="List registered campaigns and hypotheses")
@@ -2597,6 +2624,8 @@ def main():
         return cmd_funnel(args)
     elif args.command == "ga":
         return cmd_ga(args)
+    elif args.command == "telemetry":
+        return cmd_telemetry(args)
     elif args.command == "campaign":
         return cmd_campaign(args)
     elif args.command == "ledger":
