@@ -312,7 +312,7 @@ Example: `[$ios-aso-copilot](SKILL.md) --full MyApp, App ID <app-id>`.
 | One-screen brief (ASC state, Top-200 bands per storefront, all hypotheses, store funnel) | `python3 "$COPILOT" brief --store "$STORE"` | Reads only (`asc` reads + local files); the Top-200 table alone is `ledger.py --store "$STORE" bands` |
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
 | Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
-| Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, attempts configured funnel and GA pulls, then reports the ledger |
+| Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, pulls ASC analytics impressions and funnel, GA, then reports the ledger |
 | Explicit full skill run (`--full`) | Start `ledger.py refresh` first; run `python3 "$COPILOT" cycle --store "$STORE"` and independent reads while it runs | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
 
 Check `python3 "$COPILOT" --help` or the specific script's `--help` when a flag is unfamiliar or the installed
@@ -327,13 +327,14 @@ unavailable, and forwards nonzero codes from narrow commands. Ledger row warning
 report and may still accompany exit `0`; inspect them. Blank output is unknown, not proof of zero rows.
 A zero exit code is not a data-completeness certificate.
 
-For status and full-audit answers, use three sections in this order: **A · what is already live and what
-happened to it; B · what moved; C · what to do next.** Include only the requested scope and cite each
-decision-relevant fact with its provenance tag. **Do not draft a new hypothesis before section A is on
-screen.** Proposing while live
-experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts;
-the ledger exists to make that state visible instead of comfortable.
+For status and full-audit answers, use these sections in this order: **Store Funnel & ASC Analytics (impressions, views, downloads, CVR); A · what is already live and what happened to it; B · what moved; C · what to do next.** Include only the requested scope and cite each decision-relevant fact with its provenance tag. **Do not draft a new hypothesis before the live funnel metrics and section A are on screen.** Proposing while live experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts; the ledger exists to make that state visible instead of comfortable.
 
+- **Store Funnel & ASC Analytics (Impressions & Conversion).** Mandatory for every full-cycle audit (`--full`, full cycle). Collects and reports the App Store Connect acquisition funnel:
+  - Total Impressions and breakdown by source type (App Store Search, Browse, App Referrer, Web Referrer).
+  - Product Page Views and First-time Downloads.
+  - Conversion Rates: Page View CVR (`PV ÷ Impressions`), Download CVR (`Downloads ÷ PV`, `Downloads ÷ Impressions`).
+  - Breakdown by Top Storefronts / Territories (US, UA, DE, NO, PL, etc.).
+  - Week-over-Week Impression Trajectory: recent weekly trends to assess whether organic search volume is climbing or declining.
 - **A · Hypothesis ledger.** Every hypothesis carries a state: `judged` / `due` / `open` /
   `not shipped`. `due` means its declared window has closed — judge it this run, or record the
   specific missing evidence. A `queued` status on a change that is already public is a discrepancy

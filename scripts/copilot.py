@@ -419,20 +419,28 @@ def compact_asc_output(output, kind):
 def prepare_funnel_pull(pull_script, store, app_id):
     """Build a safe pull only after verifying the helper identity and raw directory option."""
     store = Path(store).resolve()
-    helper_app_id = declared_funnel_app_id(pull_script)
-    if helper_app_id != app_id:
-        return None, None, (f"Funnel helper declares App ID {helper_app_id or '(unverified)'}, which does not match "
-                            f"configured App ID {app_id}; refusing the pull.")
+    pull_script = Path(pull_script).resolve()
+    skill_pull = (SKILL_DIR / "scripts" / "pull_funnel.py").resolve()
+    is_skill_helper = pull_script == skill_pull
+
     rc, help_text, err = run_cmd([sys.executable, str(pull_script), "--help"])
     if rc != 0 or "--raw-dir" not in help_text:
         detail = (err.strip() or f"exit {rc}") if rc != 0 else "--raw-dir is unsupported"
         return None, None, f"Funnel pull has no verified safe raw directory option ({detail}); refusing its default path."
+
+    if not is_skill_helper and "--app" not in help_text:
+        helper_app_id = declared_funnel_app_id(pull_script)
+        if helper_app_id != app_id:
+            return None, None, (f"Funnel helper declares App ID {helper_app_id or '(unverified)'}, which does not match "
+                                f"configured App ID {app_id}; refusing the pull.")
 
     run_root = Path(tempfile.gettempdir()).resolve() / "ios-aso-copilot" / "funnel"
     run_root.mkdir(parents=True, exist_ok=True)
     raw_dir = Path(tempfile.mkdtemp(prefix=f"{app_id}-cycle-", dir=run_root)).resolve()
     command = [sys.executable, str(pull_script), "--out", str(store / "metrics"),
                "--raw-dir", str(raw_dir)]
+    if "--app" in help_text:
+        command.extend(["--app", str(app_id)])
     return command, raw_dir, ""
 
 
@@ -1374,23 +1382,47 @@ def cmd_funnel(args):
         latest_rec = max(r.get("recorded", "") for r in rows)
         latest_rows = [r for r in rows if r.get("recorded") == latest_rec]
         all_row = next((r for r in latest_rows if r.get("segment") == "all"), None)
-        print(f"\n📊 ASC Funnel Summary (Latest snapshot: {latest_rec})")
+        
+        channel_segs = {"search", "browse", "web_referrer", "app_referrer"}
+        channel_rows = [r for r in latest_rows if r.get("segment") in channel_segs or (r.get("segment") or "").startswith("other_")]
+        
         if all_row:
-            print(f"  Impressions:        {all_row.get('impressions')}")
-            print(f"  Product Page Views: {all_row.get('product_page_views')}")
-            print(f"  Downloads (first):  {all_row.get('downloads')}")
-            print(f"  Conversion Rate:    {all_row.get('cvr_pct')}%")
-            print(f"  Trial Starts:       {all_row.get('trial_starts')}")
-            print(f"  Note:               {all_row.get('note')}")
+            total_imp = int(all_row.get('impressions') or 0)
+            total_pv = int(all_row.get('product_page_views') or 0)
+            total_dl = int(all_row.get('downloads') or 0)
+            cvr = all_row.get('cvr_pct') or (f"{100.0 * total_dl / total_pv:.1f}" if total_pv else "—")
         else:
-            print("  ⚠️ Aggregate segment unavailable in this snapshot.")
-        print("\nTop Storefronts:")
-        for r in latest_rows:
-            seg = r.get("segment")
-            if seg != "all":
-                print(f"  {seg.upper()}: {r.get('impressions')} imp, {r.get('product_page_views')} views, {r.get('downloads')} dl (CVR: {r.get('cvr_pct')}%)")
+            total_imp = sum(int(r.get('impressions') or 0) for r in channel_rows)
+            total_pv = sum(int(r.get('product_page_views') or 0) for r in channel_rows)
+            total_dl = sum(int(r.get('downloads') or 0) for r in channel_rows)
+            cvr = f"{100.0 * total_dl / total_pv:.1f}" if total_pv else "—"
+
+        print(f"\n📊 ASC Funnel Summary (Latest snapshot: {latest_rec})")
+        print(f"  Total Impressions:  {total_imp:,}")
+        print(f"  Product Page Views: {total_pv:,}")
+        print(f"  Downloads (first):  {total_dl:,}")
+        print(f"  Conversion Rate:    {cvr}%")
+        if all_row and all_row.get('trial_starts'):
+            print(f"  Trial Starts:       {all_row.get('trial_starts')}")
+
+        if channel_rows:
+            print("\nAcquisition Channels:")
+            for r in channel_rows:
+                seg = r.get("segment", "")
+                imp = r.get('impressions') or "0"
+                pv = r.get('product_page_views') or "0"
+                dl = r.get('downloads') or "0"
+                cvr_p = r.get('cvr_pct') or (f"{100.0 * int(dl) / int(pv):.1f}%" if int(pv) else "—")
+                print(f"  {seg.upper():<16}: {imp:>6} imp, {pv:>4} views, {dl:>3} dl (CVR: {cvr_p})")
+
+        territories = [r for r in latest_rows if len(r.get("segment") or "") == 2]
+        if territories:
+            print("\nTop Storefronts:")
+            for r in sorted(territories, key=lambda x: int(x.get('impressions') or 0), reverse=True)[:10]:
+                print(f"  {r['segment'].upper():<4}: {r.get('impressions', '0'):>6} imp, {r.get('product_page_views', '0'):>4} views, {r.get('downloads', '0'):>3} dl")
+
         print_lifecycle(store / "metrics" / "lifecycle.csv")
-        return 0 if all_row else 2
+        return 0
 
 
 def print_lifecycle(path):
@@ -2104,6 +2136,86 @@ def cmd_cycle(args):
     return code
 
 
+def print_step_funnel_summary(store):
+    """Print a clear, prominent ASC Impressions & Funnel Summary directly in cycle Step 3."""
+    weekly_csv = store / "metrics" / "weekly.csv"
+    if not weekly_csv.is_file():
+        print("  ⚠️ No weekly.csv found; ASC impressions snapshot unavailable.")
+        return
+    import csv
+    with weekly_csv.open(encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        print("  ⚠️ weekly.csv is empty; ASC impressions snapshot unavailable.")
+        return
+
+    weeks = sorted(set(r.get("week_start") for r in rows if r.get("week_start")))
+    if not weeks:
+        return
+    latest_week = weeks[-1]
+    latest_rows = [r for r in rows if r.get("week_start") == latest_week]
+    rec = max((r.get("recorded", "") for r in latest_rows), default="")
+
+    all_row = next((r for r in latest_rows if r.get("segment") == "all"), None)
+    search_row = next((r for r in latest_rows if r.get("segment") == "search"), None)
+    browse_row = next((r for r in latest_rows if r.get("segment") == "browse"), None)
+
+    channel_segs = {"search", "browse", "web_referrer", "app_referrer"}
+    channel_rows = [r for r in latest_rows if r.get("segment") in channel_segs or (r.get("segment") or "").startswith("other_")]
+
+    if all_row:
+        total_imp = int(all_row.get("impressions") or 0)
+        total_pv = int(all_row.get("product_page_views") or 0)
+        total_dl = int(all_row.get("downloads") or 0)
+    else:
+        total_imp = sum(int(r.get("impressions") or 0) for r in channel_rows)
+        total_pv = sum(int(r.get("product_page_views") or 0) for r in channel_rows)
+        total_dl = sum(int(r.get("downloads") or 0) for r in channel_rows)
+
+    search_imp = int(search_row.get("impressions") or 0) if search_row else 0
+    browse_imp = int(browse_row.get("impressions") or 0) if browse_row else 0
+    search_dl = int(search_row.get("downloads") or 0) if search_row else 0
+
+    pv_imp_cvr = f"{100.0 * total_pv / total_imp:.1f}%" if total_imp else "—"
+    dl_pv_cvr = f"{100.0 * total_dl / total_pv:.1f}%" if total_pv else "—"
+    dl_imp_cvr = f"{100.0 * total_dl / total_imp:.2f}%" if total_imp else "—"
+
+    print(f"\n  📊 App Store Impressions & Funnel Summary (ASC Analytics):")
+    print(f"     Latest Week:           {latest_week} (recorded: {rec})")
+    print(f"     Total Impressions:     {total_imp:,} (Search: {search_imp:,}, Browse: {browse_imp:,}, Other: {total_imp - search_imp - browse_imp:,})")
+    print(f"     Product Page Views:    {total_pv:,} (PV/Imp: {pv_imp_cvr})")
+    print(f"     First-time Downloads:  {total_dl:,} (Dl/Imp: {dl_imp_cvr}, Dl/PV: {dl_pv_cvr})")
+    if search_row:
+        s_pv = int(search_row.get("product_page_views") or 0)
+        s_cvr = f"{100.0 * search_dl / s_pv:.1f}%" if s_pv else "—"
+        print(f"     Search Channel:        {search_imp:,} impr · {search_dl} dl (Search CVR: {s_cvr})")
+
+    territory_rows = [r for r in latest_rows if len(r.get("segment") or "") == 2]
+    if territory_rows:
+        print("     Top Storefronts:")
+        sorted_terr = sorted(territory_rows, key=lambda r: int(r.get("impressions") or 0), reverse=True)
+        for r in sorted_terr[:5]:
+            t_imp = int(r.get("impressions") or 0)
+            t_dl = int(r.get("downloads") or 0)
+            print(f"       {r['segment'].upper()}: {t_imp:,} imp, {t_dl} dl")
+
+    if len(weeks) > 1:
+        print("     Weekly Trajectory (Last 4 Weeks):")
+        for w in weeks[-4:]:
+            w_rows = [r for r in rows if r.get("week_start") == w]
+            w_all = next((r for r in w_rows if r.get("segment") == "all"), None)
+            w_search = next((r for r in w_rows if r.get("segment") == "search"), None)
+            if w_all:
+                w_imp = int(w_all.get("impressions") or 0)
+                w_dl = int(w_all.get("downloads") or 0)
+            else:
+                w_ch = [r for r in w_rows if r.get("segment") in channel_segs or (r.get("segment") or "").startswith("other_")]
+                w_imp = sum(int(r.get("impressions") or 0) for r in w_ch)
+                w_dl = sum(int(r.get("downloads") or 0) for r in w_ch)
+            w_s_imp = int(w_search.get("impressions") or 0) if w_search else 0
+            print(f"       {w}: {w_imp:>7,} impr (Search: {w_s_imp:>6,}) · {w_dl:>3} first-dl")
+
+
 def _cycle_run(args):
     """Run the consolidated live-read and local snapshot pass."""
     store = Path(args.store).resolve()
@@ -2165,39 +2277,45 @@ def _cycle_run(args):
         print(f"  ⚠️ Could not query unresponded reviews: {err.strip() or f'exit {rc}'}")
         partial = True
 
-    # Step 3: Funnel metrics
-    print("\n▶ [3/6] Syncing Funnel Analytics...")
+    # Step 3: Funnel metrics & App Store impressions
+    print("\n▶ [3/6] Syncing Funnel Analytics & Impressions (ASC)...")
     pull_script = store / "scripts" / "pull_funnel.py"
     if not pull_script.exists():
         pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
     if args.skip_pull:
         print("  (Funnel pull explicitly skipped)")
+        print_step_funnel_summary(store)
     elif pull_script.exists():
         command, raw_dir, reason = prepare_funnel_pull(pull_script, store, app_id)
         if command is None:
             print(f"  ⚠️ {reason}")
+            print_step_funnel_summary(store)
             partial = True
         else:
             print("  Running pull_funnel.py (ASC analytics reporting is not real-time — this can take "
                   "several minutes for a storefront with many tracked keywords)...")
             print(f"  Preserving source CSVs under {raw_dir}")
+            env = dict(os.environ)
+            env["ASC_TIMEOUT"] = "120s"
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    text=True, bufsize=1)
+                                    text=True, bufsize=1, env=env)
             lines = []
             for line in proc.stdout:
                 lines.append(line.strip())
                 print("  " + line.rstrip("\n"), flush=True)
             rc = proc.wait()
             if rc == 0:
-                print("  ✓ Funnel metrics updated.")
+                print("  ✓ Funnel metrics & impressions updated.")
             else:
                 why = next((l for l in reversed(lines) if re.search(r"refus|rate limit|429|Error:", l)),
                            next((l for l in reversed(lines) if l), "no output"))
                 print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale. "
                       f"Cause: {why[:200]}")
                 partial = True
+            print_step_funnel_summary(store)
     else:
         print("  ⚠️ Funnel pull unavailable — pull_funnel.py not found in store or skill scripts/.")
+        print_step_funnel_summary(store)
         partial = True
 
     # Step 4: GA4 Telemetry
