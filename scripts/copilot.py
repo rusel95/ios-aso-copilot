@@ -15,6 +15,7 @@ import argparse
 import ast
 import datetime as dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -77,6 +78,7 @@ def resolve_app_identity(store: Path):
                            ("**Firebase Property ID**:", "ga4_property_id"),
                            ("**Firebase Project ID**:", "firebase_project_id"),
                            ("**BigQuery Project ID**:", "bigquery_project_id"),
+                           ("**RevenueCat Project ID**:", "rc_project_id"),
                            ("**Apple Ads profile**:", "ads_profile"),
                            ("**Apple Ads account**:", "ads_account"),
                            ("**Apple Ads genres**:", "ads_genres"),
@@ -93,6 +95,10 @@ def resolve_app_identity(store: Path):
     if property_value and property_value.upper() != "TODO" and not property_value.isdigit():
         raise SystemExit(f"Set a numeric **GA4 Property ID** in {config_file}; refusing to guess.")
 
+    rc_project_id = (values.get("rc_project_id") or "").split(maxsplit=1)[0] if values.get("rc_project_id") else None
+    if rc_project_id and rc_project_id.upper().startswith("TODO"):
+        rc_project_id = None
+
     ads_profile = values.get("ads_profile")
     if ads_profile and (ads_profile.upper() == "TODO" or ads_profile.upper().startswith("TODO")):
         ads_profile = None
@@ -108,6 +114,7 @@ def resolve_app_identity(store: Path):
         "version": version,
         "brand": values.get("brand") or store.parent.name,
         "ga4_property_id": property_value if property_value.isdigit() else None,
+        "rc_project_id": rc_project_id,
         "ads_profile": ads_profile,
         "ads_account": ads_account,
         "ads_genres": genres,
@@ -163,12 +170,15 @@ def self_check():
         config.write_text("**App ID**: 1234567890\n**Version**: 1.2.3\n", encoding="utf-8")
         app = resolve_app_identity(store)
         assert app == {"app_id": "1234567890", "version": "1.2.3", "brand": Path(tmp).name,
-                       "ga4_property_id": None, "ads_profile": None, "ads_account": None,
+                       "ga4_property_id": None, "rc_project_id": None, "ads_profile": None, "ads_account": None,
                        "ads_genres": [], "ads_topics": []}
+        config.write_text("**App ID**: 1234567890\n**Version**: 1.2.3\n**GA4 Property ID**: 234567890\n**RevenueCat Project ID**: proj123\n**Apple Ads profile**: def\n**Apple Ads account**: 999\n",
+                          encoding="utf-8")
+        app = resolve_app_identity(store)
+        assert app["ga4_property_id"] == "234567890" and app["rc_project_id"] == "proj123" and app["ads_profile"] == "def" and app["ads_account"] == "999"
         config.write_text("**App ID**: 1234567890\n**Version**: 1.2.3\n**GA4 Property ID**: 234567890\n**Apple Ads profile**: def\n**Apple Ads account**: 999\n",
                           encoding="utf-8")
         app = resolve_app_identity(store)
-        assert app["ga4_property_id"] == "234567890" and app["ads_profile"] == "def" and app["ads_account"] == "999"
         review_payload = json.dumps({"data": [{"attributes": {"body": "do not emit this text"}}],
                                      "meta": {"paging": {"total": 1}}})
         review_summary = compact_asc_output(review_payload, "unreplied")
@@ -425,16 +435,16 @@ def prepare_funnel_pull(pull_script, store, app_id):
     skill_pull = (SKILL_DIR / "scripts" / "pull_funnel.py").resolve()
     is_skill_helper = pull_script == skill_pull
 
-    rc, help_text, err = run_cmd([sys.executable, str(pull_script), "--help"])
-    if rc != 0 or "--raw-dir" not in help_text:
-        detail = (err.strip() or f"exit {rc}") if rc != 0 else "--raw-dir is unsupported"
-        return None, None, f"Funnel pull has no verified safe raw directory option ({detail}); refusing its default path."
-
-    if not is_skill_helper and "--app" not in help_text:
+    if not is_skill_helper:
         helper_app_id = declared_funnel_app_id(pull_script)
         if helper_app_id != app_id:
             return None, None, (f"Funnel helper declares App ID {helper_app_id or '(unverified)'}, which does not match "
                                 f"configured App ID {app_id}; refusing the pull.")
+
+    rc, help_text, err = run_cmd([sys.executable, str(pull_script), "--help"])
+    if rc != 0 or "--raw-dir" not in help_text:
+        detail = (err.strip() or f"exit {rc}") if rc != 0 else "--raw-dir is unsupported"
+        return None, None, f"Funnel pull has no verified safe raw directory option ({detail}); refusing its default path."
 
     run_root = Path(tempfile.gettempdir()).resolve() / "ios-aso-copilot" / "funnel"
     run_root.mkdir(parents=True, exist_ok=True)
@@ -730,6 +740,9 @@ def cmd_status(args):
     except Exception as exc:
         print(f"  Category chart query skipped ({exc}).")
 
+    # 5. RevenueCat & Cashflow digest (from cached snapshot or config)
+    cashflow_digest(store, refresh=False)
+
     return 2 if partial else 0
 
 
@@ -743,7 +756,7 @@ def cmd_info(args):
     info_data = {
         "skill": {
             "name": "ios-aso-copilot",
-            "version": "2.7.0",
+            "version": "2.11.0",
             "path": str(SKILL_DIR),
         },
         "app": {
@@ -751,6 +764,7 @@ def cmd_info(args):
             "app_id": app["app_id"],
             "version": app["version"],
             "ga4_property_id": app["ga4_property_id"],
+            "rc_project_id": app.get("rc_project_id"),
         },
         "ads": {
             "profile": app.get("ads_profile"),
@@ -770,6 +784,9 @@ def cmd_info(args):
 
     rc, out, _ = run_cmd(["asc", "--version"])
     info_data["system"]["asc"] = out.strip() if rc == 0 else "not found or error"
+
+    rc_code, rc_out, _ = run_cmd(["rc", "--version"])
+    info_data["system"]["rc"] = rc_out.strip() if rc_code == 0 else "not found or error"
 
     rc, out, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     branch = out.strip() if rc == 0 else "unknown"
@@ -799,6 +816,7 @@ def cmd_info(args):
     print(f"  App ID:            {app['app_id']}")
     print(f"  Working Version:   {app['version']}")
     print(f"  GA4 Property ID:   {app['ga4_property_id'] or '(none)'}")
+    print(f"  RevenueCat ID:     {app.get('rc_project_id') or '(none)'}")
     print()
     print("🎯 Apple Ads Context:")
     print(f"  Profile:           {app['ads_profile'] or '(not set)'}")
@@ -817,6 +835,7 @@ def cmd_info(args):
     print("⚙️  System & Tools:")
     print(f"  Python:            {info_data['system']['python']} ({info_data['system']['executable']})")
     print(f"  asc CLI:           {info_data['system']['asc']}")
+    print(f"  rc CLI:            {info_data['system']['rc']}")
     print(f"  Git:               {branch} ({commit})")
     print("=================================================================")
     return 0
@@ -1498,6 +1517,31 @@ def cmd_telemetry(args):
     return subprocess.run(cmd).returncode
 
 
+def cmd_rc(args):
+    """Pull RevenueCat metrics, 3-tier revenue (Gross, Net Tax, Proceeds), and Apple Ads Cashflow."""
+    store = Path(args.store).resolve()
+    script = SKILL_DIR / "scripts" / "pull_revenuecat.py"
+    if not script.exists():
+        script = store / "scripts" / "pull_revenuecat.py"
+    if not script.exists():
+        print(f"RevenueCat pull script not found at {script}")
+        return 2
+
+    cmd = [sys.executable, str(script), "--store", str(store)]
+    if getattr(args, "project_id", None):
+        cmd.extend(["--project-id", args.project_id])
+    if getattr(args, "start", None):
+        cmd.extend(["--start", args.start])
+    if getattr(args, "end", None):
+        cmd.extend(["--end", args.end])
+    if getattr(args, "json", False):
+        cmd.append("--json")
+    if getattr(args, "export", False):
+        cmd.append("--export")
+
+    return subprocess.run(cmd).returncode
+
+
 
 def cmd_campaign(args):
     """Delegate to campaign_link.py."""
@@ -2089,6 +2133,57 @@ def funnel_digest(store, today=None):
                   f"{pct(r.get('deletions_optin'), r.get('first_installs_optin')):>10}{r.get('deleted_within_1d', ''):>8}")
 
 
+def cashflow_digest(store: Path, refresh: bool = False):
+    """Print or refresh RevenueCat & Apple Ads Cashflow summary (Gross, Net Tax, Proceeds vs Ad Spend)."""
+    store = Path(store).resolve()
+    try:
+        app = resolve_app_identity(store)
+    except SystemExit:
+        return
+    rc_project_id = app.get("rc_project_id")
+    rc_json_path = store / "metrics" / "revenuecat_latest.json"
+
+    if refresh and rc_project_id:
+        try:
+            import pull_revenuecat
+            data, err = pull_revenuecat.collect_revenuecat_and_cashflow(store, project_id_override=rc_project_id)
+            if not err and data:
+                pull_revenuecat.export_snapshots(store, data)
+                pull_revenuecat.print_cashflow_report(data)
+                return
+            elif err:
+                print(f"\n⚠️ RevenueCat & Cashflow live pull failed: {err}")
+        except Exception as exc:
+            print(f"\n⚠️ RevenueCat & Cashflow live pull error: {exc}")
+
+    if rc_json_path.is_file():
+        try:
+            data = json.loads(rc_json_path.read_text(encoding="utf-8"))
+            ov = data.get("overview", {})
+            w14 = data.get("windows", {}).get("last_14d_global", {})
+            w28 = data.get("windows", {}).get("last_28d_global", {})
+            wall = data.get("windows", {}).get("all_time_global", {})
+            print(f"\nCASHFLOW DIGEST (RevenueCat Proceeds vs Apple Ads Spend · snapshot {data.get('captured_at', '')[:10]})  [store:metrics/revenuecat_latest.json]")
+            print(f"  Active Subs: {ov.get('active_subscriptions', {}).get('value', 0)} · Active Trials: {ov.get('active_trials', {}).get('value', 0)} · MRR: ${ov.get('mrr', {}).get('value', 0)}")
+            for label, w in (("Last 14d", w14), ("Last 28d", w28), ("All-Time", wall)):
+                if w:
+                    cf = w.get("net_cashflow", 0.0)
+                    cf_s = f"+${cf:.2f}" if cf >= 0 else f"-${abs(cf):.2f}"
+                    roas = f"{w['net_roas_pct']:.0f}%" if w.get("net_roas_pct") is not None else "—"
+                    print(f"  {label:<10}: Gross ${w.get('gross_revenue', 0):.2f} · NetTax ${w.get('net_of_taxes', 0):.2f} · "
+                          f"Proceeds ${w.get('proceeds', 0):.2f} vs Spend ${w.get('ad_spend', 0):.2f} → Cashflow {cf_s} (ROAS {roas})")
+            for f in data.get("flight_evaluations", []):
+                cf = f.get("net_cashflow", 0.0)
+                cf_s = f"+${cf:.2f}" if cf >= 0 else f"-${abs(cf):.2f}"
+                roas = f"{f['net_roas_pct']:.0f}%" if f.get("net_roas_pct") is not None else "—"
+                print(f"  Flight [{f['country']}] {f['name'][:28]} ({f['status']}): Spend ${f['ad_spend']:.2f} → "
+                      f"Gross ${f['gross_revenue']:.2f} / Proceeds ${f['proceeds']:.2f} → Cashflow {cf_s} (ROAS {roas})")
+        except Exception:
+            pass
+    elif rc_project_id:
+        print(f"\nCASHFLOW DIGEST: no metrics/revenuecat_latest.json — run `copilot.py rc --export`")
+
+
 def cmd_brief(args):
     """One screen of everything already on disk or one cheap read away: App Store Connect state, Top-200 bands per
     storefront, every hypothesis with its state, the store funnel. No network except `asc` reads; writes nothing."""
@@ -2137,11 +2232,12 @@ def cmd_brief(args):
     print(section.strip() or f"  ⚠️ ledger report unavailable: {err.strip()[:160]}")
 
     funnel_digest(store)
+    cashflow_digest(store, refresh=False)
     return 0
 
 
 def cmd_cycle(args):
-    """Run the cycle, then print the funnel digest and a stage → status → reason table LAST."""
+    """Run the cycle, then print the funnel digest, cashflow digest, and a stage → status → reason table LAST."""
     tee = _Tee(sys.stdout)
     sys.stdout = tee
     try:
@@ -2149,7 +2245,9 @@ def cmd_cycle(args):
     finally:
         sys.stdout = tee.real
     rows = cycle_stage_table("".join(tee.parts))
-    funnel_digest(Path(args.store).resolve())
+    store = Path(args.store).resolve()
+    funnel_digest(store)
+    cashflow_digest(store, refresh=not getattr(args, "skip_rc", False))
     print("\nSTAGE SUMMARY (a footer above is not a completeness certificate)")
     print(f"{'#':<2} {'stage':<46} {'status':<8} reason")
     for num, name, status, reason in rows:
@@ -2502,10 +2600,18 @@ def build_parser():
     p_aresume.add_argument("--campaign-id", required=True, help="Campaign ID")
 
     # cycle
-    subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel", parents=[common_parent])
+    subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel & cashflow", parents=[common_parent])
     p_cycle = subparsers.add_parser("cycle", help="Run the consolidated data collection pass", parents=[common_parent])
     p_cycle.add_argument("--skip-pull", action="store_true", help="Skip remote ASC funnel download")
     p_cycle.add_argument("--skip-ga", action="store_true", help="Skip GA4 pull")
+    p_cycle.add_argument("--skip-rc", action="store_true", help="Skip live RevenueCat & Cashflow pull")
+
+    # rc / cashflow
+    p_rc = subparsers.add_parser("rc", aliases=["cashflow"], help="Pull RevenueCat metrics, 3-tier revenue (Gross/NetTax/Proceeds) & Apple Ads Cashflow", parents=[common_parent])
+    p_rc.add_argument("--project-id", help="RevenueCat Project ID (defaults to config.md)")
+    p_rc.add_argument("--start", default="2026-09-01", help="Start date YYYY-MM-DD (default: 2026-09-01)")
+    p_rc.add_argument("--end", help="End date YYYY-MM-DD (default: today)")
+    p_rc.add_argument("--export", action="store_true", default=True, help="Export snapshots to metrics/revenuecat_latest.json and metrics/cashflow.csv")
 
     # reviews
     p_rev = subparsers.add_parser("reviews", help="Audit and reply to customer reviews", parents=[common_parent])
@@ -2626,6 +2732,8 @@ def main():
         return cmd_ga(args)
     elif args.command == "telemetry":
         return cmd_telemetry(args)
+    elif args.command in ("rc", "cashflow"):
+        return cmd_rc(args)
     elif args.command == "campaign":
         return cmd_campaign(args)
     elif args.command == "ledger":

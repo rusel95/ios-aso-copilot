@@ -8,6 +8,7 @@ rewrites this file. Bump `**Version**:` by hand when a new version starts (same 
 **Version**: TODO — the version currently being worked on, e.g. "1.0"
 **GA4 Property ID**: TODO — optional numeric property ID; set only if this app uses GA4/Firebase
 **GA4 Credentials**: TODO — optional path to this app's service account JSON; leave unset when runtime ADC is configured
+**RevenueCat Project ID**: TODO — optional RevenueCat project ID (e.g. `proj...` from `rc projects list`)
 
 **Apple Ads profile**: TODO — optional `asc ads` profile name; set only if this app runs Apple Ads (`radar.py`)
 **Apple Ads account**: TODO — optional numeric ad account id

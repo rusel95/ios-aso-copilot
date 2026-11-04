@@ -84,9 +84,15 @@ triggers:
   - app store charts
   - category charts
   - charts
-argument-hint: "[info | status | keywords | ads | cycle | funnel | reviews | ga | telemetry | ledger | radar | google | charts] [flags]"
+  - revenuecat
+  - cashflow
+  - кешфлоу
+  - ревенюкет
+  - дохід
+  - окупність
+argument-hint: "[info | status | keywords | ads | rc | cashflow | cycle | funnel | reviews | ga | telemetry | ledger | radar | google | charts] [flags]"
 metadata:
-  version: 2.10.0
+  version: 2.11.0
 ---
 
 # iOS ASO Copilot
@@ -175,15 +181,16 @@ ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --
 1. **Apple Search Ads (Paid Store Ads)**: App enables `Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()`. RevenueCat automatically contacts Apple AdServices and stamps customer profiles with `attribution_campaign` and `attribution_keyword`. Inspect via `rc charts show actives --segment attribution_campaign`.
 2. **External Traffic & Social (Threads, Reddit, Web)**: Tracked via Apple App Store Campaign links (`?pt=<PROVIDER_TOKEN>&ct=<CAMPAIGN_TOKEN>&mt=8`). Auto-injects `**Provider Token**` from `marketing/config.md`. Inspect downloads, paying users, and proceeds in **App Store Connect → App Analytics → Sources → Campaigns**.
 
-#### 5. Data Cycles & Telemetry
+#### 5. Data Cycles, RevenueCat Cashflow & Telemetry
 ```bash
-ios-aso-copilot cycle [--skip-pull] [--skip-ga]  # Full 6-step collection pass
-ios-aso-copilot funnel [--pull]                 # ASC Funnel metrics
-ios-aso-copilot reviews ratings                 # Customer reviews & ratings
-ios-aso-copilot ga --days 14                    # In-app GA4 telemetry
-ios-aso-copilot telemetry [--days 30]           # BigQuery in-app telemetry (funnel, retention, engine, paywall)
-ios-aso-copilot radar report                    # Apple search popularity & impression share
-ios-aso-copilot ledger report                   # Hypotheses & keyword ledger
+ios-aso-copilot cycle [--skip-pull] [--skip-ga] [--skip-rc]  # Full 7-step collection pass (includes RC Cashflow)
+ios-aso-copilot rc [--start YYYY-MM-DD] [--export] [--json]  # Live RevenueCat 3-tier revenue + Apple Ads Cashflow/ROAS (alias: cashflow)
+ios-aso-copilot funnel [--pull]                              # ASC Funnel metrics
+ios-aso-copilot reviews ratings                              # Customer reviews & ratings
+ios-aso-copilot ga --days 14                                 # In-app GA4 telemetry
+ios-aso-copilot telemetry [--days 30]                        # BigQuery in-app telemetry (funnel, retention, engine, paywall)
+ios-aso-copilot radar report                                 # Apple search popularity & impression share
+ios-aso-copilot ledger report                                # Hypotheses & keyword ledger
 ```
 
 #### 6. Google Search Intelligence (SEO → ASO Bridge)
@@ -315,26 +322,27 @@ Example: `[$ios-aso-copilot](SKILL.md) --full MyApp, App ID <app-id>`.
 | Review only | `python3 "$COPILOT" reviews ratings --store "$STORE"` or `python3 "$COPILOT" reviews unreplied --store "$STORE"` | Reads ratings or unresponded reviews |
 | Existing funnel snapshot | `python3 "$COPILOT" funnel --store "$STORE"` | Reads local `weekly.csv`; no pull |
 | Refresh funnel / in-app data | `python3 "$COPILOT" funnel --pull --store "$STORE"` / `python3 "$COPILOT" ga --days 14 --store "$STORE"` | Makes remote reads and writes local snapshots; funnel CSVs use a unique app-specific temp directory |
+| RevenueCat & Cashflow (ROAS) | `python3 "$COPILOT" rc --store "$STORE" --export` (alias: `cashflow`) | Pulls live RevenueCat 3-tier revenue (`revenue` Gross, `revenue_net_of_taxes`, `proceeds` Net), MRR, trials, and joins with Apple Ads spend (`asc ads`) by flight, rolling window, and country; writes `metrics/revenuecat_latest.json` and `metrics/cashflow.csv` |
 | BigQuery Telemetry & Cohorts | `python3 "$COPILOT" telemetry --store "$STORE" --export-md` | Pulls 4-pillar raw BigQuery telemetry (Funnel, Compression Engine, Retention curve, Paywall CVR) |
-| One-screen brief (ASC state, Top-200 bands per storefront, all hypotheses, store funnel) | `python3 "$COPILOT" brief --store "$STORE"` | Reads only (`asc` reads + local files); the Top-200 table alone is `ledger.py --store "$STORE" bands` |
+| One-screen brief (ASC state, Top-200 bands per storefront, all hypotheses, store funnel, cashflow) | `python3 "$COPILOT" brief --store "$STORE"` | Reads only (`asc` reads + local files + RC cashflow digest); the Top-200 table alone is `ledger.py --store "$STORE" bands` |
 | Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
 | Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
-| Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, pulls ASC analytics impressions and funnel, GA, then reports the ledger |
-| Explicit full skill run (`--full`) | Start `ledger.py refresh` first; run `python3 "$COPILOT" cycle --store "$STORE"` and independent reads while it runs | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, and A/B/C report |
+| Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, pulls ASC analytics impressions and funnel, GA, RevenueCat + Apple Ads Cashflow, then reports the ledger |
+| Explicit full skill run (`--full`) | Start `ledger.py refresh` first; run `python3 "$COPILOT" cycle --store "$STORE"` and independent reads while it runs | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, Cashflow/ROAS accounting, and A/B/C report |
 
 Check `python3 "$COPILOT" --help` or the specific script's `--help` when a flag is unfamiliar or the installed
 version differs. The CLI `cycle` is only the mechanical collection pass: it does **not** refresh keyword
 ranks, audit Apple Ads, inspect metadata exposure, judge hypotheses, or choose/write a change. The skill
 does those remaining steps only when they fit the user's requested scope. Avoid repeating successful
 reads the same cycle already returned; use a narrow command to recover a missing stage. If the cycle
-needs only one analytics source, use its narrow command or pass `--skip-pull` / `--skip-ga`. Its final
+needs only one analytics source, use its narrow command or pass `--skip-pull` / `--skip-ga` / `--skip-rc`. Its final
 footer only means the command sequence ended; inspect each stage because the process may finish with
 missing or failed sources. The CLI returns `2` when a collection stage fails or required output is
 unavailable, and forwards nonzero codes from narrow commands. Ledger row warnings are printed in its
 report and may still accompany exit `0`; inspect them. Blank output is unknown, not proof of zero rows.
 A zero exit code is not a data-completeness certificate.
 
-For status and full-audit answers, use these sections in this order: **Store Funnel & ASC Analytics (impressions, views, downloads, CVR); A · what is already live and what happened to it; B · what moved; C · what to do next.** Include only the requested scope and cite each decision-relevant fact with its provenance tag. **Do not draft a new hypothesis before the live funnel metrics and section A are on screen.** Proposing while live experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts; the ledger exists to make that state visible instead of comfortable.
+For status and full-audit answers, use these sections in this order: **Store Funnel & ASC Analytics (impressions, views, downloads, CVR); RevenueCat & Cashflow (Gross, Net of Tax, Proceeds vs Apple Ads Spend); A · what is already live and what happened to it; B · what moved; C · what to do next.** Include only the requested scope and cite each decision-relevant fact with its provenance tag. **Do not draft a new hypothesis before the live funnel metrics, cashflow, and section A are on screen.** Proposing while live experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts; the ledger exists to make that state visible instead of comfortable.
 
 - **Store Funnel & ASC Analytics (Impressions & Conversion).** Mandatory for every full-cycle audit (`--full`, full cycle). Collects and reports the App Store Connect acquisition funnel:
   - Total Impressions and breakdown by source type (App Store Search, Browse, App Referrer, Web Referrer).
@@ -342,6 +350,11 @@ For status and full-audit answers, use these sections in this order: **Store Fun
   - Conversion Rates: Page View CVR (`PV ÷ Impressions`), Download CVR (`Downloads ÷ PV`, `Downloads ÷ Impressions`).
   - Breakdown by Top Storefronts / Territories (US, UA, DE, NO, PL, etc.).
   - Week-over-Week Impression Trajectory: recent weekly trends to assess whether organic search volume is climbing or declining.
+- **RevenueCat & Cashflow (Monetization & Ad ROAS).** Mandatory whenever `**RevenueCat Project ID**` is configured in `config.md`. Always report all 3 revenue tiers side-by-side against Apple Search Ads spend (`scripts/pull_revenuecat.py` / `ios-aso-copilot rc`):
+  - **Gross Revenue (`revenue`)**: Customer store price before taxes and commission (what RevenueCat displays by default).
+  - **Net of Taxes (`revenue_net_of_taxes`)**: After storefront VAT/sales tax (e.g., 20% VAT in Ukraine).
+  - **Proceeds (`proceeds` / "чистими")**: Actual developer take-home after Apple's 15%/30% commission.
+  - **Cashflow & ROAS**: Report `Net Cashflow = Proceeds − Ad Spend` and `Net ROAS = Proceeds ÷ Ad Spend` (alongside Gross Cashflow/ROAS) for active ad flights, rolling 14d/28d windows, and per-country breakdown, plus active trials and MRR. Never rely on static pricing notes or unverified GA4 `purchase_finished` counts (which include free-trial starts) when judging campaign profitability.
 - **A · Hypothesis ledger.** Every hypothesis carries a state: `judged` / `due` / `open` /
   `not shipped`. `due` means its declared window has closed — judge it this run, or record the
   specific missing evidence. A `queued` status on a change that is already public is a discrepancy
