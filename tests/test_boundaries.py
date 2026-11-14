@@ -63,6 +63,21 @@ class Actions(unittest.TestCase):
         self.assertIn("cycle (collect)", run("copilot.py", "--help")[1])
 
 
+class DashboardIsOffline(unittest.TestCase):
+    """Export and build: same input, same bytes. So nothing in aso/dashboard may ask the network or the clock."""
+
+    def test_dashboard_has_no_network_and_no_clock(self):
+        banned = {"urllib", "http", "socket", "subprocess", "requests"}
+        for path in sorted((SCRIPTS / "aso" / "dashboard").glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            with self.subTest(module=path.name):
+                reached = {m.split(".")[0] for m in imported_modules(path)} & banned
+                self.assertEqual(reached, set())
+                clock = [node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+                         and node.attr in ("today", "now", "utcnow", "time", "monotonic")]
+                self.assertEqual(clock, [])
+
+
 class Sizes(unittest.TestCase):
     def test_no_long_files(self):
         long = {str(p.relative_to(ROOT)): n for p in SCRIPTS.rglob("*.py")

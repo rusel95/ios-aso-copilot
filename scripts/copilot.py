@@ -25,6 +25,7 @@ from aso.commands.campaign import cmd_campaign  # noqa: E402
 from aso.commands.charts import cmd_charts  # noqa: E402
 from aso.commands.collect import cmd_funnel, cmd_ga, cmd_ledger, cmd_radar, cmd_rc, cmd_reviews, cmd_telemetry  # noqa: E402
 from aso.commands.cycle import cmd_cycle  # noqa: E402
+from aso.commands.dashboard import cmd_export  # noqa: E402
 from aso.commands.google import cmd_google  # noqa: E402
 from aso.commands.keywords import cmd_keywords  # noqa: E402
 from aso.commands.status import cmd_brief, cmd_info, cmd_status  # noqa: E402
@@ -110,6 +111,12 @@ def build_parser():
 
     p_aresume = ads_subs.add_parser("resume", help="Resume a campaign", parents=[common_parent])
     p_aresume.add_argument("--campaign-id", required=True, help="Campaign ID")
+
+    # dashboard
+    p_export = subparsers.add_parser("export", help="Derive the dashboard data files from the store (offline)",
+                                     parents=[common_parent])
+    p_export.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the export is made for (default: today)")
+    p_export.add_argument("--check", action="store_true", help="Compare with the data folder instead of writing it")
 
     # cycle
     subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel & cashflow", parents=[common_parent])
@@ -258,6 +265,8 @@ def main():
         return cmd_google(args)
     elif args.command == "charts":
         return cmd_charts(args)
+    elif args.command == "export":
+        return cmd_export(args)
     return 0
 
 

@@ -6,14 +6,16 @@ same functions the ledger report prints, so the page and the report cannot disag
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 from pathlib import Path
 
-from aso.dashboard.contract import SCHEMA
+from aso.dashboard.contract import ENTITIES, SCHEMA, canonical, is_number, load_catalog, validate
+from aso.dashboard.weeks import closed
 from aso.ledger_state import hypothesis_states, priority
-from aso.ranks import brand_hit, loose_index, movers, resolve_key, series, zero_result_keys
-from aso.store import (demand_lookup, hyp_markets, parse_date, problem, read_brand_tokens, read_hypotheses, read_markets,
-                       read_ranks)
+from aso.ranks import brand_hit, coverage, loose_index, movers, resolve_key, series, sweep_bands, zero_result_keys
+from aso.store import (PROBLEMS, demand_lookup, parse_date, problem, read_brand_tokens, read_csv, read_hypotheses,
+                       read_markets, read_ranks)
 
 POSITION_MARK = {"beyond-depth": "b", "error": "e", "no-results": "z"}
 QUEUE_HEADING = re.compile(r"^###\s+(Q\d+)\s+·\s+\S+\s+(\d{4}-\d{2}-\d{2})\s+·\s+(.+?)\s*$")
@@ -142,3 +144,283 @@ def queue(store: Path, as_of: dt.date) -> list:
 
 def events(store: Path, as_of: dt.date) -> dict:
     return {**header(as_of), "releases": [], "queue": queue(store, as_of)}
+
+
+# ------------------------------------------------------------------ period files
+COLLECTOR_ROWS = "live:asc analytics daily"       # how pull_funnel.py tags the weeks it folds from the daily reports
+FUNNEL_COLUMNS = {"impressions": "impressions", "page_views": "product_page_views", "first_downloads": "downloads"}
+FUNNEL_RATIOS = {"view_rate": ("page_views", "impressions"), "page_cvr": ("first_downloads", "page_views"),
+                 "impression_cvr": ("first_downloads", "impressions")}
+NOT_STORED_YET = {
+    "lifecycle": "No command stores install and deletion counts by week yet.",
+    "money": "Proceeds and Apple Ads spend are not stored by week yet.",
+    "ads": "Apple Ads results are not stored by week yet.",
+    "in_app": "In-app events are not stored by week yet.",
+}
+VERDICT_NOTE = ("hypothesis files carry no history: a verdict is read as it stands in the file today, "
+                "whatever --as-of says")
+
+
+def unavailable(code: str, reason: str) -> dict:
+    return {"unavailable": {"code": code, "reason": reason}}
+
+
+def share(numerator, denominator):
+    """A ratio to six places, or None when there is nothing to divide by."""
+    return round(numerator / denominator, 6) if numerator is not None and denominator else None
+
+
+def period_file(as_of: dt.date, kind: str, start: dt.date, end: dt.date, families: dict) -> dict:
+    return {**header(as_of), "period": {"kind": kind, "id": start.isoformat(), "start": start.isoformat(),
+                                        "end": end.isoformat()}, "families": families}
+
+
+def funnel_weeks(store: Path, as_of: dt.date, notes: list) -> dict:
+    """week start -> the store_funnel family, from the closed Monday weeks the collector wrote.
+
+    A row a person typed, a week still open, and a row recorded after `as_of` are left out and counted. Among
+    rows for the same week and segment the latest `recorded` wins, then the later line: a correction is a new row.
+    """
+    chosen, left = {}, {"hand": 0, "open": 0, "later": 0}
+    for n, r in enumerate(read_csv(store / "metrics" / "weekly.csv"), 2):
+        week, recorded = parse_date(r.get("week_start")), parse_date(r.get("recorded"))
+        if not (r.get("source") or "").startswith(COLLECTOR_ROWS) or week is None or week.weekday() or recorded is None:
+            left["hand"] += 1
+        elif recorded > as_of:
+            left["later"] += 1
+        elif not closed(week, as_of):
+            left["open"] += 1
+        else:
+            counts = {}
+            for key, column in FUNNEL_COLUMNS.items():
+                cell = (r.get(column) or "").strip()
+                try:
+                    counts[key] = int(cell) if cell else None
+                except ValueError:
+                    notes.append(f"metrics/weekly.csv:{n}: {column} {cell!r} is not a number; the row is skipped")
+                    counts = None
+                    break
+            key = (week, (r.get("segment") or "").strip().lower())
+            if counts is not None and (key not in chosen or recorded >= chosen[key]["recorded"]):
+                chosen[key] = {"recorded": recorded, **counts}
+    if any(left.values()):
+        notes.append(f"metrics/weekly.csv: {sum(left.values())} rows left out ({left['hand']} not written by the collector "
+                     f"as Monday weeks, {left['open']} of weeks still open on {as_of}, {left['later']} recorded after {as_of})")
+    weeks = {}
+    for (week, segment), row in chosen.items():
+        weeks.setdefault(week, {})[segment] = row
+    out = {}
+    for week, segments in sorted(weeks.items()):
+        total = segments.get("all")
+        markets = {s: row for s, row in sorted(segments.items()) if len(s) == 2 and s.isalpha()}
+        figures = {}
+        for key in FUNNEL_COLUMNS:
+            if total is None or total[key] is None:
+                figures[key] = unavailable("no_data", "The report holds no total for the week.")
+            else:
+                figures[key] = {"value": total[key], **({"by_market": {m: row[key] for m, row in markets.items()}}
+                                                        if markets else {})}
+        for key, (top, bottom) in FUNNEL_RATIOS.items():
+            value = share(total[top], total[bottom]) if total else None
+            if value is None:
+                figures[key] = unavailable("no_data", "Nothing to divide by: a total of the week is missing or zero.")
+            else:
+                figures[key] = {"value": value, "numerator": total[top], "denominator": total[bottom],
+                                **({"by_market": {m: share(row[top], row[bottom]) for m, row in markets.items()}}
+                                   if markets else {})}
+        out[week] = {"source": "asc-analytics", "fetched_at": max(row["recorded"] for row in segments.values()).isoformat(),
+                     "figures": figures}
+    return out
+
+
+def rank_snapshots(store: Path, as_of: dt.date) -> dict:
+    """sweep date -> the ranks and coverage families of that day."""
+    rows, brand, out = ranks_until(store, as_of), read_brand_tokens(store), {}
+    for day in sorted({r["date"] for r in rows}):
+        if parse_date(day) is None:
+            problem("metrics/ranks.csv", f"date {day!r} is not a date; its rows are in no snapshot")
+            continue
+        bands = sweep_bands(rows, brand, day)
+        split = bands["by_market"]
+        figures = {name: {"value": bands[name], "by_market": {m: counts[name] for m, counts in split.items()}}
+                   for name in ("tracked_keys", "keys_read", "top10", "top30", "top100", "top200", "beyond",
+                                "no_results", "errors")}
+        for name, bands_in in (("share_top10", ("top10",)), ("share_top30", ("top10", "top30"))):
+            inside = sum(bands[b] for b in bands_in)
+            if not bands["keys_read"]:
+                figures[name] = unavailable("no_data", "No key was read that day.")
+            else:
+                figures[name] = {"value": share(inside, bands["keys_read"]), "numerator": inside,
+                                 "denominator": bands["keys_read"],
+                                 "by_market": {m: share(sum(c[b] for b in bands_in), c["keys_read"]) for m, c in split.items()}}
+        seen = coverage([r for r in rows if r["date"] <= day])
+        providers = [r["provider"] for r in rows if r["date"] == day and r["provider"]]
+        source = max(sorted(set(providers)), key=providers.count) if providers else "unknown"
+        out[day] = {
+            "ranks": {"source": source, "fetched_at": day, "figures": figures},
+            "coverage": {"source": source, "fetched_at": day, "figures": {
+                "paired_keys": {"value": seen["paired"]}, "unmeasurable_keys": {"value": seen["unmeasurable"]},
+                "failed_requests": {"value": seen["failed"]}, "observations": {"value": seen["observations"]}}},
+        }
+    return out
+
+
+def captured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: list) -> dict:
+    """capture day -> rows of one Apple Ads insights file, numbers parsed. `numbers` maps a column to int or float;
+    a blank cell is null; a row with an unreadable cell is named and skipped."""
+    out = {}
+    for n, r in enumerate(read_csv(store / "metrics" / name), 2):
+        day, week = parse_date(r.get("captured")), parse_date(r.get("week"))
+        if day is None or week is None:
+            notes.append(f"metrics/{name}:{n}: week or captured is not a date; the row is skipped")
+            continue
+        if day > as_of:
+            continue
+        row = {"_week": week}
+        try:
+            for column in r:
+                cell = (r[column] or "").strip()
+                row[column] = (numbers[column](cell) if cell else None) if column in numbers else cell
+        except ValueError:
+            notes.append(f"metrics/{name}:{n}: a number column holds {cell!r}; the row is skipped")
+            continue
+        out.setdefault(day, []).append(row)
+    return out
+
+
+def insight_family(rows: list, key: tuple, lists: dict) -> dict:
+    """One family from the rows of one capture day. `lists` maps a list name to (source rows, columns)."""
+    weeks = [r["_week"] for group, _ in lists.values() for r in group] or [r["_week"] for r in rows]
+    family = {"source": "asc-ads-insights", "fetched_at": key[0].isoformat(),
+              "measured": {"start": min(weeks).isoformat(), "end": (max(weeks) + dt.timedelta(days=6)).isoformat()}}
+    for name, (group, columns) in lists.items():
+        latest = {}
+        for r in group:                                    # a repeated row is the same fact; the later line stands
+            latest[tuple(r[c] for c in columns[:-1] if not isinstance(r[c], (int, float)))] = {c: r[c] for c in columns}
+        family[name] = [latest[k] for k in sorted(latest, key=lambda k: tuple(str(x) for x in k))]
+    return family
+
+
+def insight_snapshots(store: Path, as_of: dt.date, notes: list) -> dict:
+    """capture day -> the demand and impression_share families Apple's own figures were stored on."""
+    popularity = captured_rows(store, "popularity.csv", as_of, {"popularity_100": int}, notes)
+    cuts = captured_rows(store, "popularity_cut.csv", as_of, {"listed": int, "min_popularity_100": int}, notes)
+    shares = captured_rows(store, "impression_share.csv", as_of, {"rank": int, "share_low": float, "share_high": float},
+                           notes)
+    out = {}
+    for day in sorted(set(popularity) | set(cuts)):
+        out.setdefault(day, {})["demand"] = insight_family([], (day,), {
+            "rows": (popularity.get(day, []), ["market", "genre", "term", "popularity_100"]),
+            "cuts": (cuts.get(day, []), ["market", "genre", "listed", "min_popularity_100"])})
+    for day in sorted(shares):
+        out.setdefault(day, {})["impression_share"] = insight_family([], (day,), {
+            "rows": (shares[day], ["market", "term", "rank", "share_low", "share_high"])})
+    return out
+
+
+def subscription_snapshot(store: Path, as_of: dt.date, notes: list) -> dict:
+    """The one subscription read a store holds before it stores a series: `revenuecat_latest.json`."""
+    path = store / "metrics" / "revenuecat_latest.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        day = parse_date(data.get("captured_at"))
+        overview = data.get("overview") or {}
+    except (ValueError, AttributeError):
+        day = None
+    if day is None:
+        notes.append("metrics/revenuecat_latest.json: unreadable, or it names no capture day; left out")
+        return {}
+    if day > as_of:
+        return {}
+    names = {"active_subscriptions": "active_subscriptions", "active_trials": "active_trials", "mrr_usd": "mrr",
+             "revenue_28d_usd": "revenue", "new_customers_28d": "new_customers", "active_users_28d": "active_users"}
+    figures = {}
+    for key, theirs in names.items():
+        value = (overview.get(theirs) or {}).get("value") if isinstance(overview.get(theirs), dict) else None
+        figures[key] = {"value": value} if is_number(value) else unavailable("no_data", "The read holds no such figure.")
+    return {day: {"subscriptions": {"source": "revenuecat", "fetched_at": day.isoformat(), "figures": figures}}}
+
+
+def build_all(store: Path, as_of: dt.date) -> tuple:
+    """(relative path under data/ -> object, notes). The notes say what the store could not show and why."""
+    PROBLEMS.clear()
+    notes, files = [], {}
+    for week, family in funnel_weeks(store, as_of, notes).items():
+        families = {"store_funnel": family, **{name: unavailable("no_source", why) for name, why in NOT_STORED_YET.items()}}
+        files[f"week/{week}.json"] = period_file(as_of, "week", week, week + dt.timedelta(days=6), families)
+    snapshots = {}
+    for day, families in rank_snapshots(store, as_of).items():
+        snapshots.setdefault(parse_date(day), {}).update(families)
+    for source in (insight_snapshots(store, as_of, notes), subscription_snapshot(store, as_of, notes)):
+        for day, families in source.items():
+            snapshots.setdefault(day, {}).update(families)
+    for day, families in sorted(snapshots.items()):
+        files[f"snapshot/{day}.json"] = period_file(as_of, "snapshot", day, day, families)
+    files["hypotheses.json"] = hypotheses(store, as_of)
+    files["keys.json"] = keys(store, as_of)
+    files["events.json"] = events(store, as_of)
+    notes += [f"{where}: {why}" for where, why in dict.fromkeys(PROBLEMS)]
+    notes.append(VERDICT_NOTE)
+    return files, notes
+
+
+# ------------------------------------------------------------------ the data folder
+def data_files(store: Path) -> list:
+    """Relative paths of what a data folder holds that this export owns; anything else in it is left alone."""
+    data = store / "data"
+    found = [f"{kind}/{p.name}" for kind in ("week", "snapshot") for p in sorted((data / kind).glob("*.json"))]
+    return found + [name for name in ENTITIES if (data / name).is_file()]
+
+
+def write(store: Path, files: dict) -> dict:
+    data, done = store / "data", {"written": [], "unchanged": [], "removed": []}
+    for path, obj in sorted(files.items()):
+        target, text = data / path, canonical(obj)
+        if target.is_file() and target.read_text(encoding="utf-8") == text:
+            done["unchanged"].append(path)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+            done["written"].append(path)
+    for path in data_files(store):
+        if path not in files:
+            (data / path).unlink()
+            done["removed"].append(path)
+    return done
+
+
+def check(store: Path, files: dict) -> list:
+    """Paths that differ from a fresh export: changed, missing, or present and no longer produced."""
+    data = store / "data"
+    differ = [path for path, obj in files.items()
+              if not (data / path).is_file() or (data / path).read_text(encoding="utf-8") != canonical(obj)]
+    return sorted(set(differ) | (set(data_files(store)) - set(files)))
+
+
+def run(store: Path, as_of: dt.date, check_only: bool = False) -> int:
+    """The export command: build, refuse to write what breaks the contract, then write or compare."""
+    files, notes = build_all(store, as_of)
+    catalog = load_catalog()
+    broken = [(path, found) for path, obj in sorted(files.items()) for found in validate(path, canonical(obj), catalog)]
+    for path, found in broken:
+        print(f"INVALID {path}: {found}")
+    if broken:
+        print("FAIL export: the data would break the contract; nothing written")
+        return 1
+    if check_only:
+        differ = check(store, files)
+        for note in notes:
+            print(f"NOTE {note}")
+        print(f"FAIL check: {', '.join(differ)}" if differ else f"PASS check ({len(files)} files)")
+        return 1 if differ else 0
+    done = write(store, files)
+    for path in sorted(files):
+        print(("WROTE " if path in done["written"] else "SAME ") + path)
+    for path in done["removed"]:
+        print(f"REMOVED {path}")
+    for note in notes:
+        print(f"NOTE {note}")
+    print(f"PASS export ({len(done['written'])} written, {len(done['unchanged'])} unchanged, {len(done['removed'])} removed)")
+    return 0

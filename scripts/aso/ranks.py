@@ -212,3 +212,14 @@ def movers(pairs: dict, brand: list) -> list:
         (numeric if delta is not None else censored).append(row)
     numeric.sort(key=lambda r: (-r["delta"], r["market"]))
     return numeric + censored
+
+
+def coverage(rows: list) -> dict:
+    """How much of the ledger can be compared at all. A thin report is thin because of these numbers."""
+    pairs, attempted = series(rows), {(r["market"], r["keyword"]) for r in rows}
+    return {"tracked": len(attempted),
+            "paired": sum(movement(obs[0], obs[-1])[1] is not None for obs in pairs.values()),
+            "unobserved": len(attempted) - len(pairs),
+            "failed": sum(r["status"] == "error" for r in rows),
+            "unmeasurable": len(zero_result_keys(rows)),
+            "observations": len(rows)}

@@ -5,7 +5,7 @@ import datetime as dt
 from pathlib import Path
 
 from aso.ledger_state import hypothesis_states, priority
-from aso.ranks import band_of, brand_hit, demand_label, movement, movers, series, zero_result_keys
+from aso.ranks import band_of, brand_hit, coverage, demand_label, movers, series, zero_result_keys
 from aso.store import (PROBLEMS, demand_lookup, print_problems, read_brand_tokens, read_hypotheses, read_markets,
                        read_ranks)
 
@@ -118,17 +118,15 @@ def report(store: Path, limit: int, as_of=None):
     rows = read_ranks(store)
     markets, hyps = read_markets(store), read_hypotheses(store)
     pairs = series(rows)
-    attempted = {(r["market"], r["keyword"]) for r in rows}
+    seen = coverage(rows)
     dates = sorted({r["date"] for r in rows})
-    paired = sum(movement(o[0], o[-1])[1] is not None for o in pairs.values())
-    failed = sum(r["status"] == "error" for r in rows)
     empty = zero_result_keys(rows)
     no_results = sorted(empty)
     print(f"# Marketing ledger · {as_of} · store {store}")
-    print(f"\n{len(hyps)} hypotheses · {len(attempted)} tracked keys · {len(rows)} observations on "
+    print(f"\n{len(hyps)} hypotheses · {seen['tracked']} tracked keys · {seen['observations']} observations on "
           f"{len(dates)} dates ({', '.join(dates[:1] + dates[-1:])}) · {len(markets)} priced storefronts")
-    print(f"\n**Coverage: {paired} of {len(attempted)} keys have a comparable pair, "
-          f"{len(attempted) - len(pairs)} have no successful observation at all; {failed} requests failed.** "
+    print(f"\n**Coverage: {seen['paired']} of {seen['tracked']} keys have a comparable pair, "
+          f"{seen['unobserved']} have no successful observation at all; {seen['failed']} requests failed.** "
           f"A thin section below is thin because of this line, not because nothing moved.")
     if no_results:
         by_market = {}
