@@ -250,10 +250,13 @@ def day_chunks(start: str, end: str, days: int) -> list:
 DAILY_REPORT_DAYS = 90        # Apple Ads gives day-by-day results for at most this many days a request
 
 
-def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: str, end_date: str):
-    """Fetch all Apple Ads campaign metadata, all-time country spend, and daily spend per campaign."""
+def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: str, end_date: str, app_id: str = None):
+    """Fetch Apple Ads campaign metadata, all-time country spend, and daily spend per campaign. One account can
+    advertise several apps: with `app_id`, only the campaigns that promote that app are read, so a store never
+    holds another app's results."""
     if not account:
         return {}, [], {}
+    only_app = [{"field": "promotedObjectId", "operator": "IN", "value": [str(app_id)]}] if app_id else []
 
     # 1. Campaign metadata (active / paused / on_hold)
     cmd_find = [asc_bin, "ads", "campaigns", "find", "--ad-account", str(account), "--file", "-"]
@@ -263,6 +266,8 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
     campaigns_meta = {}
     if isinstance(find_data, dict):
         for c in find_data.get("result") or []:
+            if app_id and str(c.get("promotedObjectId")) != str(app_id):
+                continue
             cid = int(c.get("id"))
             countries = ((c.get("targeting") or {}).get("countryOrRegion") or {}).get("include") or []
             campaigns_meta[cid] = {
@@ -281,7 +286,7 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
         "timeRange": {"start": start_date, "end": end_date, "timeZone": "ORTZ"},
         "fields": ["impressions", "taps", "localSpend"],
         "groupBy": ["countryOrRegion"],
-        "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
+        "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}] + only_app,
         "pagination": {"offset": 0, "pageSize": 100},
     }
     cmd_rep = [asc_bin, "ads", "reports", "apps", "campaigns", "--ad-account", str(account), "--file", "-"]
@@ -321,7 +326,7 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
             payload_daily = {
                 "timeRange": {"start": piece_start, "end": piece_end, "timeZone": "ORTZ", "granularity": "DAILY"},
                 "fields": fields,
-                "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
+                "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}] + only_app,
                 "pagination": {"offset": 0, "pageSize": 100},
             }
             rep_daily, _ = run_json_cmd(cmd_rep, input_text=json.dumps(payload_daily))

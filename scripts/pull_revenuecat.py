@@ -137,10 +137,9 @@ def collect_ads(store: Path, start_date: str = None, end_date: str = None):
         return None, f"Missing **Apple Ads account**: in {store / 'config.md'}"
     today = dt.date.today()
     end_str = end_date or today.isoformat()
-    _, campaign_rows, daily_spend = fetch_apple_ads_spend(find_bin("asc"), cfg.get("ads_account"), cfg.get("ads_profile"),
-                                                          start_date or default_start(cfg, today), end_str)
-    if not campaign_rows and not daily_spend:
-        return None, "Apple Ads returned no campaign report (check the Apple Ads profile and account in config.md)"
+    _, _, daily_spend = fetch_apple_ads_spend(find_bin("asc"), cfg.get("ads_account"), cfg.get("ads_profile"),
+                                              start_date or default_start(cfg, today), end_str, app_id=cfg.get("app_id"))
+    # an app that never ran an ad has no rows: nothing to store, and not a failure
     return ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str), None
 
 
@@ -163,7 +162,7 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
     by_country_daily, by_product_daily = fetch_rc_revenue_series(rc_bin, project_id, start_date, end_str)
     trials_by_country, mrr_by_country, attr_campaigns = fetch_rc_trials_and_mrr(rc_bin, project_id, start_date, end_str)
     campaigns_meta, all_campaign_rows, daily_spend = fetch_apple_ads_spend(
-        asc_bin, cfg.get("ads_account"), cfg.get("ads_profile"), start_date, end_str
+        asc_bin, cfg.get("ads_account"), cfg.get("ads_profile"), start_date, end_str, app_id=cfg.get("app_id")
     )
 
     # Build transaction ledger (chronological)

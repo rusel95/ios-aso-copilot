@@ -174,6 +174,41 @@ class EverythingTheSourcesGive(unittest.TestCase):
             self.assertEqual({r["market"] for r in read_csv(store / "metrics" / "charts.csv")}, {"ua", "us"})
 
 
+class OnlyThisAppsAds(unittest.TestCase):
+    """One Apple Ads account can advertise several apps. A store gets the results of its own app and no other's."""
+
+    def answer(self, asked):
+        def reply(cmd, input_text=None):
+            payload = json.loads(input_text or "{}")
+            if "find" in cmd:
+                return {"result": [{"id": 7, "name": "ours", "promotedObjectId": 1000000001, "targeting": {"countryOrRegion": {"include": ["US"]}}},
+                                   {"id": 8, "name": "the other app", "promotedObjectId": 2000000002,
+                                    "targeting": {"countryOrRegion": {"include": ["US"]}}}]}, None
+            asked.append(payload.get("filters"))
+            return {"result": {"rows": []}}, None
+        return reply
+
+    def test_campaigns_of_another_app_are_left_out_and_reports_are_asked_for_this_app(self):
+        asked = []
+        with mock.patch.object(fetch, "run_json_cmd", side_effect=self.answer(asked)):
+            campaigns, _, _ = fetch.fetch_apple_ads_spend("asc", "123", "", "2026-11-01", "2026-11-14", app_id="1000000001")
+        self.assertEqual(sorted(campaigns), [7])
+        self.assertTrue(asked)
+        for filters in asked:
+            self.assertIn({"field": "promotedObjectId", "operator": "IN", "value": ["1000000001"]}, filters)
+
+    def test_an_app_that_ran_no_ads_has_nothing_to_store_and_that_is_not_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            with (store / "config.md").open("a", encoding="utf-8") as fh:
+                fh.write("**Apple Ads account**: 123\n**Apple Ads profile**: Test\n")
+            with mock.patch.object(pull_revenuecat, "fetch_apple_ads_spend", return_value=({}, [], {})) as called, \
+                    mock.patch.object(pull_revenuecat, "find_bin", return_value="asc"):
+                rows, err = pull_revenuecat.collect_ads(store, start_date="2026-11-01", end_date="2026-11-14")
+            self.assertEqual((rows, err), ([], None))
+            self.assertEqual(called.call_args.kwargs.get("app_id"), "1000000001")
+
+
 class AdsWithoutASubscriptionProvider(unittest.TestCase):
     """A store with Apple Ads and no RevenueCat still gets its ads results by week."""
     APP = {"app_id": "1000000001", "brand": "tidepool", "rc_project_id": None}
