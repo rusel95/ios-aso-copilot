@@ -72,6 +72,20 @@ class Clean(unittest.TestCase):
         self.plant("Rindfleischetikettierungsueberwachungsaufgabenuebertragungsgesetz H081-a-very-long-hypothesis-slug-of-2026")
         self.assertEqual(clean.check(self.data, self.store), [])
 
+    def test_the_export_masks_the_stores_own_identifiers_in_prose(self):
+        """A person types an account id into a confound; the export does not carry it into data/, and says so."""
+        import datetime as dt
+        from aso.dashboard import export
+        path = self.store / "hypotheses" / "H005-ua-tide-phrases.md"
+        text = path.read_text(encoding="utf-8").replace("confounds: []", 'confounds:\n  - "seen in app 1000000001, and in 91000000001 rows"')
+        path.write_text(text, encoding="utf-8")
+        files, notes = export.build_all(self.store, dt.date(2026, 11, 14))
+        confound = next(h for h in files["hypotheses.json"]["hypotheses"] if h["id"] == "H005")["confounds"][0]
+        self.assertEqual(confound, "seen in app [redacted], and in 91000000001 rows")        # a longer number is not the id
+        self.assertTrue(any("hypotheses.json" in n and "masked" in n and "App ID" in n for n in notes), notes)
+        export.write(self.store, files)
+        self.assertEqual(clean.check(self.data, self.store), [])
+
     def test_what_the_owner_lists_is_flagged(self):
         with mock.patch.object(clean, "NEVER_PUBLISH", [r'"proceeds_usd"']):
             problems = clean.check(self.data, self.store)

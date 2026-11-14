@@ -13,6 +13,7 @@ from aso.dashboard.contract import ENTITIES, SCHEMA, canonical, load_catalog, va
 from aso.dashboard.series import ranks_until, unavailable
 from aso.dashboard.export_weeks import (NOTHING_THAT_WEEK, NOT_STORED_YET, ads_family_weeks, funnel_weeks, in_app_weeks,
                                         lifecycle_weeks, money_weeks)
+from aso.dashboard.clean import identifiers, mask, whole
 from aso.dashboard.state import ours, state_md
 from aso.dashboard.export_snapshots import (chart_snapshots, insight_snapshots, rank_snapshots, ratings_snapshots, subscription_snapshots)
 from aso.ledger_state import hypothesis_states, priority
@@ -203,6 +204,14 @@ def build_all(store: Path, as_of: dt.date) -> tuple:
     files["hypotheses.json"] = hypotheses(store, as_of)
     files["keys.json"] = keys(store, as_of)
     files["events.json"] = events(store, as_of)
+    # A person types an account id into a confound or a queue title. It is not carried into data/: the page may be
+    # published, and the clean check would refuse the file. The store's own file is left as it was written.
+    wanted = [(label, whole(value)) for label, value in identifiers(store).items()]
+    for path in sorted(files):
+        met = set()
+        files[path] = mask(files[path], wanted, met)
+        if met:
+            notes.append(f"{path}: masked the store's {', '.join(sorted(met))} where a text held it")
     notes += [f"{where}: {why}" for where, why in dict.fromkeys(PROBLEMS)]
     notes.append(VERDICT_NOTE)
     return files, notes

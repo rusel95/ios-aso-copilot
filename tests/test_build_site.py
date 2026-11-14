@@ -85,6 +85,7 @@ class Build(unittest.TestCase):
         self.assertIn(f"script-src {digest(script)}", policy)
         self.assertIn("default-src 'none'", policy)
         self.assertNotIn("unsafe", policy)
+        self.assertIn('<meta name="robots" content="noindex, nofollow">', html)    # published or not, it asks not to be indexed
 
     def test_payload_cannot_close_its_script(self):
         with tempfile.TemporaryDirectory() as tmp:
