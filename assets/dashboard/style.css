@@ -122,3 +122,20 @@ circle.s-rest,rect.s-rest{fill:var(--noeffect)}
 .terms{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;font-size:13px}
 .terms dt{font:600 11px var(--text);letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);padding-top:2px}
 @media (max-width:700px){.terms{grid-template-columns:1fr}}
+
+/* keywords */
+.blocks.wide{grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr))}
+.band-chart{display:block;width:100%;max-width:900px;min-width:420px;height:auto}
+.col-track{fill:var(--hair)}.band-chart .grid{stroke:var(--axis)}
+.swatch.tall{width:12px;height:12px}
+.grid-table{border-collapse:collapse;width:100%;font-size:13px}
+.grid-table th{font:600 11px var(--text);letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);text-align:right;
+  padding:6px 10px;border-bottom:1px solid var(--axis);white-space:nowrap}
+.grid-table td{padding:6px 10px;border-bottom:1px solid var(--hair);text-align:right;font-family:var(--mono);font-size:12px}
+.grid-table th:first-child,.grid-table td:first-child{text-align:left}
+.grid-table.keys th:nth-child(-n+4),.grid-table.keys td:nth-child(-n+4){text-align:left}
+.grid-table.keys td:nth-child(2){font-family:var(--text);font-size:13px}
+.grid-table .spark{width:96px;height:22px}
+tr.is-brand td{color:var(--ink2)}
+.bars li{display:grid;grid-template-columns:28px minmax(60px,1fr) 150px;gap:10px;align-items:center;padding:4px 0}
+.bars .mono{text-align:right}

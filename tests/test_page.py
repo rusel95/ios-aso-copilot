@@ -232,5 +232,56 @@ class Ledger(PageCase):
         self.assertIn("&lt;b&gt;x&lt;/b&gt;", markup)
 
 
+class Keywords(PageCase):
+    def test_band_chart_draws_full_sweeps_only(self):
+        markup = self.render("#/keywords")
+        self.assertEqual(markup.count('<rect class="col-track"'), 3)
+        seen = text_of(markup)
+        for day in ("2026-10-05", "2026-10-19", "2026-11-02"):
+            self.assertIn(day, seen)
+        self.assertIn("1 sweep left out as partial: 2026-11-09 read 2 of 10 tracked keys.", seen)
+
+    def test_sweep_table_holds_the_bands_and_the_share(self):
+        rows = [text_of(r) for r in re.findall(r'<tr class="sweep">(.*?)</tr>', self.render("#/keywords"), re.S)]
+        self.assertEqual(rows, ["2026-11-02 9 2 2 3 1 44.4%", "2026-10-19 8 1 3 2 1 50.0%", "2026-10-05 8 1 1 3 1 25.0%"])
+
+    def test_storefronts_of_the_newest_full_sweep(self):
+        seen = text_of(self.render("#/keywords"))
+        self.assertIn("ua 50.0% of 4 read", seen)
+        self.assertIn("us 40.0% of 5 read", seen)
+
+    def test_gains_and_losses_come_sorted(self):
+        markup = self.render("#/keywords")
+        gains = [text_of(r) for r in re.findall(r"<li>(.*?)</li>", re.search(r"<h2>Largest gains</h2>(.*?)</section>", markup, re.S).group(1), re.S)]
+        losses = [text_of(r) for r in re.findall(r"<li>(.*?)</li>", re.search(r"<h2>Largest losses</h2>(.*?)</section>", markup, re.S).group(1), re.S)]
+        self.assertEqual(gains[0], "us tide times #120 → #60 +60")
+        self.assertEqual(gains[1], "us tide tracker #40 → #7 +33")
+        self.assertEqual(losses, ["us moon phase #8 → #30 −22"])
+        self.assertNotIn("tidepool", " ".join(gains + losses))                # brand keys are not movers
+        self.assertIn("2 entered the ranking · 1 fell out of depth", text_of(markup))
+
+    def test_coverage_block(self):
+        seen = text_of(self.render("#/keywords"))
+        for line in ("Keys with a comparable pair 8", "Unmeasurable keys 1", "Failed requests so far 2", "Observations 38"):
+            self.assertIn(line, seen)
+
+    def test_every_tracked_key_has_a_row(self):
+        markup = self.render("#/keywords")
+        rows = re.findall(r'<tr class="key( is-brand)?">(.*?)</tr>', markup, re.S)
+        self.assertEqual(len(rows), 12)
+        self.assertEqual(len([r for r in rows if r[0]]), 2)
+        by_key = {text_of(r[1]).split(" target ")[0]: text_of(r[1]) for r in rows}
+        self.assertIn("beyond depth", by_key["us sea level"])
+        self.assertIn("no results", by_key["ua фаза місяця"])
+        self.assertIn("#7", by_key["us tide tracker"])
+        self.assertIn("+33", by_key["us tide tracker"])
+        self.assertIn("head 41", by_key["us tide times"])
+
+    def test_a_store_with_no_sweep_says_so(self):
+        markup = self.js("(payload.snapshots = [], payload.keys.keys = [], payload.keys.dates = [], "
+                         "ASO.render('#/keywords', payload, '2026-11-14'))")
+        self.assertIn("Not stored yet", text_of(markup))
+
+
 if __name__ == "__main__":
     unittest.main()
