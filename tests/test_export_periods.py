@@ -1,5 +1,6 @@
 """Period files: closed weeks of flows, snapshots of stocks; and writing and checking the data folder."""
 import shutil
+import datetime as dt
 import sys
 import tempfile
 import unittest
@@ -115,8 +116,11 @@ class Snapshots(unittest.TestCase):
         early = built()[0]["snapshot/2026-10-05.json"]["families"]["coverage"]["figures"]
         self.assertEqual((early["observations"]["value"], early["paired_keys"]["value"]), (12, 0))
 
-    def test_demand_and_share_on_their_capture_day(self):
-        families = built()[0]["snapshot/2026-11-03.json"]["families"]
+    def test_demand_and_share_on_the_last_day_of_the_week_they_measure(self):
+        # the week of 2026-10-25 was read on 2026-11-03: it is a fact about that week, so it sits on the week's last day
+        self.assertNotIn("demand", built()[0]["snapshot/2026-11-03.json"]["families"])
+        families = built()[0]["snapshot/2026-10-31.json"]["families"]
+        self.assertEqual((families["demand"]["fetched_at"], families["impression_share"]["fetched_at"]), ("2026-11-03", "2026-11-03"))
         self.assertEqual(families["demand"]["rows"], [{"market": "us", "genre": "WEATHER", "term": "tide times",
                                                        "popularity_100": 41}])
         self.assertEqual(families["demand"]["cuts"], [
@@ -125,6 +129,23 @@ class Snapshots(unittest.TestCase):
         self.assertEqual(families["demand"]["measured"], {"start": "2026-10-25", "end": "2026-10-31"})
         self.assertEqual(families["impression_share"]["rows"], [{"market": "us", "term": "tide tracker", "rank": 2,
                                                                  "share_low": 0.31, "share_high": 0.4}])
+
+    def test_weeks_read_on_one_day_stay_apart(self):
+        """A history pull stores many weeks at once; each is its own snapshot, not one day holding the last of them."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            with (store / "metrics" / "popularity.csv").open("a", encoding="utf-8") as fh:
+                fh.write("2026-10-11,2026-11-14,us,WEATHER,tide times,150,33,2,basket,asc-ads-insights\n"
+                         "2026-10-18,2026-11-14,us,WEATHER,tide times,140,36,2,basket,asc-ads-insights\n"
+                         "2026-10-25,2026-11-14,us,WEATHER,tide times,118,42,2,basket,asc-ads-insights\n")    # a later read of a week already held
+            files = export.build_all(store, dt.date(2026, 11, 14))[0]
+            read = {day: files[f"snapshot/{day}.json"]["families"]["demand"] for day in ("2026-10-17", "2026-10-24", "2026-10-31")}
+            self.assertEqual([read[d]["rows"][0]["popularity_100"] for d in sorted(read)], [33, 36, 42])
+            self.assertEqual(read["2026-10-31"]["fetched_at"], "2026-11-14")              # the later read stands, and says when
+            self.assertEqual(read["2026-10-17"]["measured"], {"start": "2026-10-11", "end": "2026-10-17"})
+            before = export.build_all(store, dt.date(2026, 11, 10))[0]                    # a day before the history pull
+            self.assertNotIn("snapshot/2026-10-17.json", before)
+            self.assertEqual(before["snapshot/2026-10-31.json"]["families"]["demand"]["rows"][0]["popularity_100"], 41)
 
     def test_subscriptions_from_the_latest_read_when_the_store_has_one(self):
         with tempfile.TemporaryDirectory() as tmp:

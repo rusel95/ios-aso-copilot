@@ -133,6 +133,7 @@ class HalfAPull(unittest.TestCase):
             return rows, 1, 1, "2026-10-01"
         argv = ["pull_funnel.py", "--app", "1000000001", "--out", str(out), "--raw-dir", str(out / "raw")]
         with mock.patch.object(pull_funnel, "request_and_reports", return_value=("req", {})), \
+                mock.patch.object(pull_funnel, "snapshot_reports", return_value=None), \
                 mock.patch.object(pull_funnel, "fetch_report", side_effect=fetch), mock.patch.object(sys, "argv", argv), \
                 contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
             return pull_funnel.main(), said.getvalue()
@@ -164,6 +165,75 @@ class HalfAPull(unittest.TestCase):
                  "Partial funnel stage for lifecycle: ASC command failed (asc analytics instances; exit 39).", ""]
         self.assertIn("lifecycle", cycle.funnel_failure(lines))
         self.assertEqual(cycle.funnel_failure(["", ""]), "no output")
+
+
+class TheHistoryBeforeTheOngoingRequest(unittest.TestCase):
+    """An ongoing request holds about a month of days. Apple gives the days before it through a one-time snapshot
+    request; the collector reads both, and a day both hold is taken from the ongoing one."""
+    DAY = {"Territory": "US", "Source Type": "App Store search"}
+
+    def rows(self, days, count):
+        return ([dict(self.DAY, Date=d, Counts=str(count), Event="Impression") for d in days],
+                [dict(self.DAY, Date=d, Counts=str(count), **{"Download Type": "First-time download"}) for d in days])
+
+    filled = {name: {"instances": [{"id": "i"}]} for name in (pull_funnel.DISCOVERY_REPORT, pull_funnel.DOWNLOADS_REPORT,
+                                                             pull_funnel.INSTALLS_REPORT)}
+
+    def test_a_snapshot_apple_has_not_filled_yet_is_not_a_failure(self):
+        empty = {name: {"instances": []} for name in self.filled}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(type(self), "filled", empty):
+            code, weekly, _ = self.pull(Path(tmp))
+            self.assertEqual(code, 0)
+            self.assertEqual(sorted({week for week, _ in weekly}), ["2026-11-02"])
+
+    def test_a_day_both_hold_comes_from_the_newer_one(self):
+        newer = [{"Date": "2026-11-03", "Counts": "5"}, {"Date": "2026-11-04", "Counts": "5"}]
+        older = [{"Date": "2026-11-03", "Counts": "9"}, {"Date": "2026-10-28", "Counts": "9"}]
+        self.assertEqual(pull_funnel.merge_days(newer, older),
+                         newer + [{"Date": "2026-10-28", "Counts": "9"}])
+        self.assertEqual(pull_funnel.merge_days([], older), older)
+
+    def pull(self, out, snapshot_fails=None):
+        recent = [f"2026-11-{n:02d}" for n in range(2, 11)]                    # the ongoing request: 11-02 .. 11-10
+        early = [f"2026-10-{n:02d}" for n in range(19, 32)] + ["2026-11-01", "2026-11-02", "2026-11-03"]
+
+        def fetch(request_id, report, raw_dir, prefix, **_):
+            if request_id == "snap" and prefix == snapshot_fails:
+                raise RuntimeError("rate limited")
+            # the ongoing request's first daily report was processed on 10-26: the week of 11-02 is its first whole one
+            days, count, first = (recent, 5, "2026-10-26") if request_id == "req" else (early, 9, "2026-11-13")
+            if prefix == "lifecycle":
+                return [event(d, "Install", "US", count) for d in days], 1, 1, first
+            discovery, downloads = self.rows(days, count)
+            return (discovery if prefix == "r14" else downloads), 1, 1, first
+        argv = ["pull_funnel.py", "--app", "1000000001", "--out", str(out), "--raw-dir", str(out / "raw")]
+        with mock.patch.object(pull_funnel, "request_and_reports", return_value=("req", {})), \
+                mock.patch.object(pull_funnel, "snapshot_reports", return_value=("snap", self.filled)), \
+                mock.patch.object(pull_funnel, "fetch_report", side_effect=fetch), mock.patch.object(sys, "argv", argv), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
+            code = pull_funnel.main()
+        weekly = {(r["week_start"], r["segment"]): r for r in read_csv(out / "weekly.csv")}
+        return code, weekly, said.getvalue()
+
+    def test_earlier_weeks_come_from_the_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, weekly, said = self.pull(Path(tmp))
+            self.assertEqual(code, 0, said)
+            self.assertEqual(sorted({week for week, _ in weekly}), ["2026-10-19", "2026-10-26", "2026-11-02"])
+            self.assertEqual(weekly[("2026-10-19", "all")]["impressions"], "63")       # seven days of nine, snapshot only
+            # 10-26 .. 11-01 from the snapshot; in the week of 11-02 every day is in the ongoing request, so the
+            # snapshot's 11-02 and 11-03 are not added on top
+            self.assertEqual(weekly[("2026-10-26", "all")]["impressions"], "63")
+            self.assertEqual(weekly[("2026-11-02", "all")]["impressions"], "35")
+            self.assertEqual(sorted({r["week_start"] for r in read_csv(Path(tmp) / "lifecycle.csv")}),
+                             ["2026-10-19", "2026-10-26", "2026-11-02"])
+
+    def test_a_snapshot_read_by_half_adds_no_earlier_week(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, weekly, said = self.pull(Path(tmp), snapshot_fails="r3")
+            self.assertEqual(code, 2)
+            self.assertEqual(sorted({week for week, _ in weekly}), ["2026-11-02"])      # the ongoing weeks are still written
+            self.assertIn("Partial funnel stage for snapshot r3", said)
 
 
 class TheSkillsOwnCollector(unittest.TestCase):

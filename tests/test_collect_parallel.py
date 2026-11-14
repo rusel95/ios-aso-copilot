@@ -132,6 +132,7 @@ class FunnelCache(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             argv = ["pull_funnel.py", "--app", "1000000001", "--out", tmp, "--raw-dir", str(Path(tmp) / "raw")]
             with mock.patch.object(pull_funnel, "request_and_reports", return_value=("req", {})), \
+                    mock.patch.object(pull_funnel, "snapshot_reports", return_value=None), \
                     mock.patch.object(pull_funnel, "fetch_report", side_effect=fetch), mock.patch.object(sys, "argv", argv), \
                     contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
                 pull_funnel.main()

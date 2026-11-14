@@ -25,6 +25,7 @@ import sys
 import urllib.parse
 from pathlib import Path
 from aso.pull_revenuecat_series import ads_weeks, cashflow_weeks, store_series  # noqa: E402
+from aso.store_state import first_release_day  # noqa: E402,F401
 from aso.pull_revenuecat_fetch import (  # noqa: E402,F401
     CODE_TO_COUNTRY_NAME,
     COUNTRY_NAME_TO_CODE,
@@ -117,16 +118,6 @@ def aggregate_window(start_str: str, end_str: str, by_country_daily: dict, trial
         "gross_roas_pct": round(gross_roas, 1) if gross_roas is not None else None,
         "net_roas_pct": round(net_roas, 1) if net_roas is not None else None,
     }
-
-
-def first_release_day(lookup):
-    """The day the public store lookup says the app was first released, or None."""
-    found = (lookup.get("results") or [None])[0] if isinstance(lookup, dict) else None
-    day = str((found or {}).get("releaseDate") or "")[:10]
-    try:
-        return dt.date.fromisoformat(day).isoformat()
-    except ValueError:
-        return None
 
 
 def history_start(lookup, today: dt.date) -> str:

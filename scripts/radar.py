@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import sys
@@ -113,6 +114,9 @@ def listed(run, cfg, resource, filters, size=1000) -> list:
 
 
 # ---------------------------------------------------------------- pull
+ASK_AT_ONCE = 4
+
+
 def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
     """Append the week's popularity for each market. -> (stored_week or None, markets stored, failures)."""
     metrics = store / "metrics"
@@ -125,16 +129,25 @@ def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
             return week.isoformat(), [], failures
         end = week + dt.timedelta(days=6)
         results, failures = {}, []
-        for market in todo:
+
+        def ask(market):
             payload = {"timeRange": {"start": week.isoformat(), "end": end.isoformat(), "timeZone": "UTC",
                                      "granularity": "WEEKLY_SUN_SAT"},
                        "filters": [{"field": "countryOrRegion", "operator": "EQUALS", "value": market.upper()},
                                    {"field": "genre", "operator": "IN", "value": cfg["genres"]}],
                        "sorting": [{"field": "rankInGenre", "sortOrder": "ASC"}]}
             try:
-                results[market] = paged_rows(run, cfg, ["insights", "search-term-popularity", "find"], payload)
+                return market, paged_rows(run, cfg, ["insights", "search-term-popularity", "find"], payload), None
             except (RuntimeError, KeyError, TypeError) as exc:
-                failures.append((market, str(exc)))
+                return market, None, str(exc)
+
+        # one request a storefront, each a few seconds of waiting: asked a few at a time, a week takes seconds
+        with ThreadPoolExecutor(max_workers=ASK_AT_ONCE) as pool:
+            for market, rows, why in pool.map(ask, todo):
+                if why is None:
+                    results[market] = rows
+                else:
+                    failures.append((market, why))
         if not any(results.values()):
             continue  # nothing anywhere: Apple has not published this week yet
         pop_rows, cut_rows = [], []
@@ -220,13 +233,33 @@ def cmd_pull(args, run=asc_ads, today=None):
     for market, why in failures:
         print(f"  ⚠️ {market}: {why}")
         partial = True
-    try:
-        fetched, fresh = pull_share(store, cfg, week_start, captured, run)
-        print(f"Impression share: {fresh} new of {fetched} term rows for the 4 weeks to {week_start + dt.timedelta(days=6)}"
-              f"{' (the app ran no ads there)' if not fetched else ''} [live:asc ads insights impression-share find@{captured}].")
-    except (RuntimeError, KeyError, TypeError) as exc:
-        print(f"  ⚠️ impression share: {exc}")
-        partial = True
+    # The history: Apple answers for past weeks too. Every week from the start that the store does not hold is asked
+    # for, newest first; a week already held costs nothing, so a pass after the first asks only for what is new.
+    since = dt.date.fromisoformat(args.since) if getattr(args, "since", None) else None
+    older = week_start - dt.timedelta(days=7)
+    first_week = since - dt.timedelta(days=(since.weekday() + 1) % 7) if since else week_start     # the Sunday on or before
+    filled = failed = 0
+    while since and older >= first_week:
+        _, stored, failures = pull_popularity(store, cfg, markets, older, captured, run)
+        filled += bool(stored)
+        failed += len(failures)
+        older -= dt.timedelta(days=7)
+    if since:
+        print(f"Popularity history since {first_week}: {filled} earlier weeks stored"
+              + (f"; {failed} storefront requests failed and will be asked again" if failed else "") + ".")
+        partial = partial or bool(failed)
+    span = week_start
+    while True:
+        try:
+            fetched, fresh = pull_share(store, cfg, span, captured, run)
+            print(f"Impression share: {fresh} new of {fetched} term rows for the 4 weeks to {span + dt.timedelta(days=6)}"
+                  f"{' (the app ran no ads there)' if not fetched else ''} [live:asc ads insights impression-share find@{captured}].")
+        except (RuntimeError, KeyError, TypeError) as exc:
+            print(f"  ⚠️ impression share: {exc}")
+            partial = True
+        span -= dt.timedelta(days=28)
+        if not since or span < first_week:
+            break
     return 2 if partial else 0
 
 
@@ -539,6 +572,8 @@ def main(argv=None) -> int:
     pull = sub.add_parser("pull", parents=[parent], help="Append this week's popularity and impression share")
     pull.add_argument("--markets", help="comma list; default: every market in metrics/ranks.csv")
     pull.add_argument("--if-configured", action="store_true", help="exit 0 quietly when config.md has no Apple Ads account")
+    pull.add_argument("--since", metavar="YYYY-MM-DD",
+                      help="also store every earlier week back to this day that the store does not hold yet")
     sub.add_parser("report", parents=[parent], help="Print the stored radar; no network")
     kw = sub.add_parser("keywords", parents=[parent], help="Keyword report joined to keyword text (live, read-only)")
     kw.add_argument("--campaign", help="campaign id; default: every campaign")

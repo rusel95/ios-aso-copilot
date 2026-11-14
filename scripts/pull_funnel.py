@@ -27,11 +27,14 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from aso.funnel_lifecycle import (  # noqa: E402,F401
+    LIFECYCLE_FIELDS, count_value, fold_lifecycle, median_gap, merge_days, monday_on_or_after, reached, week_start,
+    write_lifecycle_weeks)
+
 DISCOVERY_REPORT = "App Store Discovery and Engagement Standard"
 DOWNLOADS_REPORT = "App Downloads Standard"
 INSTALLS_REPORT = "App Store Installation and Deletion Standard"
-LIFECYCLE_FIELDS = ["week_start", "segment", "first_installs_optin", "deletions_optin", "deletions_per_100_installs",
-                    "deleted_within_1d", "deletions_timed", "median_days_to_delete", "source", "recorded"]
 WEEKLY_FIELDS = [
     "week_start", "segment", "impressions", "product_page_views", "downloads",
     "cvr_pct", "trial_starts", "source", "recorded", "note"
@@ -96,15 +99,6 @@ def segment_name(source_type):
         return "app_referrer"
     slug = re.sub(r"[^a-z0-9]+", "_", value).strip("_")
     return f"other_{slug}" if slug else "other_unknown"
-
-
-def week_start(day):
-    return day - timedelta(days=day.weekday())
-
-
-def count_value(value):
-    value = (value or "").strip().replace(",", "")
-    return int(value) if value else None
 
 
 def read_tsv(path, app_id=None):
@@ -189,6 +183,18 @@ def request_and_reports(app_id):
     return request_id, reports
 
 
+def snapshot_reports(app_id):
+    """(request id, reports by name) of the app's one-time snapshot request, or None when it has none. A snapshot
+    holds the days before the ongoing request began; Apple takes a day or two to fill one after it is asked for."""
+    listed = asc_json(["asc", "analytics", "requests", "--app", str(app_id), "--paginate", "--output", "json"])
+    found = next((item.get("id") for item in listed.get("data", [])
+                  if item.get("attributes", {}).get("accessType") == "ONE_TIME_SNAPSHOT" and item.get("id")), None)
+    if not found:
+        return None
+    payload = asc_json(["asc", "analytics", "view", "--request-id", found, "--granularity", "DAILY", "--paginate", "--output", "json"])
+    return found, {row.get("name"): row for row in payload.get("data", []) if isinstance(row, dict)}
+
+
 def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False, manifest=None):
     if not report:
         raise RuntimeError(f"ASC report {prefix} is missing from the existing ongoing request.")
@@ -257,22 +263,11 @@ def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False,
     return [item[1] for item in latest.values()], len(exports), len(instances), (instances[0].get("processingDate") if instances else None)
 
 
-def reached(*reports):
-    """The newest day every one of these reports holds, as an ISO date, or None when they hold nothing.
-
-    Apple publishes a day about two days late, so on the Monday after a week its Sunday is in no report yet. A week
-    is written once, and is therefore folded only when the reports already hold a day after it."""
-    newest = [max(row["Date"] for row in rows) for rows in reports if rows]
-    return min(newest) if newest else None
-
-
-def fold_reports(discovery_rows, download_rows, today=None, first_processing_date=None):
+def fold_reports(discovery_rows, download_rows, today=None, whole_from=None):
+    """(week start, segment) -> the funnel counts of closed Monday weeks. `whole_from` is the first Monday whose week
+    the reports hold from its start; earlier days belong to a week that began before the reports did."""
     today = today or date.today()
     reach = reached(discovery_rows, download_rows)
-    first_full_week = (
-        week_start(date.fromisoformat(first_processing_date)) + timedelta(days=7)
-        if first_processing_date else None
-    )
     metrics = {}
 
     def ensure_entry(start, seg):
@@ -287,7 +282,7 @@ def fold_reports(discovery_rows, download_rows, today=None, first_processing_dat
     def record_day(day):
         start = week_start(date.fromisoformat(day))
         sunday = start + timedelta(days=6)
-        if sunday >= today or (first_full_week and start < first_full_week) or sunday.isoformat() >= reach:
+        if sunday >= today or (whole_from and start < whole_from) or sunday.isoformat() >= reach:
             return None
         return start
 
@@ -390,89 +385,6 @@ def write_new_weeks(out_dir, metrics, report_info, raw_dir, today=None):
     return len(rows), skipped
 
 
-def fold_lifecycle(rows, today=None, first_processing_date=None):
-    """(week start, segment) -> the opt-in installs and deletions of one closed Monday week; the segments are `all`
-    and each storefront. A sample of devices that share analytics, not a cohort: a week's deletions are mostly of
-    installs made earlier. `timed` counts the deletions whose install day is known, `gaps` the days between."""
-    today = today or date.today()
-    first_full_week = (week_start(date.fromisoformat(first_processing_date)) + timedelta(days=7)
-                       if first_processing_date else None)
-    weeks, reach = {}, reached(rows)
-    for row in rows:
-        day = date.fromisoformat(row["Date"])
-        start = week_start(day)
-        sunday = start + timedelta(days=6)
-        if sunday >= today or (first_full_week and start < first_full_week) or sunday.isoformat() >= reach:
-            continue
-        kind, count = (row.get("Event") or "").strip().casefold(), count_value(row.get("Counts"))
-        if count is None or kind not in ("install", "delete"):
-            continue
-        if kind == "install" and (row.get("Download Type") or "").strip().casefold() != "first-time download":
-            continue
-        gap = None
-        if kind == "delete":
-            try:
-                gap = (day - date.fromisoformat((row.get("App Download Date") or "").strip())).days
-            except ValueError:
-                gap = None
-            if gap is not None and gap < 0:      # deleted before it was installed: the report's noise, not a time
-                gap = None
-        territory = (row.get("Territory") or "").strip().lower()
-        for segment in ["all"] + ([territory] if len(territory) == 2 and territory.isalpha() else []):
-            item = weeks.setdefault((start.isoformat(), segment), {
-                "installs": 0, "deletions": 0, "within_1d": 0, "timed": 0, "gaps": collections.Counter()})
-            if kind == "install":
-                item["installs"] += count
-                continue
-            item["deletions"] += count
-            if gap is not None:
-                item["timed"] += count
-                item["within_1d"] += count if gap <= 1 else 0
-                item["gaps"][gap] += count
-    return weeks
-
-
-def median_gap(gaps):
-    """The middle day of a {days: deletions} count (the lower of two middles), or "" when nothing was timed."""
-    seen, half = 0, (sum(gaps.values()) + 1) // 2
-    for days in sorted(gaps):
-        seen += gaps[days]
-        if seen >= half:
-            return days
-    return ""
-
-
-def write_lifecycle_weeks(out_dir, metrics, today=None):
-    """Append the folded weeks metrics/lifecycle.csv does not hold yet -> (rows written, keys skipped)."""
-    today = today or date.today()
-    path = out_dir / "lifecycle.csv"
-    existing = set()
-    if path.is_file():
-        with path.open(encoding="utf-8") as source:
-            existing = {(row["week_start"], row["segment"]) for row in csv.DictReader(source)}
-    recorded = today.isoformat()
-    rows, skipped = [], []
-    for (week, segment), item in sorted(metrics.items()):
-        if (week, segment) in existing:
-            skipped.append((week, segment))
-            continue
-        rows.append({
-            "week_start": week, "segment": segment, "first_installs_optin": item["installs"],
-            "deletions_optin": item["deletions"],
-            "deletions_per_100_installs": f"{100.0 * item['deletions'] / item['installs']:.1f}" if item["installs"] else "",
-            "deleted_within_1d": item["within_1d"], "deletions_timed": item["timed"],
-            "median_days_to_delete": median_gap(item["gaps"]),
-            "source": f"live:asc analytics daily lifecycle@{recorded}", "recorded": recorded})
-    if rows:
-        write_header = not path.is_file()
-        with path.open("a", encoding="utf-8", newline="") as target:
-            writer = csv.DictWriter(target, fieldnames=LIFECYCLE_FIELDS, lineterminator="\n")
-            if write_header:
-                writer.writeheader()
-            writer.writerows(rows)
-    return len(rows), skipped
-
-
 def resolve_app_id(args):
     if args.app:
         return str(args.app).strip()
@@ -516,43 +428,74 @@ def main():
         print(f"Funnel pull unavailable: {exc}", file=sys.stderr)
         return 2
 
-    def read(name, prefix):
-        try:
-            return fetch_report(request_id, reports.get(name), raw_dir, prefix, app_id=app_id, resume=args.resume, manifest=manifest)
-        except (RuntimeError, OSError) as exc:
-            print(f"Partial funnel stage for {prefix}: {exc}", file=sys.stderr)
-            return None
-
-    # three reports of one request, each a long row of daily downloads: read side by side, they take a third of the time
     wanted = ((DISCOVERY_REPORT, "r14"), (DOWNLOADS_REPORT, "r3"), (INSTALLS_REPORT, "lifecycle"))
-    with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
-        discovery, downloads, lifecycle = pool.map(lambda pair: read(*pair), wanted)
 
-    discovery_rows, download_rows, summaries, report_start = [], [], [], None
-    for prefix, found, target in (("r14", discovery, discovery_rows), ("r3", downloads, download_rows)):
-        if found:
-            rows, file_count, instance_count, start = found
-            target.extend(rows)
-            summaries.append(f"{prefix}: {instance_count} daily instances, {file_count} CSVs")
-            if start is not None and (report_start is None or start < report_start):
-                report_start = start
+    def read_all(request, found_reports, folder, its_manifest, label=""):
+        """The three reports of one request, read side by side -> [(rows, files, instances, first processing date) or None]."""
+        def read(pair):
+            name, prefix = pair
+            try:
+                return fetch_report(request, found_reports.get(name), folder, prefix, app_id=app_id, resume=args.resume,
+                                    manifest=its_manifest)
+            except (RuntimeError, OSError) as exc:
+                print(f"Partial funnel stage for {label}{prefix}: {exc}", file=sys.stderr)
+                return None
+        with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
+            return list(pool.map(read, wanted))
+
+    discovery, downloads, lifecycle = read_all(request_id, reports, raw_dir, manifest)
+    partial = lifecycle is None
+
+    def floor(found):
+        """The first Monday whose week an ongoing request holds whole: the week after its first daily report."""
+        return week_start(date.fromisoformat(found[3])) + timedelta(days=7) if found and found[3] else None
+
+    funnel_from = min((f for f in (floor(discovery), floor(downloads)) if f), default=None)
+    lifecycle_from = floor(lifecycle)
+    discovery_rows, download_rows = (discovery[0] if discovery else []), (downloads[0] if downloads else [])
+    lifecycle_rows = lifecycle[0] if lifecycle else []
+    summaries = [f"{prefix}: {found[2]} daily instances, {found[1]} CSVs"
+                 for prefix, found in (("r14", discovery), ("r3", downloads)) if found]
+
+    # The days before the ongoing request began, when the app has a one-time snapshot request and Apple has filled it.
+    # Both funnel reports of the snapshot are needed, or its earlier weeks would be written by half.
+    try:
+        snapshot = snapshot_reports(app_id)
+    except (RuntimeError, OSError) as exc:
+        print(f"Partial funnel stage for snapshot: {exc}", file=sys.stderr)
+        snapshot, partial = None, True
+    if snapshot and not any((snapshot[1].get(name) or {}).get("instances") for name, _ in wanted):
+        print("The one-time snapshot request holds no daily report yet (Apple fills it a day or two after it is asked for).")
+    elif snapshot:
+        folder = raw_dir / "snapshot"
+        folder.mkdir(parents=True, exist_ok=True)
+        old = read_all(snapshot[0], snapshot[1], folder, load_manifest(folder, snapshot[0], app_id=app_id), "snapshot ")
+        partial = partial or any(found is None for found in old)
+        if old[0] and old[1] and discovery_rows and download_rows and (old[0][0] or old[1][0]):
+            earliest = min(row["Date"] for row in old[0][0] + old[1][0])
+            funnel_from = min(f for f in (funnel_from, monday_on_or_after(date.fromisoformat(earliest))) if f)
+            discovery_rows, download_rows = merge_days(discovery_rows, old[0][0]), merge_days(download_rows, old[1][0])
+            summaries.append(f"snapshot: {old[0][2]} + {old[1][2]} daily instances")
+        if old[2] and old[2][0]:
+            earliest = min(row["Date"] for row in old[2][0])
+            lifecycle_from = min(f for f in (lifecycle_from, monday_on_or_after(date.fromisoformat(earliest))) if f)
+            lifecycle_rows = merge_days(lifecycle_rows, old[2][0])
 
     out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # the install lifecycle is its own report and its own file: a funnel that could not be read does not stop it
-    if lifecycle:
-        lifecycle_rows, file_count, instance_count, start = lifecycle
-        written, skipped = write_lifecycle_weeks(out_dir, fold_lifecycle(lifecycle_rows, first_processing_date=start))
-        print(f"App ID {app_id}: lifecycle from {instance_count} daily instances, {file_count} CSVs; appended {written} "
-              f"new rows to {out_dir / 'lifecycle.csv'}; skipped {len(skipped)} existing week/segment keys.")
+    if lifecycle_rows:
+        written, skipped = write_lifecycle_weeks(out_dir, fold_lifecycle(lifecycle_rows, whole_from=lifecycle_from))
+        print(f"App ID {app_id}: lifecycle appended {written} new rows to {out_dir / 'lifecycle.csv'}; "
+              f"skipped {len(skipped)} existing week/segment keys.")
 
     # a week is written once: a row holding one report without the other would stay half empty for good
     if not discovery_rows or not download_rows:
         print("R14 and R3 were not both read; weekly.csv was not updated.", file=sys.stderr)
         return 2
 
-    metrics = fold_reports(discovery_rows, download_rows, first_processing_date=report_start)
+    metrics = fold_reports(discovery_rows, download_rows, whole_from=funnel_from)
     if not metrics:
         print("ASC returned no complete weekly observations; weekly.csv was not updated.", file=sys.stderr)
         return 2
@@ -561,7 +504,7 @@ def main():
     print(f"App ID {app_id}: {len(metrics)} observed week/segment groups; appended {written} new rows to "
           f"{out_dir / 'weekly.csv'}; skipped {len(skipped)} existing week/segment keys.")
     # a report that could not be read was named above; the exit code says it too, so no caller takes the pull for whole
-    return 2 if lifecycle is None else 0
+    return 2 if partial else 0
 
 
 if __name__ == "__main__":

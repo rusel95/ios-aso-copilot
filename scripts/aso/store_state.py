@@ -2,6 +2,8 @@
 version went live. Each is appended, never rewritten."""
 from __future__ import annotations
 
+import datetime as dt
+
 import json
 from pathlib import Path
 
@@ -43,6 +45,16 @@ def chart_rows(results: list, captured: str) -> list:
                      "chart_type": r.get("chart_type", ""), "position": r["rank"] if status == "ok" else "",
                      "depth": r.get("chart_size", ""), "status": status, "source": "itunes-rss"})
     return rows
+
+
+def first_release_day(lookup):
+    """The day the public store lookup says the app was first released, or None. It is where an app's history
+    starts: collectors that can ask for a span ask from here."""
+    found = (lookup.get("results") or [None])[0] if isinstance(lookup, dict) else None
+    try:
+        return dt.date.fromisoformat(str((found or {}).get("releaseDate") or "")[:10]).isoformat()
+    except ValueError:
+        return None
 
 
 def release_row(lookup: dict, captured: str):

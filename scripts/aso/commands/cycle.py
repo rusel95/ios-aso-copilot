@@ -14,7 +14,7 @@ from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pul
 from aso.commands.parallel import run_stages
 from aso.pull_revenuecat_series import ADS_COLS
 from aso.store import append_changed
-from aso.store_state import store_charts, store_ratings, store_release
+from aso.store_state import first_release_day, store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
 
 
@@ -424,8 +424,12 @@ def stage_ga(store: Path, app: dict, skip: bool) -> bool:
     return False
 
 
-def stage_radar(store: Path) -> bool:
-    rc, out, err = run_cmd([sys.executable, str(SKILL_DIR / "scripts" / "radar.py"), "--store", str(store), "pull", "--if-configured"])
+def stage_radar(store: Path, app_id: str) -> bool:
+    """Apple's search popularity and impression share: the newest week, and every earlier week since the app's
+    first release that the store does not hold yet (Apple answers for past weeks; a week already held costs nothing)."""
+    since = first_release_day(fetch_lookup(app_id))
+    rc, out, err = run_cmd([sys.executable, str(SKILL_DIR / "scripts" / "radar.py"), "--store", str(store), "pull", "--if-configured"]
+                           + (["--since", since] if since else []))
     if rc == 0:
         for l in out.splitlines():
             print(f"  {l}")
@@ -499,7 +503,7 @@ def stage_plan(args, store: Path, app: dict) -> tuple:
         ("Syncing Funnel Analytics & Impressions (ASC)", lambda: stage_funnel(store, app_id, args.skip_pull)),
         ("Pulling In-App Telemetry (GA4)", lambda: stage_ga(store, app, args.skip_ga)),
         ("Storing In-App Weeks & Chart Positions", lambda: collect_extras(store, app)),
-        ("Apple demand radar (search popularity, impression share)", lambda: stage_radar(store)),
+        ("Apple demand radar (search popularity, impression share)", lambda: stage_radar(store, app_id)),
         ("Revenue, Cashflow & Apple Ads (RevenueCat)", lambda: stage_revenue(store, app, getattr(args, "skip_rc", False))),
     ]
     if getattr(args, "ranks", False):

@@ -67,6 +67,85 @@ class LongRanges(unittest.TestCase):
         self.assertEqual(sorted(day for day, _, _ in daily), [start for start, _ in asked])       # one row a piece, all kept
 
 
+class DemandForEveryWeek(unittest.TestCase):
+    """Apple answers for past weeks too: the radar asks for every week since the start that the store does not hold."""
+
+    def store(self, tmp):
+        store = Path(tmp) / "marketing"
+        (store / "metrics").mkdir(parents=True)
+        (store / "config.md").write_text("**App ID**: 1000000001\n**Apple Ads profile**: Test\n**Apple Ads account**: 42\n"
+                                         "**Apple Ads genres**: WEATHER\n", encoding="utf-8")
+        (store / "metrics" / "ranks.csv").write_text(
+            "date,market,keyword,group,position,popularity,difficulty,source,depth,status\n"
+            "2026-11-02,us,tide times,target,60,,,itunes-search-api,200,ok\n"
+            "2026-11-02,ua,приплив,target,,,,itunes-search-api,200,beyond-depth\n", encoding="utf-8")
+        return store
+
+    def pull(self, store, since, today=dt.date(2026, 11, 14)):
+        import argparse
+        import radar
+        asked = {"popularity": [], "share": []}
+
+        def fake(cfg, resource, payload):
+            time = payload["timeRange"]
+            if resource[1] == "search-term-popularity":
+                market = payload["filters"][0]["value"]
+                asked["popularity"].append((time["start"], market))
+                return {"result": {"rows": [{"week": time["start"], "countryOrRegion": market, "genre": "WEATHER",
+                                             "searchTerm": "tide times" if market == "US" else "приплив", "rankInGenre": 9,
+                                             "searchPopularity1to100": 40, "searchPopularity1to5": 2}]}}
+            asked["share"].append((time["start"], time["end"]))
+            return {"result": {"rows": []}}
+        args = argparse.Namespace(store=str(store), markets=None, if_configured=False, since=since)
+        with contextlib.redirect_stdout(io.StringIO()) as said:
+            code = radar.cmd_pull(args, run=fake, today=today)
+        return code, asked, said.getvalue()
+
+    def test_every_week_since_the_start_is_asked_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.store(tmp)
+            code, asked, _ = self.pull(store, "2026-10-13")          # a Tuesday: its week began on Sunday 10-11
+            self.assertEqual(code, 0)
+            self.assertEqual(sorted({week for week, _ in asked["popularity"]}), ["2026-10-11", "2026-10-18", "2026-10-25", "2026-11-01"])
+            self.assertEqual(len(asked["popularity"]), 8)                                   # four weeks, two storefronts
+            held = {(r["week"], r["market"]) for r in read_csv(store / "metrics" / "popularity_cut.csv")}
+            self.assertEqual(len(held), 8)
+            _, again, said = self.pull(store, "2026-10-13")
+            self.assertEqual(again["popularity"], [])                                        # nothing is asked twice
+            self.assertIn("already stored", said)
+
+    def test_impression_share_is_asked_for_the_whole_span_four_weeks_a_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, asked, _ = self.pull(self.store(tmp), "2026-09-13")                           # eight weeks back
+            spans = sorted(asked["share"])
+            self.assertEqual(spans, [("2026-09-13", "2026-10-10"), ("2026-10-11", "2026-11-07")])
+
+    def test_without_a_start_only_the_newest_week_is_asked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, asked, _ = self.pull(self.store(tmp), None)
+            self.assertEqual({week for week, _ in asked["popularity"]}, {"2026-11-01"})
+            self.assertEqual(len(asked["share"]), 1)
+
+
+class ThePassAsksForTheWholeSpan(unittest.TestCase):
+    def test_the_demand_radar_is_told_where_the_apps_history_starts(self):
+        seen = []
+        lookup = {"results": [{"releaseDate": "2025-09-27T07:00:00Z"}]}
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()), \
+                mock.patch.object(cycle, "fetch_lookup", return_value=lookup), \
+                mock.patch.object(cycle, "run_cmd", side_effect=lambda cmd, **_: seen.append(cmd) or (0, "radar\n", "")):
+            self.assertTrue(cycle.stage_radar(copy_store(tmp), "1000000001"))
+        self.assertEqual(seen[0][-2:], ["--since", "2025-09-27"])
+
+    def test_a_silent_lookup_asks_for_the_newest_week_only(self):
+        seen = []
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()), \
+                mock.patch.object(cycle, "fetch_lookup", return_value=None), \
+                mock.patch.object(cycle, "run_cmd", side_effect=lambda cmd, **_: seen.append(cmd) or (0, "radar\n", "")):
+            cycle.stage_radar(copy_store(tmp), "1000000001")
+        self.assertNotIn("--since", seen[0])
+
+
 class AdsWithoutASubscriptionProvider(unittest.TestCase):
     """A store with Apple Ads and no RevenueCat still gets its ads results by week."""
     APP = {"app_id": "1000000001", "brand": "tidepool", "rc_project_id": None}

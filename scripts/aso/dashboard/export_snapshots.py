@@ -43,9 +43,11 @@ def rank_snapshots(store: Path, as_of: dt.date) -> dict:
     return out
 
 
-def captured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: list) -> dict:
-    """capture day -> rows of one Apple Ads insights file, numbers parsed. `numbers` maps a column to int or float;
-    a blank cell is null; a row with an unreadable cell is named and skipped."""
+def measured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: list) -> dict:
+    """last day of the measured week -> rows of one Apple Ads insights file, numbers parsed. A figure is a fact about
+    its week, whenever it was read, so a history pull that stores fifty weeks in a day gives fifty snapshots. A row
+    captured after `as_of` is not known yet. `numbers` maps a column to int or float; a blank cell is null; a row
+    with an unreadable cell is named and skipped."""
     out = {}
     for n, r in enumerate(read_csv(store / "metrics" / name), 2):
         day, week = parse_date(r.get("captured")), parse_date(r.get("week"))
@@ -54,7 +56,7 @@ def captured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: 
             continue
         if day > as_of:
             continue
-        row = {"_week": week}
+        row = {"_week": week, "_captured": day}
         try:
             for column in r:
                 cell = (r[column] or "").strip()
@@ -62,36 +64,38 @@ def captured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: 
         except ValueError:
             notes.append(f"metrics/{name}:{n}: a number column holds {cell!r}; the row is skipped")
             continue
-        out.setdefault(day, []).append(row)
+        out.setdefault(week + dt.timedelta(days=6), []).append(row)
     return out
 
 
-def insight_family(rows: list, key: tuple, lists: dict) -> dict:
-    """One family from the rows of one capture day. `lists` maps a list name to (source rows, columns)."""
-    weeks = [r["_week"] for group, _ in lists.values() for r in group] or [r["_week"] for r in rows]
-    family = {"source": "asc-ads-insights", "fetched_at": key[0].isoformat(),
+def insight_family(lists: dict) -> dict:
+    """One family from the rows of one measured week. `lists` maps a list name to (source rows, columns). Among rows
+    for one key the later capture stands, then the later line: a week read again is a correction."""
+    rows = [r for group, _ in lists.values() for r in group]
+    weeks = [r["_week"] for r in rows]
+    family = {"source": "asc-ads-insights", "fetched_at": max(r["_captured"] for r in rows).isoformat(),
               "measured": {"start": min(weeks).isoformat(), "end": (max(weeks) + dt.timedelta(days=6)).isoformat()}}
     for name, (group, columns) in lists.items():
         latest = {}
-        for r in group:                                    # a repeated row is the same fact; the later line stands
+        for r in sorted(group, key=lambda r: r["_captured"]):          # stable: the later line of one day stands
             latest[tuple(r[c] for c in columns[:-1] if not isinstance(r[c], (int, float)))] = {c: r[c] for c in columns}
         family[name] = [latest[k] for k in sorted(latest, key=lambda k: tuple(str(x) for x in k))]
     return family
 
 
 def insight_snapshots(store: Path, as_of: dt.date, notes: list) -> dict:
-    """capture day -> the demand and impression_share families Apple's own figures were stored on."""
-    popularity = captured_rows(store, "popularity.csv", as_of, {"popularity_100": int}, notes)
-    cuts = captured_rows(store, "popularity_cut.csv", as_of, {"listed": int, "min_popularity_100": int}, notes)
-    shares = captured_rows(store, "impression_share.csv", as_of, {"rank": int, "share_low": float, "share_high": float},
+    """last day of a measured week -> the demand and impression_share families Apple's own figures give for it."""
+    popularity = measured_rows(store, "popularity.csv", as_of, {"popularity_100": int}, notes)
+    cuts = measured_rows(store, "popularity_cut.csv", as_of, {"listed": int, "min_popularity_100": int}, notes)
+    shares = measured_rows(store, "impression_share.csv", as_of, {"rank": int, "share_low": float, "share_high": float},
                            notes)
     out = {}
     for day in sorted(set(popularity) | set(cuts)):
-        out.setdefault(day, {})["demand"] = insight_family([], (day,), {
+        out.setdefault(day, {})["demand"] = insight_family({
             "rows": (popularity.get(day, []), ["market", "genre", "term", "popularity_100"]),
             "cuts": (cuts.get(day, []), ["market", "genre", "listed", "min_popularity_100"])})
     for day in sorted(shares):
-        out.setdefault(day, {})["impression_share"] = insight_family([], (day,), {
+        out.setdefault(day, {})["impression_share"] = insight_family({
             "rows": (shares[day], ["market", "term", "rank", "share_low", "share_high"])})
     return out
 
