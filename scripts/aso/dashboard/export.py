@@ -11,7 +11,8 @@ from pathlib import Path
 
 from aso.dashboard.contract import ENTITIES, SCHEMA, canonical, load_catalog, validate
 from aso.dashboard.series import ranks_until, unavailable
-from aso.dashboard.export_weeks import (NOTHING_THAT_WEEK, NOT_STORED_YET, ads_family_weeks, funnel_weeks, in_app_weeks, money_weeks)
+from aso.dashboard.export_weeks import (NOTHING_THAT_WEEK, NOT_STORED_YET, ads_family_weeks, funnel_weeks, in_app_weeks,
+                                        lifecycle_weeks, money_weeks)
 from aso.dashboard.export_snapshots import (chart_snapshots, insight_snapshots, rank_snapshots, ratings_snapshots, subscription_snapshots)
 from aso.ledger_state import hypothesis_states, priority
 from aso.ranks import brand_hit, loose_index, movers, resolve_key, series, zero_result_keys
@@ -177,8 +178,8 @@ def build_all(store: Path, as_of: dt.date) -> tuple:
     money, money_stored = money_weeks(store, as_of, notes)
     ads, ads_stored = ads_family_weeks(store, as_of, notes)
     in_app, in_app_stored = in_app_weeks(store, as_of, notes)
-    known = {"store_funnel": (funnel, True), "lifecycle": ({}, False), "money": (money, money_stored), "ads": (ads, ads_stored),
-             "in_app": (in_app, in_app_stored)}
+    known = {"store_funnel": (funnel, True), "lifecycle": lifecycle_weeks(store, as_of, notes), "money": (money, money_stored),
+             "ads": (ads, ads_stored), "in_app": (in_app, in_app_stored)}
     for week in sorted({w for weeks, _ in known.values() for w in weeks}):
         families = {}
         for name, (weeks, stored) in known.items():

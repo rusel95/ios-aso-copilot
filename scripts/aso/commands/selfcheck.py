@@ -126,15 +126,15 @@ def self_check():
                                            (2, "GA table\n⚠️ Збір частковий: Firebase CLI\n", ""),
                                            (0, "radar\n", ""), (0, "ledger\n", "")])
         assert ga_partial == 2 and "GA table" in out_ga and "GA4 pull partial (exit 2)" in out_ga
-        assert any(l.startswith("4 ") and " partial " in l for l in out_ga.rstrip().splitlines()[-6:])
+        assert any(l.startswith("4 ") and " partial " in l for l in out_ga.rstrip().splitlines()[-7:])
         partial, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
                                         (0, "", ""), (0, "GA metrics\n", ""), (0, "radar\n", ""), (0, "ledger\n", "")])
         assert partial == 2 and "whether there are zero rows is unknown" in output
         # the stage table is the LAST thing printed, one row per stage, and names the partial one
         tail = output.rstrip().splitlines()
-        assert "STAGE SUMMARY" in output and len([l for l in tail[-6:] if l[:1] in "123456"]) == 6, tail[-8:]
-        assert any(l.startswith("2 ") and " partial " in l for l in tail[-6:]), tail[-6:]
-        sample = "\n▶ [1/6] A\n  fine\n\n▶ [3/6] Funnel\n  ⚠️ pull_funnel.py exited with code 1; Cause: 429\n\n▶ [4/6] GA\n  (GA4 pull explicitly skipped)\n"
+        assert "STAGE SUMMARY" in output and len([l for l in tail[-7:] if l[:1] in "1234567"]) == 7, tail[-9:]
+        assert any(l.startswith("2 ") and " partial " in l for l in tail[-7:]), tail[-7:]
+        sample = "\n▶ [1/7] A\n  fine\n\n▶ [3/7] Funnel\n  ⚠️ pull_funnel.py exited with code 1; Cause: 429\n\n▶ [4/7] GA\n  (GA4 pull explicitly skipped)\n"
         assert [r[2] for r in cycle_stage_table(sample)] == ["ok", "failed", "skipped"]
         empty_ga, output = cycle_result([(0, version_output, ""), (0, ratings_output, ""),
                                          (0, reviews_output, ""), (0, "", ""), (0, "radar\n", ""), (0, "ledger\n", "")])

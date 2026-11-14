@@ -27,6 +27,9 @@ import tempfile
 
 DISCOVERY_REPORT = "App Store Discovery and Engagement Standard"
 DOWNLOADS_REPORT = "App Downloads Standard"
+INSTALLS_REPORT = "App Store Installation and Deletion Standard"
+LIFECYCLE_FIELDS = ["week_start", "segment", "first_installs_optin", "deletions_optin", "deletions_per_100_installs",
+                    "deleted_within_1d", "deletions_timed", "median_days_to_delete", "source", "recorded"]
 WEEKLY_FIELDS = [
     "week_start", "segment", "impressions", "product_page_views", "downloads",
     "cvr_pct", "trial_starts", "source", "recorded", "note"
@@ -237,7 +240,7 @@ def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False,
             dims = tuple(row.get(k, "") for k in (
                 "Date", "Source Type", "Event", "Download Type", "Device", "Platform Version",
                 "Territory", "Page Type", "Page Title", "Engagement Type", "Source Info",
-                "Campaign", "Pre-Order", "App Version"
+                "Campaign", "Pre-Order", "App Version", "App Download Date"
             ))
             prev = latest.get(dims)
             if prev is None or processing_date >= prev[0]:
@@ -367,6 +370,88 @@ def write_new_weeks(out_dir, metrics, report_info, raw_dir, today=None):
     return len(rows), skipped
 
 
+def fold_lifecycle(rows, today=None, first_processing_date=None):
+    """(week start, segment) -> the opt-in installs and deletions of one closed Monday week; the segments are `all`
+    and each storefront. A sample of devices that share analytics, not a cohort: a week's deletions are mostly of
+    installs made earlier. `timed` counts the deletions whose install day is known, `gaps` the days between."""
+    today = today or date.today()
+    first_full_week = (week_start(date.fromisoformat(first_processing_date)) + timedelta(days=7)
+                       if first_processing_date else None)
+    weeks = {}
+    for row in rows:
+        day = date.fromisoformat(row["Date"])
+        start = week_start(day)
+        if start + timedelta(days=6) >= today or (first_full_week and start < first_full_week):
+            continue
+        kind, count = (row.get("Event") or "").strip().casefold(), count_value(row.get("Counts"))
+        if count is None or kind not in ("install", "delete"):
+            continue
+        if kind == "install" and (row.get("Download Type") or "").strip().casefold() != "first-time download":
+            continue
+        gap = None
+        if kind == "delete":
+            try:
+                gap = (day - date.fromisoformat((row.get("App Download Date") or "").strip())).days
+            except ValueError:
+                gap = None
+            if gap is not None and gap < 0:      # deleted before it was installed: the report's noise, not a time
+                gap = None
+        territory = (row.get("Territory") or "").strip().lower()
+        for segment in ["all"] + ([territory] if len(territory) == 2 and territory.isalpha() else []):
+            item = weeks.setdefault((start.isoformat(), segment), {
+                "installs": 0, "deletions": 0, "within_1d": 0, "timed": 0, "gaps": collections.Counter()})
+            if kind == "install":
+                item["installs"] += count
+                continue
+            item["deletions"] += count
+            if gap is not None:
+                item["timed"] += count
+                item["within_1d"] += count if gap <= 1 else 0
+                item["gaps"][gap] += count
+    return weeks
+
+
+def median_gap(gaps):
+    """The middle day of a {days: deletions} count (the lower of two middles), or "" when nothing was timed."""
+    seen, half = 0, (sum(gaps.values()) + 1) // 2
+    for days in sorted(gaps):
+        seen += gaps[days]
+        if seen >= half:
+            return days
+    return ""
+
+
+def write_lifecycle_weeks(out_dir, metrics, today=None):
+    """Append the folded weeks metrics/lifecycle.csv does not hold yet -> (rows written, keys skipped)."""
+    today = today or date.today()
+    path = out_dir / "lifecycle.csv"
+    existing = set()
+    if path.is_file():
+        with path.open(encoding="utf-8") as source:
+            existing = {(row["week_start"], row["segment"]) for row in csv.DictReader(source)}
+    recorded = today.isoformat()
+    rows, skipped = [], []
+    for (week, segment), item in sorted(metrics.items()):
+        if (week, segment) in existing:
+            skipped.append((week, segment))
+            continue
+        rows.append({
+            "week_start": week, "segment": segment, "first_installs_optin": item["installs"],
+            "deletions_optin": item["deletions"],
+            "deletions_per_100_installs": f"{100.0 * item['deletions'] / item['installs']:.1f}" if item["installs"] else "",
+            "deleted_within_1d": item["within_1d"], "deletions_timed": item["timed"],
+            "median_days_to_delete": median_gap(item["gaps"]),
+            "source": f"live:asc analytics daily lifecycle@{recorded}", "recorded": recorded})
+    if rows:
+        write_header = not path.is_file()
+        with path.open("a", encoding="utf-8", newline="") as target:
+            writer = csv.DictWriter(target, fieldnames=LIFECYCLE_FIELDS, lineterminator="\n")
+            if write_header:
+                writer.writeheader()
+            writer.writerows(rows)
+    return len(rows), skipped
+
+
 def resolve_app_id(args):
     if args.app:
         return str(args.app).strip()
@@ -424,6 +509,21 @@ def main():
         except (RuntimeError, OSError) as exc:
             print(f"Partial funnel stage for {prefix}: {exc}", file=sys.stderr)
 
+    out_dir = args.out.resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # the install lifecycle is its own report and its own file: a funnel that could not be read does not stop it
+    try:
+        lifecycle_rows, file_count, instance_count, start = fetch_report(
+            request_id, reports.get(INSTALLS_REPORT), raw_dir, "lifecycle",
+            app_id=app_id, resume=args.resume, manifest=manifest)
+        folded = fold_lifecycle(lifecycle_rows, first_processing_date=start)
+        written, skipped = write_lifecycle_weeks(out_dir, folded)
+        print(f"App ID {app_id}: lifecycle from {instance_count} daily instances, {file_count} CSVs; appended {written} "
+              f"new rows to {out_dir / 'lifecycle.csv'}; skipped {len(skipped)} existing week/segment keys.")
+    except (RuntimeError, OSError) as exc:
+        print(f"Partial funnel stage for lifecycle: {exc}", file=sys.stderr)
+
     if not discovery_rows and not download_rows:
         print("No usable R14 or R3 rows; weekly.csv was not updated.", file=sys.stderr)
         return 2
@@ -433,8 +533,6 @@ def main():
         print("ASC returned no complete weekly observations; weekly.csv was not updated.", file=sys.stderr)
         return 2
 
-    out_dir = args.out.resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
     written, skipped = write_new_weeks(out_dir, metrics, "; ".join(summaries), raw_dir)
     print(f"App ID {app_id}: {len(metrics)} observed week/segment groups; appended {written} new rows to "
           f"{out_dir / 'weekly.csv'}; skipped {len(skipped)} existing week/segment keys.")

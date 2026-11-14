@@ -9,8 +9,10 @@ import sys
 from pathlib import Path
 
 from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identity, run_cmd
+from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, prepare_funnel_pull
-from aso.store_state import store_ratings, store_release
+from aso.store_state import store_charts, store_ratings, store_release
+from pull_bigquery_telemetry import parse_config, store_weeks
 
 
 class _Tee:
@@ -30,13 +32,13 @@ class _Tee:
 
 
 def cycle_stage_table(text):
-    """Stage | status | reason, read back from the cycle's own `▶ [n/6]` sections.
+    """Stage | status | reason, read back from the cycle's own `▶ [n/7]` sections.
 
     The long output scrolls and a caller that tails it loses the warnings; this is the part that
     must still be on screen. ok = no warning; partial = a warning line; failed = a source error or
     a non-zero child; skipped = the stage was switched off by a flag.
     """
-    sections = re.split(r"(?m)^▶ \[(\d)/6\] (.*)$", text)
+    sections = re.split(r"(?m)^▶ \[(\d)/\d\] (.*)$", text)
     rows = []
     for i in range(1, len(sections), 3):
         num, name, body = sections[i], sections[i + 1].rstrip("."), sections[i + 2]
@@ -161,6 +163,41 @@ def cashflow_digest(store: Path, refresh: bool = False):
         print(f"\nCASHFLOW DIGEST: no metrics/revenuecat_latest.json — run `copilot.py rc --export`")
 
 
+def collect_extras(store: Path, app: dict) -> bool:
+    """Store the two series nothing else in the pass writes: the app's own telemetry by closed week, and where the
+    app stands in the category charts. A store not set up for one says so and reads nothing; a step that fails
+    says why and the next still runs. Returns False when a step failed."""
+    config, clean, today = parse_config(store), True, dt.date.today()
+
+    project = config.get("Firebase Project ID") or config.get("BigQuery Project ID")
+    dataset = config.get("BigQuery Dataset") or (f"analytics_{config['GA4 Property ID']}" if config.get("GA4 Property ID") else None)
+    if not project or not dataset:
+        print("  in-app weeks: not set up (config.md names no Firebase Project ID with a GA4 Property ID)")
+    else:
+        try:
+            print(f"  in-app weeks: {len(store_weeks(store, project, dataset, today))} stored")
+        except Exception as exc:          # one source down must not cost the pass its other steps
+            print(f"  ⚠️ in-app weeks: failed ({str(exc).splitlines()[0] if str(exc) else type(exc).__name__})")
+            clean = False
+
+    storefronts = [c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
+    if not storefronts:
+        print("  chart positions: not set up (config.md names no Charts storefronts, e.g. `**Charts storefronts**: us, gb`)")
+    else:
+        try:
+            results = read_charts(app, storefronts, genre_ids(config.get("Charts genres"), app), fetch=fetch_category_chart)
+            failed = [r for r in results if r.get("error")]
+            print(f"  chart positions: charts.csv +{store_charts(store, results, today.isoformat())}"
+                  + (f" ({len(failed)} of {len(results)} charts could not be read)" if failed else ""))
+            if failed:
+                print(f"  ⚠️ chart positions: {failed[0]['country']} {failed[0]['genre']} failed ({failed[0]['error']})")
+                clean = False
+        except Exception as exc:
+            print(f"  ⚠️ chart positions: failed ({str(exc).splitlines()[0] if str(exc) else type(exc).__name__})")
+            clean = False
+    return clean
+
+
 def cmd_cycle(args):
     """Run the cycle, then print the funnel digest, cashflow digest, and a stage → status → reason table LAST."""
     tee = _Tee(sys.stdout)
@@ -273,7 +310,7 @@ def _cycle_run(args):
     print("=================================================================\n")
 
     # Step 1: Reconcile versions
-    print("▶ [1/6] Verifying App Store Connect Versions...")
+    print("▶ [1/7] Verifying App Store Connect Versions...")
     rc, out, err = run_cmd(["asc", "versions", "list", "--app", app_id, "--platform", "IOS"])
     if rc == 0:
         if out.strip():
@@ -291,7 +328,7 @@ def _cycle_run(args):
         partial = True
 
     # Step 2: Reviews & Ratings
-    print("\n▶ [2/6] Auditing Customer Reviews & Ratings...")
+    print("\n▶ [2/7] Auditing Customer Reviews & Ratings...")
     rc, out, err = run_cmd(["asc", "reviews", "ratings", "--app", app_id, "--all"])
     ratings_out = out if rc == 0 else ""
     if rc == 0 and out.strip():
@@ -329,7 +366,7 @@ def _cycle_run(args):
         partial = True
 
     # Step 3: Funnel metrics & App Store impressions
-    print("\n▶ [3/6] Syncing Funnel Analytics & Impressions (ASC)...")
+    print("\n▶ [3/7] Syncing Funnel Analytics & Impressions (ASC)...")
     pull_script = store / "scripts" / "pull_funnel.py"
     if not pull_script.exists():
         pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
@@ -370,7 +407,7 @@ def _cycle_run(args):
         partial = True
 
     # Step 4: GA4 Telemetry
-    print("\n▶ [4/6] Pulling In-App Telemetry (GA4)...")
+    print("\n▶ [4/7] Pulling In-App Telemetry (GA4)...")
     ga_script = SKILL_DIR / "scripts" / "pull_ga.py"
     if not ga_script.exists():
         ga_script = store / "scripts" / "pull_ga.py"
@@ -413,7 +450,11 @@ def _cycle_run(args):
         partial = True
 
     # Step 5: Apple demand radar
-    print("\n▶ [5/6] Apple demand radar (search popularity, impression share)...")
+    print("\n▶ [5/7] Storing In-App Weeks & Chart Positions...")
+    if not collect_extras(store, app):
+        partial = True
+
+    print("\n▶ [6/7] Apple demand radar (search popularity, impression share)...")
     radar_py = SKILL_DIR / "scripts" / "radar.py"
     rc, out, err = run_cmd([sys.executable, str(radar_py), "--store", str(store), "pull", "--if-configured"])
     if rc == 0:
@@ -426,7 +467,7 @@ def _cycle_run(args):
         partial = True
 
     # Step 6: Ledger Report
-    print("\n▶ [6/6] Generating Hypothesis & Keyword Ledger Report...")
+    print("\n▶ [7/7] Generating Hypothesis & Keyword Ledger Report...")
     ledger_py = SKILL_DIR / "scripts" / "ledger.py"
     if ledger_py.exists():
         rc, out, err = run_cmd([sys.executable, str(ledger_py), "--store", str(store), "report"])

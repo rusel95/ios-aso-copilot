@@ -111,44 +111,36 @@ def find_app_in_chart(apps, target_app_id: str, brand_name: str = ""):
     return None
 
 
-def cmd_charts(args):
-    """Inspect App Store Category Charts (Top Free/Paid/Grossing) for target app standings."""
-    store = Path(args.store).resolve()
-    app = resolve_app_identity(store)
-
-    country_arg = getattr(args, "country", None) or "ua"
-    countries = [c.strip().lower() for c in country_arg.split(",") if c.strip()]
-
-    chart_type_arg = getattr(args, "chart_type", "top-free") or "top-free"
-    chart_type = CHART_TYPE_MAP.get(chart_type_arg.lower(), "topfreeapplications")
-
-    limit = getattr(args, "limit", 100) or 100
-
-    genre_arg = getattr(args, "genre", None)
-    genre_ids = []
-    if genre_arg:
-        for g in genre_arg.split(","):
-            g = g.strip().lower()
+def genre_ids(asked, app: dict) -> list:
+    """The genres to read: the names or numbers asked for; else the Apple Ads genres the store's config names;
+    else utilities and photo & video."""
+    ids = []
+    if asked:
+        for g in asked.split(","):
+            g = g.strip().lower().replace(" ", "_")
             if g.isdigit():
-                genre_ids.append(int(g))
+                ids.append(int(g))
             elif g in GENRE_MAP:
-                genre_ids.append(GENRE_MAP[g])
-            else:
+                ids.append(GENRE_MAP[g])
+            elif g:
                 log_warn(f"Unknown genre '{g}'; supported: {', '.join(sorted(GENRE_MAP.keys()))}")
-    else:
-        configured_genres = app.get("ads_genres", [])
-        for cg in configured_genres:
-            cg_clean = cg.lower().replace(" ", "_").replace("-", "_")
-            if cg_clean in GENRE_MAP:
-                genre_ids.append(GENRE_MAP[cg_clean])
-        if not genre_ids:
-            genre_ids = [6002, 6008]
+        return ids
+    for cg in app.get("ads_genres", []):
+        cg_clean = cg.lower().replace(" ", "_").replace("-", "_")
+        if cg_clean in GENRE_MAP:
+            ids.append(GENRE_MAP[cg_clean])
+    return ids or [6002, 6008]
 
+
+def read_charts(app: dict, countries: list, genres: list, chart_type: str = "topfreeapplications", limit: int = 100,
+                fetch=None) -> list:
+    """One result per storefront and genre: where the app stands in that chart, or the error that stopped the read."""
+    fetch = fetch or fetch_category_chart
     all_results = []
     for country in countries:
-        for gid in genre_ids:
+        for gid in genres:
             gname = GENRE_NAMES.get(gid, f"Genre {gid}")
-            apps, err = fetch_category_chart(country, gid, chart_type=chart_type, limit=limit)
+            apps, err = fetch(country, gid, chart_type=chart_type, limit=limit)
             if err or apps is None:
                 all_results.append({
                     "country": country.upper(),
@@ -180,6 +172,22 @@ def cmd_charts(args):
                     "next": apps[r] if r < len(apps) else None,
                 }
             all_results.append(res)
+    return all_results
+
+
+def cmd_charts(args):
+    """Inspect App Store Category Charts (Top Free/Paid/Grossing) for target app standings."""
+    store = Path(args.store).resolve()
+    app = resolve_app_identity(store)
+
+    country_arg = getattr(args, "country", None) or "ua"
+    countries = [c.strip().lower() for c in country_arg.split(",") if c.strip()]
+
+    chart_type_arg = getattr(args, "chart_type", "top-free") or "top-free"
+    chart_type = CHART_TYPE_MAP.get(chart_type_arg.lower(), "topfreeapplications")
+
+    limit = getattr(args, "limit", 100) or 100
+    all_results = read_charts(app, countries, genre_ids(getattr(args, "genre", None), app), chart_type, limit)
 
     # the history: what was read is appended to the store. Said on stderr, so --json stays one JSON document.
     gained = store_charts(store, all_results, dt.date.today().isoformat())

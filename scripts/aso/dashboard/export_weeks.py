@@ -23,7 +23,7 @@ FUNNEL_RATIOS = {"view_rate": ("page_views", "impressions"), "page_cvr": ("first
 
 
 NOT_STORED_YET = {
-    "lifecycle": "No command stores install and deletion counts by week yet.",
+    "lifecycle": "Install and deletion counts are not stored by week yet.",
     "money": "Proceeds and Apple Ads spend are not stored by week yet.",
     "ads": "Apple Ads results are not stored by week yet.",
     "in_app": "In-app events are not stored by week yet.",
@@ -39,51 +39,70 @@ NOTHING_THAT_WEEK = {
 }
 
 
-def funnel_weeks(store: Path, as_of: dt.date, notes: list) -> dict:
-    """week start -> the store_funnel family, from the closed Monday weeks the collector wrote.
+LIFECYCLE_COLUMNS = {"optin_installs": "first_installs_optin", "optin_deletions": "deletions_optin",
+                     "deleted_within_1d": "deleted_within_1d"}
+
+
+def collector_weeks(store: Path, name: str, columns: dict, as_of: dt.date, notes: list) -> tuple:
+    """(week start -> {segment: counts}, stored) from the closed Monday weeks the collector wrote into one file.
 
     A row a person typed, a week still open, and a row recorded after `as_of` are left out and counted. Among
     rows for the same week and segment the latest `recorded` wins, then the later line: a correction is a new row.
-    """
-    chosen, left = {}, {"hand": 0, "open": 0, "later": 0}
-    for n, r in enumerate(read_csv(store / "metrics" / "weekly.csv"), 2):
+    `stored` says whether the collector ever wrote a row there."""
+    chosen, left, stored = {}, {"hand": 0, "open": 0, "later": 0}, False
+    for n, r in enumerate(read_csv(store / "metrics" / name), 2):
         week, recorded = parse_date(r.get("week_start")), parse_date(r.get("recorded"))
         if not (r.get("source") or "").startswith(COLLECTOR_ROWS) or week is None or week.weekday() or recorded is None:
             left["hand"] += 1
-        elif recorded > as_of:
+            continue
+        stored = True
+        if recorded > as_of:
             left["later"] += 1
         elif not closed(week, as_of):
             left["open"] += 1
         else:
             counts = {}
-            for key, column in FUNNEL_COLUMNS.items():
+            for key, column in columns.items():
                 cell = (r.get(column) or "").strip()
                 try:
                     counts[key] = int(cell) if cell else None
                 except ValueError:
-                    notes.append(f"metrics/weekly.csv:{n}: {column} {cell!r} is not a number; the row is skipped")
+                    notes.append(f"metrics/{name}:{n}: {column} {cell!r} is not a number; the row is skipped")
                     counts = None
                     break
             key = (week, (r.get("segment") or "").strip().lower())
             if counts is not None and (key not in chosen or recorded >= chosen[key]["recorded"]):
                 chosen[key] = {"recorded": recorded, **counts}
     if any(left.values()):
-        notes.append(f"metrics/weekly.csv: {sum(left.values())} rows left out ({left['hand']} not written by the collector "
+        notes.append(f"metrics/{name}: {sum(left.values())} rows left out ({left['hand']} not written by the collector "
                      f"as Monday weeks, {left['open']} of weeks still open on {as_of}, {left['later']} recorded after {as_of})")
     weeks = {}
-    for (week, segment), row in chosen.items():
+    for (week, segment), row in sorted(chosen.items()):
         weeks.setdefault(week, {})[segment] = row
+    return weeks, stored
+
+
+def whole_and_markets(segments: dict) -> tuple:
+    """The week's `all` row (or None) and its two-letter storefront rows, in order."""
+    return segments.get("all"), {s: row for s, row in sorted(segments.items()) if len(s) == 2 and s.isalpha()}
+
+
+def count_figure(whole, markets: dict, key: str) -> dict:
+    if whole is None or whole[key] is None:
+        return unavailable("no_data", "The report holds no total for the week.")
+    return {"value": whole[key], **({"by_market": {m: row[key] for m, row in markets.items()}} if markets else {})}
+
+
+def family(source: str, segments: dict, figures: dict) -> dict:
+    return {"source": source, "fetched_at": max(row["recorded"] for row in segments.values()).isoformat(), "figures": figures}
+
+
+def funnel_weeks(store: Path, as_of: dt.date, notes: list) -> dict:
+    """week start -> the store_funnel family, from the closed Monday weeks the collector wrote."""
     out = {}
-    for week, segments in sorted(weeks.items()):
-        total = segments.get("all")
-        markets = {s: row for s, row in sorted(segments.items()) if len(s) == 2 and s.isalpha()}
-        figures = {}
-        for key in FUNNEL_COLUMNS:
-            if total is None or total[key] is None:
-                figures[key] = unavailable("no_data", "The report holds no total for the week.")
-            else:
-                figures[key] = {"value": total[key], **({"by_market": {m: row[key] for m, row in markets.items()}}
-                                                        if markets else {})}
+    for week, segments in collector_weeks(store, "weekly.csv", FUNNEL_COLUMNS, as_of, notes)[0].items():
+        total, markets = whole_and_markets(segments)
+        figures = {key: count_figure(total, markets, key) for key in FUNNEL_COLUMNS}
         for key, (top, bottom) in FUNNEL_RATIOS.items():
             value = share(total[top], total[bottom]) if total else None
             if value is None:
@@ -92,9 +111,33 @@ def funnel_weeks(store: Path, as_of: dt.date, notes: list) -> dict:
                 figures[key] = {"value": value, "numerator": total[top], "denominator": total[bottom],
                                 **({"by_market": {m: share(row[top], row[bottom]) for m, row in markets.items()}}
                                    if markets else {})}
-        out[week] = {"source": "asc-analytics", "fetched_at": max(row["recorded"] for row in segments.values()).isoformat(),
-                     "figures": figures}
+        out[week] = family("asc-analytics", segments, figures)
     return out
+
+
+def per_100(top, bottom):
+    """How many of the first for every hundred of the second, to one place; None when there is nothing to divide by."""
+    return round(100 * top / bottom, 1) if top is not None and bottom else None
+
+
+def lifecycle_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
+    """(week start -> the lifecycle family, stored), from the closed weeks of opt-in installs and deletions the
+    collector folded. A sample of devices, and not a cohort: the catalog says so beside every figure."""
+    weeks, stored = collector_weeks(store, "lifecycle.csv", LIFECYCLE_COLUMNS, as_of, notes)
+    out = {}
+    for week, segments in weeks.items():
+        whole, markets = whole_and_markets(segments)
+        figures = {key: count_figure(whole, markets, key) for key in LIFECYCLE_COLUMNS}
+        gone, came = (whole["optin_deletions"], whole["optin_installs"]) if whole else (None, None)
+        if per_100(gone, came) is None:
+            figures["deletions_per_100"] = unavailable("no_data", "Nothing to divide by: the week holds no opt-in install.")
+        else:
+            figures["deletions_per_100"] = {
+                "value": per_100(gone, came), "numerator": gone, "denominator": came,
+                **({"by_market": {m: per_100(row["optin_deletions"], row["optin_installs"]) for m, row in markets.items()}}
+                   if markets else {})}
+        out[week] = family("asc-analytics", segments, figures)
+    return out, stored
 
 
 def money_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
