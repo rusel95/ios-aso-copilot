@@ -1,2 +1,83 @@
-:root{--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--hair:#e1e0d9;--axis:#c3c2b7}
-body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 Inter,system-ui,sans-serif}
+/* One style sheet, inlined and allowed by its hash. Colours and type are tokens; nothing is loaded from outside. */
+:root{
+  --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--hair:#e1e0d9;--axis:#c3c2b7;
+  --b1:#184f95;--b2:#2a78d6;--b3:#5598e7;--b4:#86b6ef;--orange:#eb6834;
+  --worked:#0ca30c;--noeffect:#898781;--adverse:#d03b3b;--due:#fab219;
+  --hatch:repeating-linear-gradient(135deg,#eeede8 0 2px,transparent 2px 7px);
+  --text:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --head:"Space Grotesk",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 var(--text)}
+a{color:var(--ink2)}a:hover{color:var(--ink)}
+h2,h3,p,ul,dl,dd{margin:0}ul{padding:0;list-style:none}
+.meta,.sub{color:var(--ink2);font-size:12px}
+.cap,.tile h3{font:600 11px/1.3 var(--text);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.chip{font:12px var(--mono);color:var(--ink2);border:1px solid var(--axis);border-radius:4px;padding:2px 8px}
+
+/* header and tabs */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:14px 32px;border-bottom:1px solid var(--axis)}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand a{font:700 19px var(--head);color:var(--ink);text-decoration:none}
+#tabs{display:flex;flex-wrap:wrap;gap:4px 20px;font-size:13px}
+#tabs a{text-decoration:none;padding:6px 0 4px;border-bottom:2px solid transparent}
+#tabs a[aria-current]{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+#as-of{margin-left:auto;font:12px var(--mono)}
+main{max-width:1360px;margin:0 auto;padding:24px 32px 56px;display:flex;flex-direction:column;gap:28px}
+
+/* a figure: a value to open, an approximation, or the words for why it is missing */
+.fig{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;border-bottom:1px dotted var(--axis)}
+.fig:hover,.fig:focus-visible{border-bottom-color:var(--ink)}
+.missing{font:500 12px var(--text);color:var(--ink2);background:var(--hatch);border:1px dashed var(--axis);
+  border-radius:4px;padding:2px 8px;display:inline-block}
+.fig.approx{color:#5a3fb5}
+
+/* sources strip */
+.strip{display:flex;flex-direction:column;gap:8px}
+.sources{display:flex;flex-wrap:wrap;gap:8px}
+.sources li{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hair);
+  border-radius:4px;padding:5px 10px;font-size:12px}
+.src-name{font-weight:600}.src-day{color:var(--ink2)}
+.age{font:11px var(--mono);background:var(--hair);border-radius:3px;padding:1px 6px}
+.age.stale{background:var(--due)}
+
+/* tiles and blocks */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:14px}
+.tile,.block{background:var(--surface);border:1px solid var(--hair);border-radius:6px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:6px;min-width:0}
+.num{font:500 30px/1.15 var(--mono)}
+.num .missing{font-size:13px}
+.blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:16px}
+.block{gap:10px;padding:16px 18px}
+.block h2{font:600 17px var(--head)}
+.lead{font-size:13px}
+.rows li{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;padding:7px 0;
+  border-bottom:1px solid var(--hair);font-size:13px;align-items:baseline}
+.id{font:600 12px var(--mono)}
+.pairs{display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:baseline}
+.pairs dd{font:500 15px var(--mono);text-align:right}
+
+/* charts: geometry lives in attributes, colour here */
+.spark{width:120px;height:28px;align-self:flex-start}
+.spark polyline{fill:none;stroke:var(--b2);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.spark circle{fill:var(--b2)}
+.bar{display:block;width:100%;height:8px;border-radius:4px}
+.bar .track{fill:var(--hair)}.bar .fill{fill:var(--b2)}
+.stack{display:block;width:100%;height:14px;border-radius:4px}
+.band-top10{fill:var(--b1)}.band-top30{fill:var(--b2)}.band-top100{fill:var(--b3)}.band-top200{fill:var(--b4)}
+
+/* the panel behind a figure */
+dialog{border:1px solid var(--axis);border-radius:8px;padding:20px 22px;max-width:min(520px,92vw);
+  background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(11,11,11,.35)}
+dialog h2{font:600 18px var(--head);margin-bottom:4px}
+dialog p{margin-top:10px}
+.panel-value{font:500 26px var(--mono)}
+.panel-value .chip,.panel-value .missing{font-size:12px;vertical-align:middle}
+.def{font-size:13px}
+.split{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:4px 14px;font:12px var(--mono)}
+.split li{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--hair);padding:2px 0}
+.close{font:inherit;min-height:44px;padding:0 18px;border:1px solid var(--axis);border-radius:6px;background:var(--page);cursor:pointer}
+
+@media (max-width:700px){.top{padding:12px 16px}main{padding:16px 16px 40px}#as-of{margin-left:0}}

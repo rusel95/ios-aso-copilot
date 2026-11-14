@@ -47,7 +47,8 @@ def page(texts: dict, catalog: dict, name: str) -> str:
     # compact, since nobody reads the page's source; `<` is escaped so no keyword can close the script element
     data = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).replace("<", "\\u003c")
     style = (ASSETS / "style.css").read_text(encoding="utf-8")
-    script = (ASSETS / "app.js").read_text(encoding="utf-8")
+    # the script is kept in parts, one per tab, and joined in the order of their names
+    script = "\n".join(part.read_text(encoding="utf-8") for part in sorted((ASSETS / "js").glob("*.js")))
     policy = (f"default-src 'none'; style-src {digest(style)}; script-src {digest(script)}; "
               f"base-uri 'none'; form-action 'none'")
     parts = {"CSP": policy, "STYLE": style, "PAYLOAD": data, "SCRIPT": script}

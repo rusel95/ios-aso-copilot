@@ -110,8 +110,8 @@ class Build(unittest.TestCase):
 
     def test_no_inline_style_attribute(self):
         # the policy allows one hashed style sheet; a style="" attribute would be refused by the browser
-        source = "".join((ROOT / "assets" / "dashboard" / name).read_text(encoding="utf-8")
-                         for name in ("template.html", "app.js"))
+        assets = ROOT / "assets" / "dashboard"
+        source = "".join(p.read_text(encoding="utf-8") for p in [assets / "template.html", *sorted((assets / "js").glob("*.js"))])
         self.assertNotIn("style=", source)
 
     def test_every_catalog_figure_has_a_place(self):
