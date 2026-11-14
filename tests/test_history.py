@@ -211,5 +211,29 @@ class AdsWithoutASubscriptionProvider(unittest.TestCase):
         self.assertIn("no profile", said)
 
 
+
+class WhoseChartPositionItIs(unittest.TestCase):
+    """A chart position belongs to the app with this App ID. Another app whose name holds the brand word is another app."""
+
+    def chart(self):
+        return [{"rank": 1, "app_id": "111", "name": "Tidepool Pro Widgets", "developer": "Someone Else"},
+                {"rank": 2, "app_id": "222", "name": "Weather", "developer": "Third"},
+                {"rank": 3, "app_id": "1000000001", "name": "Tidepool", "developer": "Us"}]
+
+    def test_the_app_id_decides_even_when_a_namesake_ranks_higher(self):
+        from aso.commands.charts import find_app_in_chart
+        self.assertEqual(find_app_in_chart(self.chart(), "1000000001", "tidepool")["rank"], 3)
+
+    def test_a_namesake_alone_is_not_the_app(self):
+        from aso.commands.charts import find_app_in_chart, read_charts
+        others = self.chart()[:2]
+        self.assertIsNone(find_app_in_chart(others, "1000000001", "tidepool"))
+        result = read_charts({"app_id": "1000000001", "brand": "tidepool"}, ["us"], [6001], fetch=lambda *a, **k: (others, ""))[0]
+        self.assertEqual((result["found"], result["rank"]), (False, None))
+
+    def test_without_an_app_id_the_name_is_all_there_is(self):
+        from aso.commands.charts import find_app_in_chart
+        self.assertEqual(find_app_in_chart(self.chart(), "", "tidepool")["rank"], 1)
+
 if __name__ == "__main__":
     unittest.main()

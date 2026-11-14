@@ -102,14 +102,13 @@ def fetch_category_chart(country: str, genre_id: int, chart_type: str = "topfree
 
 
 def find_app_in_chart(apps, target_app_id: str, brand_name: str = ""):
+    """The app's own entry in a chart, or None. The App ID decides: an app whose name holds the brand word is
+    another app, and its rank must never be stored as ours. Only a store with no App ID falls back to the name."""
     target_id_str = str(target_app_id).strip() if target_app_id else ""
+    if target_id_str:
+        return next((a for a in apps if str(a.get("app_id", "")).strip() == target_id_str), None)
     brand_cf = brand_name.casefold().strip() if brand_name else ""
-    for a in apps:
-        if target_id_str and str(a.get("app_id", "")).strip() == target_id_str:
-            return a
-        if brand_cf and brand_cf in a.get("name", "").casefold():
-            return a
-    return None
+    return next((a for a in apps if brand_cf and brand_cf in a.get("name", "").casefold()), None)
 
 
 def genre_ids(asked, app: dict) -> list:
