@@ -1,0 +1,18 @@
+usage: copilot.py keywords [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                           {hints,vacuum,popularity,competitors,filter} ...
+
+positional arguments:
+  {hints,vacuum,popularity,competitors,filter}
+    hints               Apple App Store autocomplete hints
+    vacuum              Audit localization vacuum in storefront
+    popularity          Apple Ads Search Term Popularity (1-100)
+    competitors         Discover competitors from seed terms
+    filter              Deterministic candidate review and export
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable

@@ -1,0 +1,39 @@
+date,market,keyword,group,position,popularity,difficulty,source,depth,status
+2026-10-05,us,tidepool,target,1,,,itunes-search-api,200,ok
+2026-10-05,us,tide tracker,target,40,,,itunes-search-api,200,ok
+2026-10-05,us,tide times,target,120,,,itunes-search-api,200,ok
+2026-10-05,us,surf forecast,target,,,,itunes-search-api,200,beyond-depth
+2026-10-05,us,moon phase,target,8,,,itunes-search-api,200,ok
+2026-10-05,us,sea level,target,,,,itunes-search-api,200,error
+2026-10-05,ua,tidepool,target,2,,,itunes-search-api,200,ok
+2026-10-05,ua,приплив,target,15,,,itunes-search-api,200,ok
+2026-10-05,ua,графік припливів,target,,,,itunes-search-api,200,beyond-depth
+2026-10-05,ua,прогноз хвиль,target,70,,,itunes-search-api,200,ok
+2026-10-05,ua,фаза місяця,target,,,,itunes-search-api,200,no-results
+2026-10-05,ua,п’ятниця море,target,33,,,itunes-search-api,200,ok
+2026-10-19,us,tidepool,target,1,,,itunes-search-api,200,ok
+2026-10-19,us,tide tracker,target,22,,,itunes-search-api,200,ok
+2026-10-19,us,tide times,target,95,,,itunes-search-api,200,ok
+2026-10-19,us,surf forecast,target,,,,itunes-search-api,200,beyond-depth
+2026-10-19,us,moon phase,target,12,,,itunes-search-api,200,ok
+2026-10-19,us,sea level,target,180,,,itunes-search-api,200,ok
+2026-10-19,ua,tidepool,target,1,,,itunes-search-api,200,ok
+2026-10-19,ua,приплив,target,9,,,itunes-search-api,200,ok
+2026-10-19,ua,графік припливів,target,28,,,itunes-search-api,200,ok
+2026-10-19,ua,прогноз хвиль,target,70,,,itunes-search-api,200,ok
+2026-10-19,ua,фаза місяця,target,,,,itunes-search-api,200,no-results
+2026-10-19,ua,п’ятниця море,target,,,,itunes-search-api,200,error
+2026-11-02,us,tidepool,target,1,,,itunes-search-api,200,ok
+2026-11-02,us,tide tracker,target,9,,,itunes-search-api,200,ok
+2026-11-02,us,tide times,target,60,,,itunes-search-api,200,ok
+2026-11-02,us,surf forecast,target,150,,,itunes-search-api,200,ok
+2026-11-02,us,moon phase,target,25,,,itunes-search-api,200,ok
+2026-11-02,us,sea level,target,,,,itunes-search-api,200,beyond-depth
+2026-11-02,ua,tidepool,target,1,,,itunes-search-api,200,ok
+2026-11-02,ua,приплив,target,4,,,itunes-search-api,200,ok
+2026-11-02,ua,графік припливів,target,11,,,itunes-search-api,200,ok
+2026-11-02,ua,прогноз хвиль,target,70,,,itunes-search-api,200,ok
+2026-11-02,ua,фаза місяця,target,,,,itunes-search-api,200,no-results
+2026-11-02,ua,п’ятниця море,target,31,,,itunes-search-api,200,ok
+2026-11-09,us,tide tracker,target,7,,,itunes-search-api,200,ok
+2026-11-09,us,moon phase,target,30,,,itunes-search-api,200,ok

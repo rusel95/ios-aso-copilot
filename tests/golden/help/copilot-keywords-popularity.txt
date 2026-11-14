@@ -1,0 +1,14 @@
+usage: copilot.py keywords popularity [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                      --country COUNTRY [--terms TERMS] [--genre GENRE]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --country, -c COUNTRY
+                        Country code (e.g. pl, us)
+  --terms TERMS         Comma-separated terms to inspect
+  --genre GENRE         Genre category (e.g. PHOTO_VIDEO)

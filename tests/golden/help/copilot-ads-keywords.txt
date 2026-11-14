@@ -1,0 +1,14 @@
+usage: copilot.py ads keywords [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                               [--adgroup-id ADGROUP_ID] [--campaign-id CAMPAIGN_ID]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --adgroup-id ADGROUP_ID
+                        Ad Group ID filter
+  --campaign-id CAMPAIGN_ID
+                        Campaign ID filter

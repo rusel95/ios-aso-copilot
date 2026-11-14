@@ -1,0 +1,18 @@
+usage: copilot.py ads add-keywords [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                   --adgroup-id ADGROUP_ID [--terms TERMS] [--file FILE]
+                                   [--bid BID] [--match-type {EXACT,BROAD}]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --adgroup-id ADGROUP_ID
+                        Ad Group ID
+  --terms TERMS         Comma-separated keyword terms
+  --file FILE           Path to text file with keywords (one per line)
+  --bid BID             CPT bid amount in USD (default: 0.30)
+  --match-type {EXACT,BROAD}
+                        Match type

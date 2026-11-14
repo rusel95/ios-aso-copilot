@@ -1,0 +1,10 @@
+usage: pull_bigquery_telemetry.py [-h] [--store STORE] [--days DAYS] [--export-md] [--export-json]
+
+Pull BigQuery in-app telemetry.
+
+options:
+  -h, --help     show this help message and exit
+  --store STORE  Path to marketing store folder
+  --days DAYS    Days to look back (0 for all-time)
+  --export-md    Save markdown report to metrics/telemetry_latest.md
+  --export-json  Save raw JSON to metrics/telemetry_latest.json

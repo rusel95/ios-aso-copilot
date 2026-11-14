@@ -1,0 +1,16 @@
+usage: pull_funnel.py [-h] [--app APP] [--store STORE] [--out OUT] [--raw-dir RAW_DIR] [--resume]
+
+Pull App Store Connect discovery (impressions) and downloads analytics for any iOS app. Downloads
+daily instances from ASC Analytics: 1. App Store Discovery and Engagement Standard (impressions,
+product page views, taps) 2. App Downloads Standard (first-time downloads) Deduplicates rolling-
+window restatements and aggregates weekly totals by: - Global total ('all') - Acquisition channels
+('search', 'browse', 'web_referrer', 'app_referrer', etc.) - Top storefront territories ('us',
+'ua', 'de', 'no', 'pl', etc.) Writes/updates metrics/weekly.csv.
+
+options:
+  -h, --help         show this help message and exit
+  --app APP          App Apple Identifier (e.g. 6449785515)
+  --store STORE      Store directory containing config.md
+  --out OUT          Directory containing metrics/weekly.csv
+  --raw-dir RAW_DIR  Unique directory for source CSV exports
+  --resume           Reuse validated CSVs in an existing cycle directory

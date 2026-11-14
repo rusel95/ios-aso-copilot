@@ -1,0 +1,19 @@
+usage: copilot.py google suggest [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                 [--country COUNTRY] [--lang LANG] [--limit LIMIT] [--matrix]
+                                 term
+
+positional arguments:
+  term                  Root search query or seed word
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --country, -c COUNTRY
+                        Two-letter country code (default: US)
+  --lang, -l LANG       Language code (default: uk)
+  --limit LIMIT         Max results (default: 15)
+  --matrix              Deep multi-angle intent matrix expansion

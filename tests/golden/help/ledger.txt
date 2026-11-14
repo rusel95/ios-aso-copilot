@@ -1,0 +1,47 @@
+usage: ledger.py [-h] [--store STORE] [--as-of AS_OF] [--date DATE] [--delay DELAY]
+                 [--source SOURCE] [--depth DEPTH] [--group GROUP] [--limit LIMIT]
+                 [--market MARKET] [--queries QUERIES] [--window WINDOW] [--out OUT]
+                 [--bundle BUNDLE] [--markets MARKETS] [--failed-only] [--out-dir OUT_DIR]
+                 [--self-check]
+                 [{report,ingest,draft,refresh,bands}] [snapshot]
+
+Deterministic hypothesis + keyword ledger. Same store, same output, every run.
+
+Three questions, in this order, before anything new is proposed:
+
+  A. What happened to the hypotheses that are already live? (close them, or say why not)
+  B. Which tracked keys moved, which regressed, which are still unobserved?
+  C. Given per-market net proceeds, which untaken action is worth doing first?
+
+What this does NOT do: invent a verdict, invent a rank, or print a revenue forecast.
+Section C is a priority ORDER built from declared inputs, all printed inline — not a
+cash projection (references/provenance.md, references/aso-loop.md).
+
+    ledger.py --store PATH report
+    ledger.py --store PATH ingest SNAPSHOT.json --date 2026-09-08 --depth 200
+    ledger.py --self-check
+
+positional arguments:
+  {report,ingest,draft,refresh,bands}
+  snapshot
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE
+  --as-of AS_OF         evaluation date for report/draft (YYYY-MM-DD); fixes time-dependent ledger
+                        state
+  --date DATE
+  --delay DELAY         seconds between Search API requests (minimum 3.0; default 3.0)
+  --source SOURCE
+  --depth DEPTH
+  --group GROUP
+  --limit LIMIT
+  --market MARKET
+  --queries QUERIES
+  --window WINDOW
+  --out OUT
+  --bundle BUNDLE
+  --markets MARKETS
+  --failed-only
+  --out-dir OUT_DIR
+  --self-check

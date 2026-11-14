@@ -1,0 +1,14 @@
+usage: pull_revenuecat.py [-h] [--store STORE] [--project-id PROJECT_ID] [--start START]
+                          [--end END] [--json] [--export]
+
+Pull RevenueCat metrics and Apple Ads Cashflow
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store
+  --project-id PROJECT_ID
+                        Explicit RevenueCat project ID
+  --start START         Start date YYYY-MM-DD (default: 2026-09-01)
+  --end END             End date YYYY-MM-DD (default: today)
+  --json                Print JSON output
+  --export              Write metrics/revenuecat_latest.json and metrics/cashflow.csv

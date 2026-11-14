@@ -1,0 +1,20 @@
+usage: copilot.py google trends [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                [--country COUNTRY] [--timeframe TIMEFRAME] [--related] [--geo]
+                                terms [terms ...]
+
+positional arguments:
+  terms                 Keywords to compare (up to 5)
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --country, -c COUNTRY
+                        Two-letter country code (default: US)
+  --timeframe, -t TIMEFRAME
+                        Timeframe (default: today 12-m)
+  --related             Fetch top and rising related queries for first term
+  --geo                 Fetch subregion / oblast interest breakdown

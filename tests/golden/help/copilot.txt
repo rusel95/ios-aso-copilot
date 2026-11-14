@@ -1,0 +1,35 @@
+usage: copilot.py [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] [--self-check]
+                  {info,status,keywords,ads,brief,cycle,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts} ...
+
+Unified CLI for iOS ASO Copilot
+
+positional arguments:
+  {info,status,keywords,ads,brief,cycle,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts}
+    info                Diagnostic info and environment report
+    status              Quick status snapshot
+    keywords            Keyword discovery, hints, localization vacuums, and filtering
+    ads                 Manage Apple Ads campaigns, ad groups, and keywords
+    brief               One screen: ASC state, Top-200 bands, all hypotheses, store funnel &
+                        cashflow
+    cycle               Run the consolidated data collection pass
+    rc (cashflow)       Pull RevenueCat metrics, 3-tier revenue (Gross/NetTax/Proceeds) & Apple
+                        Ads Cashflow
+    reviews             Audit and reply to customer reviews
+    funnel              Inspect or pull ASC funnel
+    ga                  Inspect in-app telemetry
+    telemetry           Pull BigQuery raw product telemetry (funnel, retention, engine, paywall)
+    campaign            App Store Campaign Link & Hypothesis Anti-Collision Generator
+    ledger              Manage hypothesis and keyword ledger
+    radar               Apple demand radar: popularity, impression share, keyword lens
+    google              Google search intelligence: trends, autocomplete hints, and batch volume
+                        profiling
+    charts              Inspect App Store Category Charts (Top Free/Paid/Grossing)
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --self-check          check app identity parsing without network access

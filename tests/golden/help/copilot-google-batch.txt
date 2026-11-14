@@ -1,0 +1,19 @@
+usage: copilot.py google batch [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                               --anchor ANCHOR [--terms TERMS] [--file FILE] [--country COUNTRY]
+                               [--timeframe TIMEFRAME] [--delay DELAY]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --anchor, -a ANCHOR   Anchor keyword (normalized to 100.0)
+  --terms TERMS         Comma-separated candidate keywords
+  --file, -f FILE       Path to text or CSV file with candidate keywords
+  --country, -c COUNTRY
+                        Two-letter country code (default: US)
+  --timeframe, -t TIMEFRAME
+                        Timeframe (default: today 12-m)
+  --delay DELAY         Polite delay in seconds between batches (default: 1.5)

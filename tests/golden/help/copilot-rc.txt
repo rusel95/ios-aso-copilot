@@ -1,0 +1,16 @@
+usage: copilot.py rc [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                     [--project-id PROJECT_ID] [--start START] [--end END] [--export]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --project-id PROJECT_ID
+                        RevenueCat Project ID (defaults to config.md)
+  --start START         Start date YYYY-MM-DD (default: 2026-09-01)
+  --end END             End date YYYY-MM-DD (default: today)
+  --export              Export snapshots to metrics/revenuecat_latest.json and
+                        metrics/cashflow.csv

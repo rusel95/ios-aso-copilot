@@ -1,0 +1,14 @@
+usage: copilot.py keywords vacuum [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                  --term TERM --country COUNTRY [--limit LIMIT]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --term, -t TERM       Keyword query
+  --country, -c COUNTRY
+                        Country code (e.g. pl, de, jp)
+  --limit LIMIT         Number of apps to inspect

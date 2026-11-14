@@ -1,0 +1,12 @@
+usage: copilot.py ledger [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] ...
+
+positional arguments:
+  ledger_args    Arguments passed to ledger.py
+
+options:
+  -h, --help     show this help message and exit
+  --store STORE  Path to marketing store directory
+  --debug, -d    Print debug diagnostics to stderr
+  --info, -v     Print informational logs to stderr
+  --quiet, -q    Suppress non-essential output
+  --json         Format output as JSON where applicable

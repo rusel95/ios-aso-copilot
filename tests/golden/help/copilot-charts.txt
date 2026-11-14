@@ -1,0 +1,17 @@
+usage: copilot.py charts [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                         [--country COUNTRY] [--genre GENRE]
+                         [--chart-type {top-free,top-paid,top-grossing}] [--limit LIMIT]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --country, -c COUNTRY
+                        Country code or comma-separated codes (default: ua)
+  --genre, -g GENRE     Genre name (utilities, photo_video, productivity) or numeric ID
+  --chart-type {top-free,top-paid,top-grossing}
+                        Chart type (default: top-free)
+  --limit LIMIT         Number of apps in chart (default: 100, max: 200)
