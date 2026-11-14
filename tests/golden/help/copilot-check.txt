@@ -1,0 +1,9 @@
+usage: copilot.py check [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+
+options:
+  -h, --help     show this help message and exit
+  --store STORE  Path to marketing store directory
+  --debug, -d    Print debug diagnostics to stderr
+  --info, -v     Print informational logs to stderr
+  --quiet, -q    Suppress non-essential output
+  --json         Format output as JSON where applicable

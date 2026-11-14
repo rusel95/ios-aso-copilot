@@ -1,0 +1,11 @@
+usage: copilot.py due [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                      [--as-of YYYY-MM-DD]
+
+options:
+  -h, --help          show this help message and exit
+  --store STORE       Path to marketing store directory
+  --debug, -d         Print debug diagnostics to stderr
+  --info, -v          Print informational logs to stderr
+  --quiet, -q         Suppress non-essential output
+  --json              Format output as JSON where applicable
+  --as-of YYYY-MM-DD  The day the list is made for (default: today)

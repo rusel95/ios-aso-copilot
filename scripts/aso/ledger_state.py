@@ -1,12 +1,45 @@
 """The ledger as data: where every hypothesis stands on a given day, and what to do next by money at stake."""
 from __future__ import annotations
 
+import datetime as dt
 import re
 
 from aso.ranks import band, brand_hit, demand_label, is_dominant, loose_index, movement, resolve_key
 from aso.store import hyp_markets, parse_date
 
 DEFAULT_WINDOW = 21
+
+
+def window_days(h: dict) -> int:
+    found = re.match(r"\s*(\d+)", h.get("window_days") or "")
+    return int(found.group(1)) if found else DEFAULT_WINDOW
+
+
+def basket_queries(h: dict) -> list:
+    return [q.strip().lower() for q in (h.get("queries") or "").split(";") if q.strip()]
+
+
+def reads_due(hyps: list, rows: list, as_of) -> list:
+    """The reads a live rank hypothesis needs to be judged on: one entry per storefront and day, for each of the
+    last three days of its window that is on or before `as_of` and on which no sweep read a key of its basket.
+    A failed request is not a read. A judged, unshipped, funnel or channel hypothesis asks for none."""
+    tracked = {(r["market"], r["keyword"]) for r in rows}
+    index = loose_index(tracked)
+    read = {(r["date"], r["market"], r["keyword"]) for r in rows if r["status"] in ("ok", "beyond-depth")}
+    out = []
+    for h in hyps:
+        live = parse_date(h.get("went_live"))
+        if (not live or (h.get("verdict") or "").strip() or (h.get("primary_signal") or "").strip() == "funnel"
+                or (h.get("id") or "").startswith("C")):
+            continue
+        queries, end = basket_queries(h), live + dt.timedelta(days=window_days(h))
+        for market in hyp_markets(h):
+            keys = {resolve_key(tracked, index, market, query) for query in queries} - {None}
+            for back in (2, 1, 0):
+                day = end - dt.timedelta(days=back)
+                if day <= as_of and not any((day.isoformat(), *key) in read for key in keys):
+                    out.append({"id": h["id"], "market": market, "queries": queries, "day": day.isoformat()})
+    return out
 
 
 def hypothesis_states(hyps: list, pairs: dict, empty, as_of) -> list:
@@ -21,8 +54,7 @@ def hypothesis_states(hyps: list, pairs: dict, empty, as_of) -> list:
     for h in hyps:
         live, verdict = parse_date(h.get("went_live")), (h.get("verdict") or "").strip()
         markets = hyp_markets(h)
-        found = re.match(r"\s*(\d+)", h.get("window_days") or "")
-        window = int(found.group(1)) if found else DEFAULT_WINDOW
+        window = window_days(h)
         age = (as_of - live).days if live else None
         if verdict:
             state = "judged"
@@ -31,7 +63,7 @@ def hypothesis_states(hyps: list, pairs: dict, empty, as_of) -> list:
         else:
             state = "due" if age >= window else "open"
         signal = "funnel" if (h.get("primary_signal") or "").strip() == "funnel" else "rank"
-        queries = [q.strip().lower() for q in (h.get("queries") or "").split(";") if q.strip()]
+        queries = basket_queries(h)
         basket, reason = None, None
         if signal == "funnel":
             reason = "funnel"              # a funnel hypothesis is not measured by rank; no basket is correct

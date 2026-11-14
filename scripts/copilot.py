@@ -25,7 +25,7 @@ from aso.commands.campaign import cmd_campaign  # noqa: E402
 from aso.commands.charts import cmd_charts  # noqa: E402
 from aso.commands.collect import cmd_funnel, cmd_ga, cmd_ledger, cmd_radar, cmd_rc, cmd_reviews, cmd_telemetry  # noqa: E402
 from aso.commands.cycle import cmd_cycle  # noqa: E402
-from aso.commands.dashboard import cmd_build, cmd_export  # noqa: E402
+from aso.commands.dashboard import cmd_build, cmd_check, cmd_due, cmd_export  # noqa: E402
 from aso.commands.google import cmd_google  # noqa: E402
 from aso.commands.keywords import cmd_keywords  # noqa: E402
 from aso.commands.status import cmd_brief, cmd_info, cmd_status  # noqa: E402
@@ -120,6 +120,11 @@ def build_parser():
     p_build = subparsers.add_parser("build", help="Build the dashboard page from the data files (offline)",
                                     parents=[common_parent])
     p_build.add_argument("--out", help="Folder index.html is written into (default: <store>/public)")
+    p_due = subparsers.add_parser("due", help="List the rank reads live hypotheses need at the end of their windows (offline)",
+                                  parents=[common_parent])
+    p_due.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the list is made for (default: today)")
+    subparsers.add_parser("check", help="Look through the data folder for what must not be published (offline)",
+                          parents=[common_parent])
 
     # cycle
     subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel & cashflow", parents=[common_parent])
@@ -272,6 +277,10 @@ def main():
         return cmd_export(args)
     elif args.command == "build":
         return cmd_build(args)
+    elif args.command == "due":
+        return cmd_due(args)
+    elif args.command == "check":
+        return cmd_check(args)
     return 0
 
 
