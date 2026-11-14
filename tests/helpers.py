@@ -9,6 +9,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = ROOT / "assets" / "sample" / "store"
 GOLDEN = ROOT / "tests" / "golden"
 AS_OF = "2026-11-14"
+# What the sample store exports on AS_OF. A task that stores a new series changes these, and the golden manifest.
+SAMPLE_WEEKS = ["2026-10-19", "2026-10-26", "2026-11-02"]
+SAMPLE_SNAPSHOTS = ["2026-10-05", "2026-10-19", "2026-11-02", "2026-11-03", "2026-11-09", "2026-11-10"]
+SAMPLE_FILES = len(SAMPLE_WEEKS) + len(SAMPLE_SNAPSHOTS) + 3
 
 sys.path.insert(0, str(ROOT / "scripts"))
 

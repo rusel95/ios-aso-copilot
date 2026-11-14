@@ -24,6 +24,7 @@ import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
+from aso.pull_revenuecat_series import ads_weeks, cashflow_weeks, store_series  # noqa: E402
 from aso.pull_revenuecat_fetch import (  # noqa: E402,F401
     CODE_TO_COUNTRY_NAME,
     COUNTRY_NAME_TO_CODE,
@@ -260,6 +261,9 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
         "combined_active_markets": combined_active_markets,
         "windows": windows,
         "country_cashflow": country_cashflow,
+        # closed Monday weeks, as rows: what the store keeps as history (export_snapshots appends them)
+        "weekly_cashflow": cashflow_weeks(by_country_daily, trials_by_country, daily_spend, dt.date.fromisoformat(end_str), end_str),
+        "weekly_ads": ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str),
     }
     return result, ""
 
@@ -386,6 +390,10 @@ def print_cashflow_report(data: dict):
 def export_snapshots(store: Path, data: dict, write_json=True, write_csv=True):
     metrics_dir = store / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
+    if write_csv:
+        # the history: one row per read, and the closed weeks; appended, never rewritten
+        gained = store_series(store, data)
+        print("  stored: " + ", ".join(f"{name} +{count}" for name, count in gained.items()))
     if write_json:
         (metrics_dir / "revenuecat_latest.json").write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     if write_csv:

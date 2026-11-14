@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import SAMPLE, copy_store  # noqa: E402
+from tests.helpers import SAMPLE, SAMPLE_FILES, SAMPLE_SNAPSHOTS, copy_store  # noqa: E402
 
 from aso.dashboard import contract, export  # noqa: E402
 from aso.ranks import coverage  # noqa: E402
@@ -44,7 +44,13 @@ class Weeks(unittest.TestCase):
         self.assertEqual((family["source"], family["fetched_at"]), ("asc-analytics", "2026-11-10"))
 
     def test_families_nothing_stores_yet_say_so(self):
-        families = built()[0]["week/2026-11-02.json"]["families"]
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            for name in ("cashflow_weekly.csv", "ads.csv", "telemetry.csv"):
+                (store / "metrics" / name).unlink(missing_ok=True)
+            lifecycle = store / "metrics" / "lifecycle.csv"            # only the hand-written row stays: no collector row
+            lifecycle.write_text("\n".join(lifecycle.read_text(encoding="utf-8").splitlines()[:2]) + "\n", encoding="utf-8")
+            families = built(store)[0]["week/2026-11-02.json"]["families"]
         for name in ("lifecycle", "money", "ads", "in_app"):
             with self.subTest(family=name):
                 self.assertEqual(families[name]["unavailable"]["code"], "no_source")
@@ -91,8 +97,7 @@ class Snapshots(unittest.TestCase):
     def test_one_snapshot_per_sweep_and_per_capture(self):
         files, _ = built()
         self.assertEqual(sorted(p for p in files if p.startswith("snapshot/")),
-                         ["snapshot/2026-10-05.json", "snapshot/2026-10-19.json", "snapshot/2026-11-02.json",
-                          "snapshot/2026-11-03.json", "snapshot/2026-11-09.json"])
+                         [f"snapshot/{day}.json" for day in SAMPLE_SNAPSHOTS])
 
     def test_rank_snapshot(self):
         r = built()[0]["snapshot/2026-11-02.json"]["families"]["ranks"]["figures"]
@@ -124,6 +129,7 @@ class Snapshots(unittest.TestCase):
     def test_subscriptions_from_the_latest_read_when_the_store_has_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = copy_store(tmp)
+            (store / "metrics" / "revenue.csv").unlink()                 # a store that has not stored the series yet
             (store / "metrics" / "revenuecat_latest.json").write_text(
                 '{"captured_at": "2026-11-04T10:39:35Z", "overview": {"active_subscriptions": {"value": 6}, '
                 '"active_trials": {"value": 1}, "mrr": {"value": 15}, "revenue": {"value": 53}}}', encoding="utf-8")
@@ -137,7 +143,7 @@ class Whole(unittest.TestCase):
     def test_every_file_is_valid(self):
         catalog = contract.load_catalog()
         files, _ = built()
-        self.assertEqual(len(files), 11)                                     # 3 weeks, 5 snapshots, 3 entity files
+        self.assertEqual(len(files), SAMPLE_FILES)
         for path, obj in files.items():
             with self.subTest(path=path):
                 self.assertEqual(contract.validate(path, contract.canonical(obj), catalog), [])
@@ -181,10 +187,10 @@ class WriteAndCheck(unittest.TestCase):
             store = copy_store(tmp)
             files, _ = built(store)
             done = export.write(store, files)
-            self.assertEqual((len(done["written"]), done["unchanged"], done["removed"]), (11, [], []))
+            self.assertEqual((len(done["written"]), done["unchanged"], done["removed"]), (SAMPLE_FILES, [], []))
             self.assertEqual(export.check(store, files), [])
             again = export.write(store, files)
-            self.assertEqual((again["written"], len(again["unchanged"])), ([], 11))
+            self.assertEqual((again["written"], len(again["unchanged"])), ([], SAMPLE_FILES))
             target = store / "data" / "week" / "2026-11-02.json"
             target.write_text(target.read_text(encoding="utf-8").replace("1500", "1501"), encoding="utf-8")
             (store / "data" / "keys.json").unlink()

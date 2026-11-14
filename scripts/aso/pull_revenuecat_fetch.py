@@ -215,6 +215,28 @@ def fetch_rc_trials_and_mrr(rc_bin: str, project_id: str, start_date: str, end_d
     return trials_by_country, mrr_by_country, attr_campaigns
 
 
+def daily_rows(report, country_by_cid: dict, campaigns_meta: dict) -> dict:
+    """(day, campaign id, storefront) -> spend, impressions, taps and installs, from one daily campaign report.
+    `installs` is None when the report gave no count for that day: unknown, not zero. A day with nothing is no row."""
+    rows = {}
+    if not isinstance(report, dict):
+        return rows
+    for r in (report.get("result") or {}).get("rows") or []:
+        cid = int((r.get("metadata") or {}).get("id") or 0)
+        country = country_by_cid.get(cid) or campaigns_meta.get(cid, {}).get("country", "??")
+        for g in r.get("granularMetrics") or []:
+            day = g.get("date")
+            if not day:
+                continue
+            spend = float((g.get("localSpend") or {}).get("amount") or 0.0)
+            impressions, taps = int(g.get("impressions") or 0), int(g.get("taps") or 0)
+            if spend > 0 or impressions > 0 or taps > 0:
+                installs = g.get("tapInstalls")
+                rows[(day, cid, country)] = {"spend": spend, "impressions": impressions, "taps": taps,
+                                             "installs": int(installs) if installs is not None else None}
+    return rows
+
+
 def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: str, end_date: str):
     """Fetch all Apple Ads campaign metadata, all-time country spend, and daily spend per campaign."""
     if not account:
@@ -277,29 +299,20 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
                 "end_time": c_info.get("end_time", ""),
             })
 
-    # 3. Daily granular spend for non-deleted campaigns (and overall daily spend)
-    payload_daily = {
-        "timeRange": {"start": start_date, "end": end_date, "timeZone": "ORTZ", "granularity": "DAILY"},
-        "fields": ["impressions", "taps", "localSpend"],
-        "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
-        "pagination": {"offset": 0, "pageSize": 100},
-    }
-    rep_daily, _ = run_json_cmd(cmd_rep, input_text=json.dumps(payload_daily))
-    daily_spend = {}  # (date, campaign_id, country) -> {spend, impr, taps}
+    # 3. Daily granular spend for non-deleted campaigns (and overall daily spend). The install count is asked for
+    # too; a CLI or an account that refuses that field is asked again without it, so spend is never lost to it.
     country_by_cid = {r["campaign_id"]: r["country"] for r in all_campaign_rows}
-    if isinstance(rep_daily, dict):
-        for r in (rep_daily.get("result") or {}).get("rows") or []:
-            meta = r.get("metadata") or {}
-            cid = int(meta.get("id") or 0)
-            country = country_by_cid.get(cid) or campaigns_meta.get(cid, {}).get("country", "??")
-            for g in r.get("granularMetrics") or []:
-                d_str = g.get("date")
-                if not d_str:
-                    continue
-                sp = float((g.get("localSpend") or {}).get("amount") or 0.0)
-                im = int(g.get("impressions") or 0)
-                tp = int(g.get("taps") or 0)
-                if sp > 0 or im > 0 or tp > 0:
-                    daily_spend[(d_str, cid, country)] = {"spend": sp, "impressions": im, "taps": tp}
+    daily_spend = {}
+    for fields in (["impressions", "taps", "tapInstalls", "localSpend"], ["impressions", "taps", "localSpend"]):
+        payload_daily = {
+            "timeRange": {"start": start_date, "end": end_date, "timeZone": "ORTZ", "granularity": "DAILY"},
+            "fields": fields,
+            "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
+            "pagination": {"offset": 0, "pageSize": 100},
+        }
+        rep_daily, _ = run_json_cmd(cmd_rep, input_text=json.dumps(payload_daily))
+        daily_spend = daily_rows(rep_daily, country_by_cid, campaigns_meta)
+        if daily_spend or (isinstance(rep_daily, dict) and "result" in rep_daily):
+            break                                       # an answer, even an empty one: do not ask again
 
     return campaigns_meta, all_campaign_rows, daily_spend

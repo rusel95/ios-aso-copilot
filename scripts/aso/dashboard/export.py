@@ -166,6 +166,13 @@ NOT_STORED_YET = {
     "ads": "Apple Ads results are not stored by week yet.",
     "in_app": "In-app events are not stored by week yet.",
 }
+NOTHING_THAT_WEEK = {
+    "store_funnel": "The store holds no funnel row the collector wrote for this week.",
+    "lifecycle": "The store holds no install and deletion row for this week.",
+    "money": "The store holds no cashflow row for this week.",
+    "ads": "The store holds no Apple Ads row for this week.",
+    "in_app": "The store holds no in-app row for this week.",
+}
 VERDICT_NOTE = ("hypothesis files carry no history: a verdict is read as it stands in the file today, "
                 "whatever --as-of says")
 
@@ -240,6 +247,118 @@ def funnel_weeks(store: Path, as_of: dt.date, notes: list) -> dict:
         out[week] = {"source": "asc-analytics", "fetched_at": max(row["recorded"] for row in segments.values()).isoformat(),
                      "figures": figures}
     return out
+
+
+def number(cell: str):
+    """A stored cell as a number: an int when it is one, else a float; None for a blank. Raises ValueError otherwise."""
+    cell = (cell or "").strip()
+    if not cell:
+        return None
+    value = float(cell)
+    return int(value) if value.is_integer() and "." not in cell else value
+
+
+def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.date, notes: list) -> tuple:
+    """(rows, stored): the latest row per key of one series file, as known on `as_of`, numbers parsed.
+
+    Rows captured after `as_of` are not known yet. Among rows for one key the later `captured` wins, then the later
+    line. A row with an unreadable cell is named and skipped. `stored` says whether the file holds any row at all,
+    which is the difference between "nothing stores this" and "nothing that week"."""
+    found, stored = {}, False
+    for n, r in enumerate(read_csv(store / "metrics" / name), 2):
+        stored = True
+        captured = parse_date(r.get("captured"))
+        if captured is None:
+            notes.append(f"metrics/{name}:{n}: captured is not a date; the row is skipped")
+            continue
+        if captured > as_of:
+            continue
+        row = dict(r, captured=captured)
+        try:
+            for column in numbers:
+                row[column] = number(r.get(column))
+        except ValueError:
+            notes.append(f"metrics/{name}:{n}: {column} {r.get(column)!r} is not a number; the row is skipped")
+            continue
+        at = tuple(r.get(k, "") for k in key)
+        if at not in found or captured >= found[at]["captured"]:
+            found[at] = row
+    return list(found.values()), stored
+
+
+def total(rows: list, column: str, places=None):
+    """The sum of a column over rows that hold it; None when none does."""
+    held = [r[column] for r in rows if r[column] is not None]
+    if not held:
+        return None
+    return round(sum(held), places) if places is not None else sum(held)
+
+
+def split(rows: list, by: str, value) -> dict:
+    """{who: value(their rows)} for one figure, names in order."""
+    groups = {}
+    for r in rows:
+        groups.setdefault(r[by].lower(), []).append(r)
+    return {who: value(theirs) for who, theirs in sorted(groups.items())}
+
+
+def counted(rows: list, column: str, by: tuple, places=None) -> dict:
+    """A summed figure with its splits, or unavailable when no row holds the column."""
+    value = total(rows, column, places)
+    if value is None:
+        return unavailable("no_data", "The stored rows hold no such count for the week.")
+    return {"value": value, **{f"by_{name}": split(rows, column_of, lambda theirs: total(theirs, column, places))
+                              for name, column_of in by}}
+
+
+def divided(rows: list, top: str, bottom: str, by: tuple) -> dict:
+    """A ratio of two summed columns, with both totals and its splits; unavailable when there is nothing to divide by."""
+    upper, lower = total(rows, top), total(rows, bottom)
+    if share(upper, lower) is None:
+        return unavailable("no_data", "Nothing to divide by: a total of the week is missing or zero.")
+    return {"value": share(upper, lower), "numerator": upper, "denominator": lower,
+            **{f"by_{name}": split(rows, column_of, lambda theirs: share(total(theirs, top), total(theirs, bottom)))
+               for name, column_of in by}}
+
+
+def money_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
+    """(week start -> the money family, stored), from the closed weeks of cashflow the collector folded per storefront."""
+    numbers = ("transactions", "new_trials", "gross_revenue_usd", "proceeds_usd", "ad_spend_usd")
+    rows, stored = latest_rows(store, "cashflow_weekly.csv", ("week_start", "country"), numbers, as_of, notes)
+    out = {}
+    for week, theirs in by_closed_week(rows, as_of).items():
+        for r in theirs:
+            r["net"] = None if r["proceeds_usd"] is None or r["ad_spend_usd"] is None else r["proceeds_usd"] - r["ad_spend_usd"]
+        market = (("market", "country"),)
+        out[week] = {"source": "revenuecat+apple-ads", "fetched_at": max(r["captured"] for r in theirs).isoformat(), "figures": {
+            "proceeds_usd": counted(theirs, "proceeds_usd", market, 2), "ad_spend_usd": counted(theirs, "ad_spend_usd", market, 2),
+            "net_cashflow_usd": counted(theirs, "net", market, 2), "transactions": counted(theirs, "transactions", market),
+            "new_trials": counted(theirs, "new_trials", market)}}
+    return out, stored
+
+
+def ads_family_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
+    """(week start -> the ads family, stored), from the closed weeks of Apple Ads results stored per campaign."""
+    rows, stored = latest_rows(store, "ads.csv", ("week_start", "campaign_id"), ("spend_usd", "impressions", "taps", "installs"),
+                               as_of, notes)
+    by = (("market", "market"), ("campaign", "campaign_id"))
+    out = {}
+    for week, theirs in by_closed_week(rows, as_of).items():
+        out[week] = {"source": "apple-ads", "fetched_at": max(r["captured"] for r in theirs).isoformat(), "figures": {
+            "spend_usd": counted(theirs, "spend_usd", by, 2), "impressions": counted(theirs, "impressions", by),
+            "taps": counted(theirs, "taps", by), "installs": counted(theirs, "installs", by),
+            "ttr": divided(theirs, "taps", "impressions", by), "cpi_usd": divided(theirs, "spend_usd", "installs", by)}}
+    return out, stored
+
+
+def by_closed_week(rows: list, as_of: dt.date) -> dict:
+    """week start -> rows, for the rows whose `week_start` is a Monday of a week closed by `as_of`."""
+    weeks = {}
+    for r in rows:
+        week = parse_date(r.get("week_start"))
+        if week is not None and not week.weekday() and closed(week, as_of):
+            weeks.setdefault(week, []).append(r)
+    return dict(sorted(weeks.items()))
 
 
 def rank_snapshots(store: Path, as_of: dt.date) -> dict:
@@ -327,8 +446,18 @@ def insight_snapshots(store: Path, as_of: dt.date, notes: list) -> dict:
     return out
 
 
-def subscription_snapshot(store: Path, as_of: dt.date, notes: list) -> dict:
-    """The one subscription read a store holds before it stores a series: `revenuecat_latest.json`."""
+SUBSCRIPTION_FIGURES = ("active_subscriptions", "active_trials", "mrr_usd", "revenue_28d_usd", "new_customers_28d",
+                        "active_users_28d")
+
+
+def subscription_snapshots(store: Path, as_of: dt.date, notes: list) -> dict:
+    """read day -> the subscriptions family. From the stored series; a store that has no series yet still shows the
+    one read it holds in `revenuecat_latest.json`."""
+    rows, stored = latest_rows(store, "revenue.csv", ("captured",), SUBSCRIPTION_FIGURES, as_of, notes)
+    if stored:
+        return {r["captured"]: {"subscriptions": {"source": "revenuecat", "fetched_at": r["captured"].isoformat(), "figures": {
+            name: {"value": r[name]} if r[name] is not None else unavailable("no_data", "The read holds no such figure.")
+            for name in SUBSCRIPTION_FIGURES}}} for r in rows}
     path = store / "metrics" / "revenuecat_latest.json"
     if not path.is_file():
         return {}
@@ -356,13 +485,25 @@ def build_all(store: Path, as_of: dt.date) -> tuple:
     """(relative path under data/ -> object, notes). The notes say what the store could not show and why."""
     PROBLEMS.clear()
     notes, files = [], {}
-    for week, family in funnel_weeks(store, as_of, notes).items():
-        families = {"store_funnel": family, **{name: unavailable("no_source", why) for name, why in NOT_STORED_YET.items()}}
+    funnel = funnel_weeks(store, as_of, notes)
+    money, money_stored = money_weeks(store, as_of, notes)
+    ads, ads_stored = ads_family_weeks(store, as_of, notes)
+    known = {"store_funnel": (funnel, True), "lifecycle": ({}, False), "money": (money, money_stored), "ads": (ads, ads_stored),
+             "in_app": ({}, False)}
+    for week in sorted({w for weeks, _ in known.values() for w in weeks}):
+        families = {}
+        for name, (weeks, stored) in known.items():
+            if week in weeks:
+                families[name] = weeks[week]
+            elif stored:
+                families[name] = unavailable("no_data", NOTHING_THAT_WEEK[name])
+            else:
+                families[name] = unavailable("no_source", NOT_STORED_YET[name])
         files[f"week/{week}.json"] = period_file(as_of, "week", week, week + dt.timedelta(days=6), families)
     snapshots = {}
     for day, families in rank_snapshots(store, as_of).items():
         snapshots.setdefault(parse_date(day), {}).update(families)
-    for source in (insight_snapshots(store, as_of, notes), subscription_snapshot(store, as_of, notes)):
+    for source in (insight_snapshots(store, as_of, notes), subscription_snapshots(store, as_of, notes)):
         for day, families in source.items():
             snapshots.setdefault(day, {}).update(families)
     for day, families in sorted(snapshots.items()):

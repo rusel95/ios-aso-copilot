@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import ROOT, copy_store, exported_store, run  # noqa: E402
+from tests.helpers import ROOT, SAMPLE_FILES, SAMPLE_SNAPSHOTS, SAMPLE_WEEKS, copy_store, exported_store, run  # noqa: E402
 
 from aso.dashboard import contract, site  # noqa: E402
 
@@ -44,8 +44,8 @@ class Build(unittest.TestCase):
             payload = payload_of(page(tmp))
         self.assertEqual(sorted(payload), ["catalog", "events", "hypotheses", "keys", "name", "places", "snapshots", "weeks"])
         self.assertEqual(payload["name"], "Tidepool")
-        self.assertEqual([w["period"]["id"] for w in payload["weeks"]], ["2026-10-19", "2026-10-26", "2026-11-02"])
-        self.assertEqual(len(payload["snapshots"]), 5)
+        self.assertEqual([w["period"]["id"] for w in payload["weeks"]], SAMPLE_WEEKS)
+        self.assertEqual([f["period"]["id"] for f in payload["snapshots"]], SAMPLE_SNAPSHOTS)
         self.assertEqual(len(payload["hypotheses"]["hypotheses"]), 8)
 
     def test_invalid_file_writes_nothing(self):
@@ -130,7 +130,7 @@ class Commands(unittest.TestCase):
             code, text, err = run("build_site.py", "--data", str(store / "data"), "--out", str(out), "--name", "Tidepool")
             self.assertEqual(code, 0, text + err)
             size = (out / "index.html").stat().st_size
-            self.assertEqual(text.splitlines()[-1], f"PASS site (11 files, {size} bytes)")
+            self.assertEqual(text.splitlines()[-1], f"PASS site ({SAMPLE_FILES} files, {size} bytes)")
 
     def test_copilot_build_names_the_app_from_its_brand_token(self):
         with tempfile.TemporaryDirectory() as tmp:

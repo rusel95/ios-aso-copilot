@@ -15,6 +15,11 @@ from tests.helpers import AS_OF, ROOT, exported_store  # noqa: E402
 from aso.dashboard import site  # noqa: E402
 
 NODE = shutil.which("node")
+# JavaScript run before a render, to see the page on data the sample does not have.
+EMPTY = "(payload.weeks = [], payload.snapshots = [], 0)"
+GAPS = ("(payload.weeks.forEach(function (w) { ['lifecycle', 'money', 'ads', 'in_app'].forEach(function (f) { "
+        "w.families[f] = { unavailable: { code: 'no_source', reason: 'The ' + f + ' series is not stored.' } }; }); }), "
+        "payload.snapshots.forEach(function (s) { delete s.families.subscriptions; delete s.families.ratings; }), 0)")
 
 
 def text_of(markup: str) -> str:
@@ -44,11 +49,12 @@ class PageCase(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr[-600:])
         return done.stdout
 
-    def render(self, route: str, today: str = AS_OF) -> str:
-        return self.js(f"ASO.render({route!r}, payload, {today!r})")
+    def render(self, route: str, today: str = AS_OF, first: str = "0") -> str:
+        """The markup of a route; `first` is JavaScript run before it, to change the payload."""
+        return self.js(f"({first}, ASO.render({route!r}, payload, {today!r}))")
 
-    def read(self, route: str, today: str = AS_OF) -> str:
-        return text_of(self.render(route, today))
+    def read(self, route: str, today: str = AS_OF, first: str = "0") -> str:
+        return text_of(self.render(route, today, first))
 
     def block(self, route: str, title: str, markup: str = None) -> str:
         """The markup of the block whose heading is `title`."""
@@ -65,7 +71,9 @@ class Shell(PageCase):
     def test_series_of_a_flow(self):
         self.assertEqual(self.js("ASO.series(payload, 'store_funnel.impressions').map(function (e) { return e.value; })"),
                          "[1000,1200,1500]")
-        self.assertEqual(self.js("ASO.series(payload, 'money.proceeds_usd').map(function (e) { return e.unavailable.code; })"),
+        self.assertEqual(self.js("ASO.series(payload, 'money.proceeds_usd').map(function (e) { return e.value; })"),
+                         "[16.1,21,32.2]")
+        self.assertEqual(self.js(f"({GAPS}, ASO.series(payload, 'money.proceeds_usd').map(function (e) {{ return e.unavailable.code; }}))"),
                          '["no_source","no_source","no_source"]')
 
     def test_series_of_a_stock_holds_only_the_days_it_was_read(self):
@@ -97,9 +105,15 @@ class Overview(PageCase):
         self.assertIn("Apple search popularity 2026-11-03 11 d", seen)
         self.assertNotIn('class="age stale"', self.render("#/"))       # no source is marked stale
 
-    def test_a_source_nothing_stores_says_so(self):
+    def test_what_the_store_holds_shows_its_day(self):
         seen = self.read("#/")
-        for name in ("Subscriptions", "Ratings and reviews", "In-app", "Money", "Apple Ads", "Install lifecycle"):
+        for line in ("Subscriptions 2026-11-10 4 d", "Money 2026-11-10 4 d", "Apple Ads 2026-11-10 4 d"):
+            self.assertIn(line, seen)
+
+    def test_a_source_nothing_stores_says_so(self):
+        seen = self.read("#/", first=EMPTY)
+        for name in ("Keyword ranks", "Store funnel", "Install lifecycle", "Money", "Apple Ads", "In-app", "Subscriptions",
+                     "Ratings and reviews", "Apple search popularity"):
             with self.subTest(source=name):
                 self.assertIn(f"{name} Not stored yet", seen)
 
@@ -118,9 +132,14 @@ class Overview(PageCase):
         # the newest sweep (11-09) read 2 of 10 tracked keys; the headline stays on the last full one
         self.assertNotIn("sweep of 2026-11-09", self.read("#/"))
 
+    def test_money_tiles(self):
+        seen = self.read("#/")
+        self.assertIn("MRR $16.00 read on 2026-11-10", seen)
+        self.assertIn("Net cashflow $24.20 week of 2026-11-02", seen)
+
     def test_a_missing_figure_is_words_never_a_zero(self):
-        markup = self.render("#/")
-        for label in ("MRR", "Net cashflow", "Deletions per 100 installs"):
+        markup = self.render("#/", first=EMPTY)
+        for label in ("Keys in top 30", "First-time downloads", "MRR", "Net cashflow", "Deletions per 100 installs"):
             with self.subTest(tile=label):
                 tile = re.search(r'<section class="tile">\s*<h3>' + re.escape(label) + r"</h3>(.*?)</section>", markup, re.S)
                 self.assertIsNotNone(tile, label)
@@ -152,9 +171,9 @@ class Panel(PageCase):
         self.assertIn("Measured", seen)
 
     def test_a_missing_figure_shows_its_reason_and_code(self):
-        seen = text_of(self.js("ASO.panel(payload, 'money.proceeds_usd', '2026-11-02')"))
+        seen = text_of(self.js(f"({GAPS}, ASO.panel(payload, 'money.proceeds_usd', '2026-11-02'))"))
         self.assertIn("Not stored yet", seen)
-        self.assertIn("Proceeds and Apple Ads spend are not stored by week yet.", seen)
+        self.assertIn("The money series is not stored.", seen)
         self.assertIn("no_source", seen)
 
     def test_a_split_by_storefront_is_listed(self):
@@ -301,17 +320,36 @@ class Tabs(PageCase):
         self.assertIn("week of 2026-11-02", text_of(block))
 
     def test_a_family_nothing_stores_says_why_and_shows_no_figure(self):
-        cases = [("#/funnel", "Install lifecycle", "No command stores install and deletion counts by week yet."),
-                 ("#/money", "Money by closed week", "Proceeds and Apple Ads spend are not stored by week yet."),
+        cases = [("#/funnel", "Install lifecycle", "The lifecycle series is not stored."),
+                 ("#/money", "Money by closed week", "The money series is not stored."),
                  ("#/money", "Subscriptions", "No data file holds a reading of it."),
-                 ("#/ads", "Apple Ads by closed week", "Apple Ads results are not stored by week yet."),
-                 ("#/in-app", "In-app", "In-app events are not stored by week yet.")]
+                 ("#/ads", "Apple Ads by closed week", "The ads series is not stored."),
+                 ("#/in-app", "In-app", "The in_app series is not stored.")]
         for route, title, reason in cases:
             with self.subTest(block=title):
-                block = self.block(route, title)
+                block = self.block(route, title, self.render(route, first=GAPS))
                 self.assertIn("Not stored yet", text_of(block))
                 self.assertIn(reason, text_of(block))
                 self.assertNotIn('<button class="fig"', block)               # no value, so nothing that looks like one
+
+    def rows(self, route, title, row_class):
+        return [text_of(r) for r in re.findall(rf'<tr class="{row_class}">(.*?)</tr>', self.block(route, title), re.S)]
+
+    def test_money_by_closed_week_and_by_storefront(self):
+        self.assertEqual(self.rows("#/money", "Money by closed week", "period"),
+                         ["2026-11-02 $32.20 $8.00 $24.20 6 5", "2026-10-26 $21.00 $8.50 $12.50 3 4", "2026-10-19 $16.10 $5.00 $11.10 3 4"])
+        self.assertEqual(self.rows("#/money", "Money by closed week", "split-row"),
+                         ["us $28.00 $6.00 $22.00 4 4", "ua $4.20 $2.00 $2.20 2 1"])
+
+    def test_subscription_reads(self):
+        self.assertEqual(self.rows("#/money", "Subscriptions", "period"),
+                         ["2026-11-10 4 1 $16.00 $52.00 41 70", "2026-11-03 3 2 $12.50 $40.00 30 55"])
+        self.assertIn("MRR $16.00", text_of(self.block("#/money", "Subscriptions")))
+
+    def test_apple_ads_by_closed_week_and_by_campaign(self):
+        self.assertEqual(self.rows("#/ads", "Apple Ads by closed week", "period")[0], "2026-11-02 $8.00 400 38 10 9.5% $0.80")
+        self.assertEqual(self.rows("#/ads", "Apple Ads by closed week", "split-row"),
+                         ["9001 $6.00 300 30 10 10.0% $0.60", "9002 $2.00 100 8 0 8.0% –"])
 
     def test_apple_insight_rows(self):
         self.assertIn("us tide tracker #2 31.0%–40.0%", text_of(self.block("#/ads", "Impression share")))

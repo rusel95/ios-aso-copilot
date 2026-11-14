@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import AS_OF, SAMPLE, copy_store, run  # noqa: E402
+from tests.helpers import AS_OF, SAMPLE, SAMPLE_FILES as N, copy_store, run  # noqa: E402
 
 
 class ExportCommand(unittest.TestCase):
@@ -15,17 +15,17 @@ class ExportCommand(unittest.TestCase):
             code, out, err = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
             self.assertEqual(code, 0, out + err)
             lines = out.splitlines()
-            self.assertEqual(len([line for line in lines if line.startswith("WROTE ")]), 11)
+            self.assertEqual(len([line for line in lines if line.startswith("WROTE ")]), N)
             self.assertIn("WROTE week/2026-11-02.json", lines)
             self.assertTrue(any(line.startswith("NOTE ") and "weekly.csv" in line for line in lines))
-            self.assertEqual(lines[-1], "PASS export (11 written, 0 unchanged, 0 removed)")
+            self.assertEqual(lines[-1], f"PASS export ({N} written, 0 unchanged, 0 removed)")
             self.assertTrue((store / "data" / "hypotheses.json").is_file())
 
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
-            self.assertEqual(out.splitlines()[-1], "PASS export (0 written, 11 unchanged, 0 removed)")
+            self.assertEqual(out.splitlines()[-1], f"PASS export (0 written, {N} unchanged, 0 removed)")
 
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF, "--check")
-            self.assertEqual((code, out.splitlines()[-1]), (0, "PASS check (11 files)"))
+            self.assertEqual((code, out.splitlines()[-1]), (0, f"PASS check ({N} files)"))
 
             (store / "data" / "events.json").write_text("{}\n", encoding="utf-8")
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF, "--check")
@@ -54,7 +54,7 @@ class ExportCommand(unittest.TestCase):
             code, out, err = run("copilot.py", "export", "--store", str(store), "--as-of", AS_OF)
             self.assertEqual(code, 0, out + err)
             self.assertEqual(out.splitlines()[0], f"as of {AS_OF}")
-            self.assertEqual(out.splitlines()[-1], "PASS export (11 written, 0 unchanged, 0 removed)")
+            self.assertEqual(out.splitlines()[-1], f"PASS export ({N} written, 0 unchanged, 0 removed)")
             code, out, _ = run("copilot.py", "export", "--store", str(store), "--check")
             self.assertRegex(out.splitlines()[0], r"^as of \d{4}-\d{2}-\d{2}$")
 
