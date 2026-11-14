@@ -232,12 +232,12 @@ def write(store: Path, files: dict) -> dict:
             done["removed"].append(path)
     state, text = store / "STATE.md", state_md(files, dt.date.fromisoformat(files["events.json"]["as_of"]))
     if not ours(state):
-        print("KEPT STATE.md: written by hand, archive it first")
+        done["state"] = "KEPT STATE.md: written by hand, archive it first"
     elif state.is_file() and state.read_text(encoding="utf-8") == text:
-        print("SAME STATE.md")
+        done["state"] = "SAME STATE.md"
     else:
         state.write_text(text, encoding="utf-8")
-        print("WROTE STATE.md")
+        done["state"] = "WROTE STATE.md"
     return done
 
 
@@ -273,6 +273,7 @@ def run(store: Path, as_of: dt.date, check_only: bool = False) -> int:
         print(("WROTE " if path in done["written"] else "SAME ") + path)
     for path in done["removed"]:
         print(f"REMOVED {path}")
+    print(done["state"])
     for note in notes:
         print(f"NOTE {note}")
     print(f"PASS export ({len(done['written'])} written, {len(done['unchanged'])} unchanged, {len(done['removed'])} removed)")
