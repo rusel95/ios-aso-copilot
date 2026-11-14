@@ -98,7 +98,8 @@ def self_check():
         args = argparse.Namespace(store=str(store), skip_pull=True, skip_ga=False)
 
         def cycle_result(responses):
-            with everywhere("run_cmd", side_effect=responses):
+            # the pass also asks the public store lookup for the live release; a self-check reaches no network
+            with everywhere("run_cmd", side_effect=responses), everywhere("fetch_lookup", return_value=None):
                 with contextlib.redirect_stdout(io.StringIO()) as output:
                     code = cmd_cycle(args)
             return code, output.getvalue()

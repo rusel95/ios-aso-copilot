@@ -1,11 +1,14 @@
 """App Store category charts: where the app stands in Top Free, Paid and Grossing."""
 
+import datetime as dt
 import json
+import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 from aso.commands.base import log_debug, log_error, log_warn, resolve_app_identity
+from aso.store_state import store_charts
 
 
 # ---------------------------------------------------------------- category charts
@@ -177,6 +180,10 @@ def cmd_charts(args):
                     "next": apps[r] if r < len(apps) else None,
                 }
             all_results.append(res)
+
+    # the history: what was read is appended to the store. Said on stderr, so --json stays one JSON document.
+    gained = store_charts(store, all_results, dt.date.today().isoformat())
+    print(f"stored: charts.csv +{gained}", file=sys.stderr)
 
     if getattr(args, "json", False):
         print(json.dumps(all_results, indent=2, ensure_ascii=False))

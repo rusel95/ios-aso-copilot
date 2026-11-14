@@ -79,7 +79,9 @@ class Shell(PageCase):
     def test_series_of_a_stock_holds_only_the_days_it_was_read(self):
         self.assertEqual(self.js("ASO.series(payload, 'ranks.keys_read').map(function (e) { return e.id + ':' + e.value; })"),
                          '["2026-10-05:8","2026-10-19:8","2026-11-02:9","2026-11-09:2"]')
-        self.assertEqual(self.js("ASO.series(payload, 'ratings.ratings_count')"), "[]")
+        self.assertEqual(self.js("ASO.series(payload, 'ratings.ratings_count').map(function (e) { return e.id + ':' + e.value; })"),
+                         '["2026-11-03:10","2026-11-10:12"]')
+        self.assertEqual(self.js(f"({EMPTY}, ASO.series(payload, 'ratings.ratings_count'))"), "[]")
 
     def test_the_navigation_marks_the_current_tab(self):
         nav = self.js("ASO.nav('#/keywords')")
@@ -149,6 +151,20 @@ class Overview(PageCase):
     def test_a_figure_is_a_button_that_names_itself(self):
         markup = self.render("#/")
         self.assertRegex(markup, r'<button class="fig" data-fig="store_funnel.first_downloads" data-period="2026-11-02"[^>]*>64</button>')
+
+    def test_ratings_and_charts_blocks(self):
+        ratings = text_of(self.block("#/", "Ratings and reviews"))
+        for line in ("Average rating 4.75", "Ratings 12", "Unanswered reviews 2", "Written reviews Nothing to measure"):
+            self.assertIn(line, ratings)
+        charts = text_of(self.block("#/", "Category charts"))
+        self.assertIn("us Weather top-free #87", charts)
+        self.assertIn("ua Weather top-free not in the chart", charts)
+        self.assertIn("Ratings and reviews 2026-11-10 4 d", self.read("#/"))
+
+    def test_blocks_of_a_store_that_read_neither_say_so(self):
+        markup = self.render("#/", first=EMPTY)
+        self.assertIn("Not stored yet", text_of(self.block("#/", "Category charts", markup)))
+        self.assertNotIn('<button class="fig"', self.block("#/", "Ratings and reviews", markup))
 
     def test_summary_blocks_link_to_their_tabs(self):
         markup = self.render("#/")
@@ -226,6 +242,8 @@ class Ledger(PageCase):
         self.assertEqual(len(bars), 7)                                        # H007 never shipped
         self.assertIn(("due", "H005 · due · 2026-10-20 → 2026-11-03"), bars)
         self.assertIn("today", text_of(markup))
+        self.assertEqual(markup.count('<line class="tl-release"'), 1)           # the one release the store holds
+        self.assertIn("1.0.0", text_of(markup))
 
     def test_due_card_shows_reads_queries_and_the_prediction(self):
         markup = self.render("#/ledger")

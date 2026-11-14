@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 
 from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identity, run_cmd
-from aso.commands.collect import prepare_funnel_pull
+from aso.commands.collect import fetch_lookup, prepare_funnel_pull
+from aso.store_state import store_ratings, store_release
 
 
 class _Tee:
@@ -292,6 +293,7 @@ def _cycle_run(args):
     # Step 2: Reviews & Ratings
     print("\n▶ [2/6] Auditing Customer Reviews & Ratings...")
     rc, out, err = run_cmd(["asc", "reviews", "ratings", "--app", app_id, "--all"])
+    ratings_out = out if rc == 0 else ""
     if rc == 0 and out.strip():
         summary = compact_asc_output(out, "ratings")
         if summary:
@@ -306,6 +308,12 @@ def _cycle_run(args):
         print(f"  ⚠️ Could not query ASC ratings: {err.strip() or f'exit {rc}'}")
         partial = True
     rc, out, err = run_cmd(["asc", "reviews", "--app", app_id, "--only-unresponded"])
+    # the history: what this pass read of the store's own state is appended to the store, never rewritten
+    seen = dt.date.today().isoformat()
+    gained = store_ratings(store, ratings_out, out if rc == 0 else None, seen)
+    lookup = fetch_lookup(app_id)
+    print(f"  stored: ratings.csv +{gained}, releases.csv +{store_release(store, lookup, seen) if lookup else 0}"
+          + ("" if lookup else " (the store lookup could not be read)"))
     if rc == 0 and out.strip():
         summary = compact_asc_output(out, "unreplied")
         if summary:

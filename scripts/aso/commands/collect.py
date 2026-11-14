@@ -1,6 +1,7 @@
 """Single collectors: reviews and ratings, the store funnel, GA4, telemetry, RevenueCat, ledger, radar."""
 
 import ast
+import json
 import subprocess
 import sys
 import tempfile
@@ -270,3 +271,14 @@ def cmd_radar(args):
         return 1
     return subprocess.run([sys.executable, str(radar_py), "--store", str(Path(args.store).resolve())]
                           + args.radar_args).returncode
+
+
+def fetch_lookup(app_id: str, timeout: int = 15):
+    """The public store lookup of the app: the version it shows now and the day that version was released.
+    None when it cannot be read; the caller says so and goes on."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"https://itunes.apple.com/lookup?id={app_id}", timeout=timeout) as reply:
+            return json.loads(reply.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return None

@@ -120,7 +120,7 @@ class Events(unittest.TestCase):
         self.assertEqual(events["queue"][0],
                          {"id": "Q001", "date": "2026-10-30", "title": "needs a go — create the us penny flight"})
         self.assertEqual([q["id"] for q in events["queue"]], ["Q001", "Q002"])
-        self.assertEqual(events["releases"], [])
+        self.assertEqual(events["releases"], [{"version": "1.0.0", "date": "2026-10-06"}])
 
     def test_as_of_hides_later_entries(self):
         self.assertEqual([q["id"] for q in export.events(SAMPLE, date(2026, 11, 5))["queue"]], ["Q001"])

@@ -78,6 +78,26 @@ class DashboardIsOffline(unittest.TestCase):
                 self.assertEqual(clock, [])
 
 
+class SelfCheckIsOffline(unittest.TestCase):
+    def test_the_copilot_self_check_opens_no_connection(self):
+        """Run the self-check with every way out of the machine made to fail loudly."""
+        import socket
+        from unittest import mock
+
+        import copilot  # noqa: F401 — puts scripts/ on the path the way the entry does
+        from aso.commands.selfcheck import self_check
+        import contextlib
+        import io
+
+        def refuse(*args, **kwargs):
+            raise AssertionError("the self-check tried to open a network connection")
+
+        with mock.patch.object(socket, "create_connection", refuse), mock.patch.object(socket.socket, "connect", refuse), \
+                contextlib.redirect_stdout(io.StringIO()) as said:
+            self_check()
+        self.assertIn("OK:", said.getvalue())
+
+
 class Sizes(unittest.TestCase):
     def test_no_long_files(self):
         long = {str(p.relative_to(ROOT)): n for p in SCRIPTS.rglob("*.py")

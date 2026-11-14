@@ -94,6 +94,13 @@ ASO.pages["#/"] = function (payload, today) {
   out += '<section class="block"><h2>Ratings and reviews</h2><dl class="pairs">' +
     payload.places.overview.filter(function (key) { return key.indexOf("ratings.") === 0; }).map(function (key) {
       return "<dt>" + ASO.esc(ASO.spec(payload, key).title) + "</dt><dd>" + ASO.figure(payload, key, ASO.last(ASO.series(payload, key))) + "</dd>";
-    }).join("") + "</dl></section></div>";
+    }).join("") + "</dl></section>";
+
+  var charts = ASO.listOf(payload, "charts", "rows");
+  out += '<section class="block">\n<h2>Category charts</h2>' + (charts ? '<p class="meta">read on ' + ASO.esc(charts.family.fetched_at) + " " +
+    ASO.age(charts.family.fetched_at, today) + '</p><ul class="rows two">' + charts.rows.map(function (r) {
+      return '<li><span class="id">' + ASO.esc(r.market) + "</span> <span>" + ASO.esc(r.genre) + " " + ASO.esc(r.chart_type) + ' <span class="mono strong">' +
+        (r.status === "ok" ? "#" + r.position : r.status === "error" ? "request failed" : "not in the chart") + "</span></span></li>";
+    }).join("") + "</ul>" : ASO.gapNote({ code: "no_source", reason: "No data file holds a reading of it." })) + "</section></div>";
   return out;
 };
