@@ -1,0 +1,17 @@
+usage: localization_tool.py [-h] [--store STORE] [--project PROJECT]
+                            {audit,validate-plurals,export-template,apply-catalog,scaffold} ...
+
+Universal iOS Storefront Expansion & Localization Engine
+
+positional arguments:
+  {audit,validate-plurals,export-template,apply-catalog,scaffold}
+    audit               Audit in-app strings, metadata, and Xcode synchronization
+    validate-plurals    Validate all plural keys against CLDR rules
+    export-template     Export structured JSON translation template
+    apply-catalog       Apply filled JSON translations into .xcstrings, Xcode, and tests
+    scaffold            Scaffold a new storefront expansion
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store
+  --project PROJECT     Path to project root

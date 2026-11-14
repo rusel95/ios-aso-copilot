@@ -12,7 +12,7 @@ from tests.helpers import AS_OF, GOLDEN, run  # noqa: E402
 
 # pull_ga.py is left out: it exits before argparse unless the google-analytics-data library is installed.
 ENTRIES = ["copilot.py", "ledger.py", "radar.py", "pull_funnel.py", "pull_revenuecat.py",
-           "pull_bigquery_telemetry.py"]
+           "pull_bigquery_telemetry.py", "rank_audit.py", "localization_tool.py"]
 LEDGER_REPORT = ("ledger.py", "--store", "assets/sample/store", "--as-of", AS_OF, "report")
 
 

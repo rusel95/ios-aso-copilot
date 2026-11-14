@@ -63,5 +63,12 @@ class Actions(unittest.TestCase):
         self.assertIn("cycle (collect)", run("copilot.py", "--help")[1])
 
 
+class Sizes(unittest.TestCase):
+    def test_no_long_files(self):
+        long = {str(p.relative_to(ROOT)): n for p in SCRIPTS.rglob("*.py")
+                if (n := len(p.read_text(encoding="utf-8").splitlines())) > 600}
+        self.assertEqual(long, {})
+
+
 if __name__ == "__main__":
     unittest.main()
