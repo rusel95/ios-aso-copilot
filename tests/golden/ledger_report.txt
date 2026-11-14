@@ -17,7 +17,7 @@ _Every store file parsed cleanly._
 | H003 | us | 2026-10-06 | 21d | judged: adverse | 0 / 1 / 0 | closed |
 | H004 | ua | 2026-10-10 | 14d | judged: withheld | funnel — not rank-measured | closed |
 | H005 | ua | 2026-10-20 | 14d | DUE (25d ≥ 14d) | 1 / 0 / 0 (+1 unpaired) | judge now |
-| H006 | us | 2026-11-05 | d | open (12d left) | 0 / 0 / 0 (+1 unpaired) | wait |
+| H006 | us | 2026-11-05 | 21d | open (12d left) | 0 / 0 / 0 (+1 unpaired) | wait |
 | H007 | us | — | 14d | not shipped | funnel — not rank-measured | ship it or drop it |
 
 4 judged · 1 due · 1 open · 1 not shipped

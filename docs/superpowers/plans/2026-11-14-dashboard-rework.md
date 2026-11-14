@@ -32,7 +32,7 @@
 1. **A fresh store** (header-only CSV files, no hypotheses): export succeeds, every family is `unavailable` with `no_data`, the page builds. Test in Task 7.
 2. **A hand-edited row** with a non-number or a blank market: the row is named in the export's notes and skipped; no crash, no zero. Test in Task 7.
 3. **A correction row** (same key, later `recorded`): the later one wins; with equal dates the later line wins; two exports are identical. Test in Task 7.
-4. **Text that bites**: non-ASCII queries, U+2019 against U+0027 apostrophes, and a keyword containing `</script>`: a hypothesis query finds its key, and the payload cannot close its script tag. Tests in Tasks 2 and 8.
+4. **Text that bites**: non-ASCII queries, U+2019 against U+0027 apostrophes, and a keyword containing `</script>`: a hypothesis query finds its own key and never a neighbour that differs only by apostrophe, and the payload cannot close its script tag. Tests in Tasks 2 and 8.
 5. **`--as-of` in the past**: series rows dated or recorded after it are ignored, and due states are counted against it. Hypothesis files carry no history, so their verdicts read as they stand; the export says so in its notes. Test in Task 7.
 
 ## File map
@@ -178,7 +178,7 @@ def test_apostrophe_forms_join(self):
 ```
 
 - [ ] **Step 2:** Run them. Expected: FAIL, `No module named 'aso'`.
-- [ ] **Step 3:** Move the code. Printing functions in `ledger_report.py` call the pure functions and print the same text. The join between a hypothesis query and a rank key goes through one function, `aso.ranks.key_of(market, keyword)`, which lower-cases, NFC-normalises and maps U+2019 to U+0027.
+- [ ] **Step 3:** Move the code. Printing functions in `ledger_report.py` call the pure functions and print the same text. The join between a hypothesis query and a rank key goes through one function, `aso.ranks.resolve_key(keys, index, market, query)`: the exact spelling when it is tracked, otherwise the single key with the same loose form (`key_of`: case, spacing, NFC, U+2019 as U+0027). Two keys that share a loose form are two queries to the store, which ranks them apart, so then the query names neither.
 - [ ] **Step 4:** One intended change of output: the Window column prints the parsed window, so H006 reads `21d`, not `d`. Re-record `tests/golden/ledger_report.txt` and name that single changed line in the commit message. Every other line must be unchanged.
 - [ ] **Step 5:** Run the quality gates. Expected: `OK`, with `test_help_texts_unchanged` untouched.
 - [ ] **Step 6:** Commit: `refactor: ledger logic moves to scripts/aso, pure functions for states, bands and priority`.

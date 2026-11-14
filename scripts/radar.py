@@ -31,6 +31,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from aso.ranks import demand_label  # noqa: F401 — kept importable from here for the scripts that always did
+from aso.store import LABELS, append_csv, demand_lookup, norm, read_config, read_csv  # noqa: F401
+
 PAGE = 5000
 SOURCE = "asc-ads-insights"
 TOPIC_CAP = 40  # topical head terms kept per market, most popular first
@@ -39,50 +42,9 @@ POP_COLS = ["week", "captured", "market", "genre", "term", "rank_in_genre", "pop
 CUT_COLS = ["week", "captured", "market", "genre", "listed", "min_popularity_100", "source"]
 SHARE_COLS = ["week", "captured", "market", "term", "rank", "popularity_5", "share_low", "share_high",
               "source"]
-LABELS = {"**App ID**:": "app_id", "**Apple Ads profile**:": "profile", "**Apple Ads account**:": "account",
-          "**Apple Ads genres**:": "genres", "**Apple Ads topic words**:": "topics"}
 
 
 # ---------------------------------------------------------------- config, store, week
-def read_config(store: Path) -> dict:
-    cfg = {}
-    path = store / "config.md"
-    if path.is_file():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            for label, key in LABELS.items():
-                value = line[len(label):].strip() if line.startswith(label) else ""
-                if value and not value.upper().startswith("TODO"):
-                    cfg[key] = value
-    cfg["app_id"] = (cfg.get("app_id") or "").split(maxsplit=1)[0] if cfg.get("app_id") else ""
-    cfg["genres"] = [g.strip().upper() for g in cfg.get("genres", "").split(",") if g.strip()]
-    cfg["topics"] = [t.strip().casefold() for t in cfg.get("topics", "").split(",") if t.strip()]
-    return cfg
-
-
-def norm(text) -> str:
-    return " ".join((text or "").casefold().split())
-
-
-def read_csv(path: Path) -> list:
-    if not path.is_file():
-        return []
-    with path.open(encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def append_csv(path: Path, cols: list, rows: list) -> None:
-    if not rows:
-        return
-    new = not path.is_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
-        if new:
-            writer.writeheader()
-        writer.writerows(rows)
-
-
 def read_basket(store: Path):
     """Every (market, term) ever tracked in ranks.csv, the set the ledger counts and `ledger.py refresh` re-queries;
     NOT each market's latest date, which a partial refresh shrinks to a handful. The position comes from that
@@ -269,38 +231,6 @@ def cmd_pull(args, run=asc_ads, today=None):
 
 
 # ---------------------------------------------------------------- read side (report, ledger)
-def demand_lookup(store: Path):
-    """(heads, cuts) from the latest stored week per market.
-    heads[(market, term)] = (popularity_100, week) for any stored head row; cuts[market] = (lowest listed score or None, week);
-    a None score means Apple listed nothing for that storefront."""
-    cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
-    latest = {}
-    for r in cut_rows:
-        latest[r["market"]] = max(latest.get(r["market"], ""), r["week"])
-    cuts = {}
-    for market, week in latest.items():
-        scores = [int(r["min_popularity_100"]) for r in cut_rows
-                  if r["market"] == market and r["week"] == week and r["min_popularity_100"] != ""]
-        cuts[market] = (min(scores) if scores else None, week)
-    heads = {}
-    for r in read_csv(store / "metrics" / "popularity.csv"):
-        if r["week"] == latest.get(r["market"]):  # `why` records how the row was picked at pull time, not whether it is tracked now
-            key = (r["market"], r["term"])
-            heads[key] = (max(int(r["popularity_100"]), heads.get(key, (0, ""))[0]), r["week"])
-    return heads, cuts
-
-
-def demand_label(demand, market: str, keyword: str) -> str:
-    """One cell for a tracked key: `head 55`, `below 44` (unlisted: unknown, not zero), `no data`, or `—` (never pulled)."""
-    heads, cuts = demand
-    market = market.lower()
-    if (market, norm(keyword)) in heads:
-        return f"head {heads[(market, norm(keyword))][0]}"
-    if market not in cuts:
-        return "—"
-    return f"below {cuts[market][0]}" if cuts[market][0] is not None else "no data"
-
-
 def cmd_report(args):
     store = Path(args.store).resolve()
     cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
