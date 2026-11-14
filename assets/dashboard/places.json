@@ -1,0 +1,66 @@
+{
+ "ads": [
+  "ads.cpi_usd",
+  "ads.impressions",
+  "ads.installs",
+  "ads.spend_usd",
+  "ads.taps",
+  "ads.ttr"
+ ],
+ "funnel": [
+  "store_funnel.first_downloads",
+  "store_funnel.impression_cvr",
+  "store_funnel.impressions",
+  "store_funnel.page_cvr",
+  "store_funnel.page_views",
+  "store_funnel.view_rate",
+  "lifecycle.deleted_within_1d",
+  "lifecycle.deletions_per_100",
+  "lifecycle.optin_deletions",
+  "lifecycle.optin_installs"
+ ],
+ "how": [],
+ "in_app": [],
+ "keywords": [
+  "ranks.beyond",
+  "ranks.errors",
+  "ranks.keys_read",
+  "ranks.no_results",
+  "ranks.share_top10",
+  "ranks.share_top30",
+  "ranks.top10",
+  "ranks.top100",
+  "ranks.top200",
+  "ranks.top30",
+  "ranks.tracked_keys",
+  "coverage.failed_requests",
+  "coverage.observations",
+  "coverage.paired_keys",
+  "coverage.unmeasurable_keys"
+ ],
+ "ledger": [],
+ "money": [
+  "money.ad_spend_usd",
+  "money.net_cashflow_usd",
+  "money.new_trials",
+  "money.proceeds_usd",
+  "money.transactions",
+  "subscriptions.active_subscriptions",
+  "subscriptions.active_trials",
+  "subscriptions.active_users_28d",
+  "subscriptions.mrr_usd",
+  "subscriptions.new_customers_28d",
+  "subscriptions.revenue_28d_usd"
+ ],
+ "overview": [
+  "ranks.share_top30",
+  "store_funnel.first_downloads",
+  "subscriptions.mrr_usd",
+  "money.net_cashflow_usd",
+  "lifecycle.deletions_per_100",
+  "ratings.rating_average",
+  "ratings.ratings_count",
+  "ratings.reviews",
+  "ratings.reviews_unanswered"
+ ]
+}

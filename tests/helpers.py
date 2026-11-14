@@ -28,3 +28,13 @@ def copy_store(tmp) -> Path:
     target = Path(tmp) / "store"
     shutil.copytree(SAMPLE, target)
     return target
+
+
+def exported_store(tmp, as_of: str = AS_OF) -> Path:
+    """A copy of the sample store with its data folder written, ready for the page build."""
+    import datetime as dt
+    from aso.dashboard import export
+    store = copy_store(tmp)
+    files, _ = export.build_all(store, dt.date.fromisoformat(as_of))
+    export.write(store, files)
+    return store

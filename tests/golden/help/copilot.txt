@@ -1,15 +1,16 @@
 usage: copilot.py [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] [--self-check]
-                  {info,status,keywords,ads,export,brief,cycle,collect,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts} ...
+                  {info,status,keywords,ads,export,build,brief,cycle,collect,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts} ...
 
 Unified CLI for iOS ASO Copilot
 
 positional arguments:
-  {info,status,keywords,ads,export,brief,cycle,collect,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts}
+  {info,status,keywords,ads,export,build,brief,cycle,collect,rc,cashflow,reviews,funnel,ga,telemetry,campaign,ledger,radar,google,charts}
     info                Diagnostic info and environment report
     status              Quick status snapshot
     keywords            Keyword discovery, hints, localization vacuums, and filtering
     ads                 Manage Apple Ads campaigns, ad groups, and keywords
     export              Derive the dashboard data files from the store (offline)
+    build               Build the dashboard page from the data files (offline)
     brief               One screen: ASC state, Top-200 bands, all hypotheses, store funnel &
                         cashflow
     cycle (collect)     Run the consolidated data collection pass
