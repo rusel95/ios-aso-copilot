@@ -75,10 +75,10 @@ the reason. Exit `2` means at least one stage needs a look.
 | Stage | Reads | Appends to |
 |---|---|---|
 | Versions | App Store Connect | nothing (printed) |
-| Reviews & ratings | App Store Connect, the public lookup | `ratings.csv`, `releases.csv` |
+| Reviews & ratings | App Store Connect, the public lookup | `ratings.csv` (ratings, the counts of written and of unanswered reviews; never a review's text), `releases.csv` |
 | Funnel | App Store Connect analytics, three daily reports at once | `weekly.csv`, `lifecycle.csv` (closed Monday weeks) |
 | In-app telemetry | GA4 | printed; `ga4_funnel.csv` when asked |
-| In-app weeks & charts | BigQuery; the category chart feeds | `telemetry.csv`; `charts.csv` when `**Charts storefronts**` is set |
+| In-app weeks & charts | BigQuery; the category chart feeds | `telemetry.csv`; `charts.csv` for every storefront the store tracks a key in (or those `**Charts storefronts**` names) |
 | Demand radar | Apple Ads | `popularity.csv`, `popularity_cut.csv`, `impression_share.csv` |
 | Revenue | RevenueCat, Apple Ads | `revenue.csv`, `cashflow_weekly.csv`, `ads.csv`, `revenuecat_latest.json` |
 | Rank sweep (`--ranks`) | App Store search, twenty a minute | `ranks.csv` |

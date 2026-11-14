@@ -58,6 +58,17 @@ The owner's direction, 2026-11-14. Collection is already scripts only: `collect`
 14. **Release days of past versions.** App Store Connect lists versions with the day each record was created,
     not the day it went live; the public lookup gives the live version's day only. Done when: every past
     version has a dated row from a source that states the day.
+15. **Reachable, and not stored yet.** The owner's rule (2026-11-14): whatever a connected source gives is
+    collected. What the machine's logins can already read and no stage stores:
+    - App Store Connect performance metrics by version (launch time, hangs, memory, battery, disk writes);
+    - reviews by day and storefront (only the totals are stored; text stays out on purpose);
+    - RevenueCat's other charts (churn, trial conversion, refunds, lifetime value);
+    - Apple Ads keyword and search-term reports by week (`radar keywords` reads them and stores nothing);
+    - product page optimization tests and custom product pages;
+    - `asc insights weekly` and `daily`;
+    - Google Search Console, which one app reads with a script of its own.
+    Each needs a series file, a catalog family and a place on the page. Done when: every row above is either a
+    family on the page or struck out with the reason it is not worth storing.
 
 ## P0 Make observations trustworthy
 

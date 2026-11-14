@@ -36,7 +36,11 @@ self-contained page. The same store and day give the same bytes.
   the app's one-time snapshot request. Apple's weekly figures are dated by the week they measure, and the page
   draws each term's popularity across the weeks held.
 - **New commands.** `due` lists the rank reads live hypotheses need at the end of their windows. `check`
-  looks through `data/` for what must not be published.
+  looks through `data/` for what must not be published. `propose` generates the next rank hypotheses from the
+  store: the storefronts with no window in flight, by money at stake, each with its basket and the line that
+  drafts it; writing the drafts is now the closing step of a full run.
+- Chart positions are read for every storefront the store tracks a key in, with no config line; the count of
+  written reviews is stored beside the ratings.
 - **Many projects.** One store per project; every command takes `--store` and writes only inside it. A
   project names its own credentials file; when it is not on the machine, the machine's settings are used
   and the pull says so.
