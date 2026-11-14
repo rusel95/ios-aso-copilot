@@ -15,7 +15,7 @@ The owner wants the skill to work the way his reference project does: collection
 - The reference project's logic: a GitHub page, historical data, historical charts, hypotheses.
 - JSON holds only what the page shows.
 - Home screen is artboard A (by source). Its sections become tabs. The ledger and the charts of artboard B (what to judge, what to decide, the squares, the timeline, prediction against reads) are a tab of their own.
-- The first app is the one whose store lives in the MediaCleaner repository. The reworked skill is run there, with the settings that repository already has, and the page shows that real data.
+- The first app is the one whose store lives in the owner's first app repository. The reworked skill is run there, with the settings that repository already has, and the page shows that real data.
 - Improvements noticed on the way are listed in the plan.
 
 Everything else in this document is the author's call and is marked so where it matters.
@@ -167,7 +167,7 @@ Look: the canvas. Inter for text, JetBrains Mono for figures, Space Grotesk for 
 
 `tests/` with `unittest`, standard library only, no test reaches the network. An invented app's store under `assets/sample/store/` fills every place of the page. A golden test exports it, builds the page, and compares every file with recorded sha256 values; a change that alters output updates the manifest in the same change and says why. The scripts' existing `--self-check` runs stay.
 
-### The real run in MediaCleaner
+### The real run in the first app's repository
 
 This is the acceptance of the work, in two passes. Both use this branch's scripts with `--store` pointing at that repository's store, so that repository's link to the skill is not touched before the merge.
 
@@ -195,9 +195,9 @@ A Pages site built from a private repository is public to anyone with its addres
 2. Split the long files into `scripts/aso/`; one CLI.
 3. Contract, catalog, and `export_dashboard.py` over the store as it is.
 4. `build_site.py` and the page: Overview, Ledger, Keywords first, then the other tabs.
-5. Offline pass in MediaCleaner: the first real page.
+5. Offline pass in the first app's repository: the first real page.
 6. Storage gaps: the new series and the collectors that write them.
-7. Live pass in MediaCleaner.
+7. Live pass in the first app's repository.
 8. The reads calendar (`due`), the clean check, generated `STATE.md`, `SKILL.md` as a router, documents.
 9. Publishing, once visibility is decided, with an optional scheduled rank read.
 

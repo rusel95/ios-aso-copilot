@@ -9,7 +9,7 @@ window restatements and aggregates weekly totals by: - Global total ('all') - Ac
 
 options:
   -h, --help         show this help message and exit
-  --app APP          App Apple Identifier (e.g. 6449785515)
+  --app APP          App Apple Identifier (e.g. 1234567890)
   --store STORE      Store directory containing config.md
   --out OUT          Directory containing metrics/weekly.csv
   --raw-dir RAW_DIR  Unique directory for source CSV exports

@@ -463,13 +463,13 @@ def test_write_removes_stale(self):          # a stray data/week/2000-01-03.json
 
 ## Phase 5 — First real page
 
-### Task 14: Offline pass in MediaCleaner
+### Task 14: Offline pass in the first app's repository
 
-No file in this repository changes. `STORE` is `/Users/Ruslan_Popesku/Desktop/MediaCleaner/marketing`; the commands run from this worktree.
+No file in this repository changes. `STORE` is `<the first app's repository>/marketing`; the commands run from this worktree.
 
 - [ ] **Step 1:** `python3 scripts/export_dashboard.py --store "$STORE" --as-of 2026-11-14`. Expected: `PASS export`. Keep the notes: they list what the store cannot yet show.
 - [ ] **Step 2:** Run the same command with `--check`. Expected: `PASS check`.
-- [ ] **Step 3:** `python3 scripts/build_site.py --data "$STORE/data" --out /tmp/aso-page-1 --name Compresso`, then again into `/tmp/aso-page-2`; `cmp /tmp/aso-page-1/index.html /tmp/aso-page-2/index.html`. Expected: `PASS site` twice, `cmp` silent.
+- [ ] **Step 3:** `python3 scripts/build_site.py --data "$STORE/data" --out /tmp/aso-page-1 --name <App>`, then again into `/tmp/aso-page-2`; `cmp /tmp/aso-page-1/index.html /tmp/aso-page-2/index.html`. Expected: `PASS site` twice, `cmp` silent.
 - [ ] **Step 4:** Compare three figures with the commands that own them: the hypothesis counts with `ledger.py --store "$STORE" --as-of 2026-11-14 report`, the newest sweep's bands with `ledger.py --store "$STORE" bands`, the number of closed funnel weeks with the notes of Step 1. Any difference is a defect of this plan's code: fix it under its task before going on.
 - [ ] **Step 5:** Open `/tmp/aso-page-1/index.html` in the browser pane and look at every tab at desktop and phone width for overflow, collisions and empty places that should hold data.
 - [ ] **Step 6:** Stop. Show the owner the page, the notes of Step 1 and `git -C "$STORE/.." status --short marketing/data`. Nothing is committed in that repository without his word.
@@ -547,7 +547,7 @@ Each task: a pure function turns what the collector already fetched into rows; `
 
 ## Phase 7 — Real data
 
-### Task 19: Live pass in MediaCleaner
+### Task 19: Live pass in the first app's repository
 
 Read-only against every source. It appends to that store's `metrics/*.csv`. It changes no Apple Ads entity and no metadata.
 
@@ -595,7 +595,7 @@ Read-only against every source. It appends to that store's `metrics/*.csv`. It c
 - [ ] **Step 4:** Run the quality gates. Expected: `OK`.
 - [ ] **Step 5:** Commit: `feat: STATE.md is generated from the data`.
 
-In MediaCleaner the hand-written `STATE.md` is archived by the owner's word only: `git mv marketing/STATE.md marketing/reports/STATE_until_2026-11.md`, then one export.
+In the first app's repository the hand-written `STATE.md` is archived by the owner's word only: `git mv marketing/STATE.md marketing/reports/STATE_until_2026-11.md`, then one export.
 
 ### Task 22: `SKILL.md` as a router, documents, version
 
@@ -627,4 +627,4 @@ Blocked until the owner says whether the page is public or private. Until then t
 - [ ] **Step 3:** Write the two templates and `references/publish.md`: the steps to copy them into an app repository, the visibility setting to choose first, and that neither workflow holds a source credential.
 - [ ] **Step 4:** Run the quality gates. Expected: `OK`.
 - [ ] **Step 5:** Commit: `feat: workflow templates for the page and for scheduled rank reads`.
-- [ ] **Step 6:** Installing either workflow in MediaCleaner is the owner's step, after his decision.
+- [ ] **Step 6:** Installing either workflow in the first app's repository is the owner's step, after his decision.

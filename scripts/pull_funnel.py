@@ -400,7 +400,7 @@ def resolve_app_id(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--app", help="App Apple Identifier (e.g. 6449785515)")
+    parser.add_argument("--app", help="App Apple Identifier (e.g. 1234567890)")
     parser.add_argument("--store", type=Path, help="Store directory containing config.md")
     parser.add_argument("--out", type=Path, help="Directory containing metrics/weekly.csv")
     parser.add_argument("--raw-dir", type=Path, help="Unique directory for source CSV exports")
