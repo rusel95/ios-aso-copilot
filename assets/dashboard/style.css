@@ -141,7 +141,8 @@ tr.is-brand td{color:var(--ink2)}
 .bars .mono{text-align:right}
 
 /* the remaining tabs */
-.next.three li{grid-template-columns:28px auto minmax(0,1fr) 52px}
+.next.three li{grid-template-columns:28px auto minmax(0,1fr) 52px 96px;align-items:center}
+.next .spark{width:96px;height:22px;align-self:center}
 .next.range li{grid-template-columns:28px minmax(0,1fr) auto 112px}
 .plain{display:flex;flex-direction:column;gap:6px;font-size:13px;list-style:disc;padding-left:18px}
 .terms dd .mono{font-weight:600}

@@ -381,6 +381,20 @@ class Tabs(PageCase):
         self.assertIn("ua Apple lists nothing here", demand)
         self.assertIn("measured 2026-10-25 → 2026-10-31", demand)
 
+    def test_a_terms_popularity_is_drawn_over_the_weeks_the_data_holds(self):
+        """Demand is stored for every week since the app's start; the list shows the newest week, and draws how each
+        term's score moved across the weeks it was listed in."""
+        earlier = ("(function () { [['2026-10-17', 33], ['2026-10-24', 36]].forEach(function (week) { payload.snapshots.push("
+                   "{ period: { kind: 'snapshot', id: week[0] }, families: { demand: { source: 'asc-ads-insights', "
+                   "fetched_at: '2026-11-14', rows: [{ market: 'us', genre: 'WEATHER', term: 'tide times', popularity_100: week[1] }], "
+                   "cuts: [] } } }); }); payload.snapshots.sort(function (a, b) { return a.period.id < b.period.id ? -1 : 1; }); })()")
+        alone = self.block("#/ads", "Apple search popularity")
+        self.assertNotIn("<svg", alone)                                   # one week is a point, not a line
+        drawn = self.block("#/ads", "Apple search popularity", self.render("#/ads", first=earlier))
+        self.assertIn("us WEATHER tide times 41", text_of(drawn))         # still the newest week's score
+        self.assertRegex(drawn, r'<svg class="spark"[^>]*aria-label="tide times in us: Apple search popularity over 3 weeks"')
+        self.assertEqual(len(re.findall(r"<polyline", drawn)), 1)
+
     def test_subscriptions_show_once_a_read_is_stored(self):
         markup = self.js("(payload.snapshots.push({ period: { kind: 'snapshot', id: '2026-11-12' }, families: { subscriptions: "
                          "{ source: 'revenuecat', fetched_at: '2026-11-12', figures: { mrr_usd: { value: 15 }, "

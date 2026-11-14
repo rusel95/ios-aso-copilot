@@ -123,8 +123,14 @@ ASO.pages["#/ads"] = function (payload, today) {
     out += ASO.measured((heads || cuts).family) + '<ul class="next three">' + (heads ? heads.rows : []).slice().sort(function (a, b) {
       return b.popularity_100 - a.popularity_100 || (a.term < b.term ? -1 : 1);
     }).map(function (r) {
+      // every week the data holds a score for this term, oldest first: drawn, not summed
+      var weeks = payload.snapshots.map(function (file) {
+        var rows = file.families.demand && file.families.demand.rows || [];
+        return rows.filter(function (x) { return x.market === r.market && x.genre === r.genre && x.term === r.term; })[0];
+      }).filter(Boolean).map(function (x) { return x.popularity_100; });
       return '<li><span class="id">' + ASO.esc(r.market) + '</span> <span class="meta">' + ASO.esc(r.genre) + "</span> <span>" + ASO.esc(r.term) +
-        '</span> <span class="mono strong">' + r.popularity_100 + "</span></li>";
+        '</span> <span class="mono strong">' + r.popularity_100 + "</span>" +
+        ASO.spark(weeks, r.term + " in " + r.market + ": Apple search popularity over " + weeks.length + " weeks") + "</li>";
     }).join("") + '</ul><p class="cap">What Apple lists per storefront</p><ul class="rows two">' + (cuts ? cuts.rows : []).map(function (r) {
       return '<li><span class="id">' + ASO.esc(r.market) + "</span> <span>" + (r.listed ? ASO.esc(r.genre) + " " + ASO.group(r.listed) +
         " terms listed, lowest score " + (r.min_popularity_100 === null ? "unknown" : r.min_popularity_100) : "Apple lists nothing here") + "</span></li>";
