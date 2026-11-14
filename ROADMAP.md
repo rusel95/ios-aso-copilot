@@ -1,11 +1,47 @@
 # ASO capability roadmap
 
 Open work only. Completed changes belong in [CHANGELOG.md](CHANGELOG.md).
-Updated 2026-09-10 after a handbook-to-roadmap coverage audit. A documented playbook is not an implemented integration.
+Updated 2026-11-14 after the dashboard rework (3.0.0); the earlier audit of 2026-09-10 still stands. A documented playbook is not an implemented integration.
 App IDs, credentials, prices and event names belong in each app's store, not this global roadmap.
 The practical teaching companion for an app is its own `marketing/HANDBOOK.md`.
 An idea already enforced by the skill or explained in a reference is not duplicated here; this file tracks
 only the missing capability needed to operationalize it.
+
+## Next: collection as a job, the skill as the judge
+
+The owner's direction, 2026-11-14. Collection is already scripts only: `collect`, `export`, `build` and
+`check` need no model. The next step is to stop running them by hand.
+
+1. **A weekly job collects and publishes.** A scheduled GitHub workflow in the app's repository runs
+   `collect --ranks`, `export`, `export --check`, `check` and `build`, commits `marketing/metrics/` and
+   `marketing/data/`, and publishes the page. Templates are in `assets/workflows/`; `references/publish.md`
+   says what the owner decides first (public or private page, which secrets the job gets). Open work: the
+   job's credentials for App Store Connect, GA4, BigQuery, RevenueCat and Apple Ads as repository secrets,
+   and a cache for the funnel's daily reports so a run asks only for new days.
+   Done when: a week passes with no manual pass and the page shows that week.
+2. **Rank reads on the days a window needs them.** A daily workflow runs `due` and sweeps only when a live
+   hypothesis is in the last three days of its window. Done when: no window closes with `(missed)` reads.
+3. **The skill only judges and proposes.** With the data collected and exported by the job, a session reads
+   `STATE.md` and `data/`, judges the hypotheses that are due, sums up which predictions held and which
+   did not, and drafts the next one. It runs no collection of its own unless asked. Done when: `SKILL.md`
+   starts from `data/` and a full session makes no network read.
+4. **Cloud sessions.** The judging session is a good fit for a scheduled cloud session after the weekly
+   job: it needs the repository and no local login. Open work: the routine's prompt, and where it writes
+   verdicts (a pull request against the hypothesis files, so a person approves each verdict).
+5. **Live runs in a cheaper model.** Until the job exists, a live pass is run in a subagent on a cheaper
+   model and the main session reads its stage table; `references/collect.md` says how.
+6. **Funnel by new-install cohort.** The in-app weeks are per week of events; the share of a week's new
+   installs that reach each step is not built. Done when: `in_app` carries cohort figures with both totals.
+7. **A week settles before it is written.** App Store Connect restates recent days for about three days.
+   A week is written once, so a pass on the Monday after it may freeze a short last weekend. Either write
+   a week four days after it closes, or append a correction when a later pull differs. Done when: a week
+   read on its Monday and again on Friday shows the Friday figures.
+8. **Corrections in the digests.** `funnel` and the pass's funnel digest read the first row of a week;
+   once corrections are appended they must take the latest, as the export does.
+9. **`keys.json` grows with keys times sweeps.** Fine for a year of weekly sweeps of a thousand keys; split
+   by quarter when the page gets slow.
+10. **Chart history needs a config line.** Chart positions are stored only when `config.md` names
+    `**Charts storefronts**`; offer the storefronts with live hypotheses as the default.
 
 ## P0 Make observations trustworthy
 

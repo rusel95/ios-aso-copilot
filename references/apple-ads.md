@@ -68,7 +68,7 @@ none of which come from the rank/competitor pull itself:
    intent from an absence of competitors.
 
 **Do not** promote a thin competitor field into an "easy win" or "high ROI" claim on its own — that
-repeats exactly the fabricated-confidence failure `provenance.md` and the SKILL.md evidence rules
+repeats exactly the fabricated-confidence failure `provenance.md` and the evidence rules in `references/judge.md`
 exist to block. Frame it as **unresolved**: a real competitive opening whose demand is currently
 `absent:no popularity source available` until a demand-adjacent signal (above) or a bounded ASA test
 narrows that gap.

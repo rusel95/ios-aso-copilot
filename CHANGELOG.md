@@ -7,6 +7,50 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## 3.0.0 — collect, export, page
+
+The skill now has three boundaries. `collect` reads the sources and appends to the store. `export` turns
+the store into `marketing/data/`, offline and for a stated day. `build` turns `data/` into one
+self-contained page. The same store and day give the same bytes.
+
+- **A page with history.** `ios-aso-copilot export` writes the contract `aso-copilot/dashboard-data@1`:
+  flows by closed Monday week, stocks by snapshot day, and three entity files (hypotheses, tracked keys,
+  queue and releases). `ios-aso-copilot build` writes `index.html` with Overview, Ledger, Keywords, Store
+  funnel, Money, Apple Ads, In-app and How data gets here. The page computes nothing; a figure the store
+  cannot give is `unavailable` with a code and a reason.
+- **One owner per figure.** The ledger's functions moved into `scripts/aso/` and the export calls them, so
+  the ledger report, the data files, the page and `STATE.md` cannot disagree. `STATE.md` is written by the
+  export; a hand-written one is kept until it is archived.
+- **Series that had no history now have one.** `lifecycle.csv` (opt-in installs and deletions by week),
+  `cashflow_weekly.csv`, `ads.csv`, `revenue.csv`, `telemetry.csv`, `ratings.csv`, `charts.csv`,
+  `releases.csv`. Each is appended by one stage of the pass.
+- **The pass reads its sources side by side.** `collect` (also `cycle`) runs its stages at once and prints
+  them in stage order; `--ranks` adds the full rank sweep beside them and the ledger report waits for all;
+  `--jobs 1` runs them one after another. The funnel collector reads its three reports at once, keeps the
+  daily reports per app under `~/.cache/ios-aso-copilot/funnel/<app id>` and asks only for new days. A pull
+  that App Store Connect rate-limits keeps what it has and the next one goes on from there.
+- **New commands.** `due` lists the rank reads live hypotheses need at the end of their windows. `check`
+  looks through `data/` for what must not be published.
+- **Many projects.** One store per project; every command takes `--store` and writes only inside it. A
+  project names its own credentials file; when it is not on the machine, the machine's settings are used
+  and the pull says so.
+- **Smaller files, one CLI.** No Python file under `scripts/` is over 600 lines (the largest was 2,751).
+  Entry files keep their paths. Commands that change something outside the store live in one module that
+  `collect` never reaches.
+- **Tests.** `python3 -m unittest discover -s tests -t .`: recorded help texts and ledger report, a golden
+  manifest of an invented sample store's data files, `STATE.md` and page, and boundary tests (no network
+  or clock in the export, no socket in a self-check).
+- `SKILL.md` is a router of a quarter of its size; its detail moved to `references/collect.md`,
+  `export-and-page.md`, `judge.md`, `actions.md` and `commands.md`.
+
+**Changed behaviour to know about.** The pass pulls the funnel with the skill's own `pull_funnel.py` even
+when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,
+which is all the export shows. No funnel week is written unless both reports were read. The key join between
+a hypothesis's queries and the tracked keys is exact first, then by case, spacing and apostrophe form; two
+tracked keys that differ only that way are never merged. The template no longer carries a `STATE.md`.
+
+---
+
 ## Unreleased — de-identified for the public repo
 
 - Removed the author's own app data: app and bundle IDs, the two-app showcase in the README, Apple Ads account and campaign IDs, hypothesis IDs, one-app worked examples and personal paths. Each example is now a placeholder or a pattern.

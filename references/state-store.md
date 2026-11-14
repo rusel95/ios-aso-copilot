@@ -9,26 +9,26 @@ reverse.
 
 The store is `marketing/` at the repository root, **always resolved to the main checkout of
 whichever repo the session is actually in** — `$MAIN_CHECKOUT/marketing/`, computed live by
-`SKILL.md` Step 1 (`git rev-parse --show-toplevel`, corrected back from a worktree). Never
+`references/collect.md` (*Resolve the app and the single state store*: the first entry of `git worktree list`). Never
 `$PWD/marketing/`, never a path hardcoded to any one app's repo, never relative to wherever this
 session happens to be running. A repo that runs many concurrent git worktrees needs this doubly: a
 session started in one worktree must still read and write the *same* store as every other session
-in that repo — never a copy under the worktree, and never another repo's store. See `SKILL.md` for
+in that repo — never a copy under the worktree, and never another repo's store. See `references/collect.md` for
 the resolution logic — do not "simplify" it to a relative or literal path, that is precisely the bug
 this exists to prevent.
 
 ```text
 marketing/
 ├── config.md            this repo's App Store Connect app id + version · static, never rewritten
-├── STATE.md            read first on every run · rewritten in place · holds no authority of its own
+├── STATE.md            written by the export from data/ · read first · holds no authority of its own
 ├── decisions.md         append-only
 ├── queue.md             pending approvals · entries removed when executed or abandoned
 ├── hypotheses/
 │   ├── TEMPLATE.md
 │   └── H001-<slug>.md   one file per hypothesis
-├── metrics/
-│   ├── weekly.csv        append-only
-│   └── ranks.csv         append-only
+├── metrics/              append-only CSV series, one file a source (listed below)
+├── data/                 written by `export`: what the page shows, and nothing else
+├── public/               written by `build`: index.html
 ├── keywords/             tracking lists, one file per market (exists already)
 ├── HANDBOOK.md           the reasoning layer — cite it, never copy it (exists already)
 └── README.md             (exists already)
@@ -50,13 +50,13 @@ first; this one just names which column carries the tag in each file.
 ## Phase
 
 Not stored as an entity — **computed fresh on every run**, then cached into `STATE.md` for display
-only. `SKILL.md` owns the detection logic. When the cache disagrees with a live check, the live check
+only. `references/collect.md` (*Reconcile release status*) owns the detection logic. When the cache disagrees with a live check, the live check
 wins and the disagreement is shown, never silently repaired.
 
 Track live version, candidate version/review status, and measurement readiness separately.
 An update in review does not make the live app unmeasurable. Missing weekly data means volume is
 unknown. P2/P3 are planning labels; 100 downloads/week and three launch weeks are not significance
-or baseline-validity tests. See SKILL.md for current detection.
+or baseline-validity tests. See `references/collect.md` for current detection.
 
 ## Hypothesis — `hypotheses/H<NNN>-<slug>.md`
 
@@ -155,6 +155,42 @@ week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts
 - Trial starts may come from a subscription provider or eligible ASC subscription reports; record the source and definition. They are not paid users. An optional `paid_subscribers` field must be separately observed.
 - **Metrics display**: use `funnel_visualizer.py` with explicit filters; no fabricated values, fixed benchmarks, sequential funnel or inferred cash. See `references/funnel-analytics.md`.
 
+## The series the pass stores
+
+Each file is appended by one stage of `collect` and by nothing else. A row carries the day it was captured or recorded; a correction is a later row for the same key, and the export takes the latest one known on its day.
+
+| File | Written by | Holds |
+|---|---|---|
+| `metrics/lifecycle.csv` | the funnel stage | one row a closed Monday week and segment (`all`, each storefront): opt-in installs and deletions. A sample of devices that share analytics, not a cohort |
+| `metrics/cashflow_weekly.csv` | the revenue stage | one row a closed week and storefront: transactions, new trials, gross revenue, proceeds, Apple Ads spend |
+| `metrics/ads.csv` | the revenue stage | one row a closed week and Apple Ads campaign: spend, impressions, taps, installs |
+| `metrics/revenue.csv` | the revenue stage | one row a read: active subscriptions and trials, MRR, the 28-day figures |
+| `metrics/telemetry.csv` | the in-app weeks step | one row a closed week and metric of the app's own events: a count, or a numerator with its denominator |
+| `metrics/ratings.csv` | the reviews stage | one row a read and storefront (`all` for the total): ratings, average, written reviews, unanswered reviews |
+| `metrics/charts.csv` | the charts step and `charts` | one row a read, storefront, genre and chart: the app's position, or `beyond-depth` with the chart's size, or `error` |
+| `metrics/releases.csv` | the reviews stage | one row the first time a version is seen live, with the day the store says it was released |
+
+```csv
+# lifecycle.csv
+week_start,segment,first_installs_optin,deletions_optin,deletions_per_100_installs,deleted_within_1d,deletions_timed,median_days_to_delete,source,recorded
+# cashflow_weekly.csv
+week_start,country,transactions,new_trials,gross_revenue_usd,proceeds_usd,ad_spend_usd,source,captured
+# ads.csv
+week_start,campaign_id,market,spend_usd,impressions,taps,installs,source,captured
+# revenue.csv
+captured,active_subscriptions,active_trials,mrr_usd,revenue_28d_usd,new_customers_28d,active_users_28d,source
+# telemetry.csv
+week_start,section,metric,numerator,denominator,source,captured
+# ratings.csv
+captured,market,ratings_count,rating_average,reviews,reviews_unanswered,source
+# charts.csv
+captured,market,genre,chart_type,position,depth,status,source
+# releases.csv
+version,state,state_date,source,captured
+```
+
+`weekly.csv` and `lifecycle.csv` hold two kinds of rows: those the collector folded from the daily reports (`source` begins `live:asc analytics daily`, `week_start` is a Monday of a closed week) and older rows a person or an older script wrote. Only the first kind is exported; the export counts the rest in a `NOTE` and leaves them where they are.
+
 ## Rank observation — `metrics/ranks.csv`
 
 Append-only, one row per `(date, market, keyword)`.
@@ -250,33 +286,37 @@ plain-language sentence naming what changes and who sees it, and its preconditio
 preconditions immediately before executing an approved entry — an approval given weeks ago was given
 against a world that has since moved; a stale entry is re-planned, not executed on trust.
 
+## The data layer — `data/`
+
+`export` derives it from the store, offline and without reading the clock: the same store and `--as-of` day
+give the same bytes, and `export --check` fails when `data/` differs from a fresh export. Nothing is typed
+into it by hand and nothing in it is a source.
+
+```text
+data/
+├── week/<monday>.json         flows of one closed Monday week: store funnel, lifecycle, money, ads, in-app
+├── snapshot/<date>.json       stocks read on one day: ranks, coverage, demand, impression share,
+│                              subscriptions, ratings, charts
+├── hypotheses.json            every hypothesis with its state on the export's day and its basket
+├── keys.json                  every tracked key with its position on each sweep date
+└── events.json                the queue and the releases
+```
+
+By path: `data/week/<monday>.json`, `data/snapshot/<date>.json`, `data/hypotheses.json`, `data/keys.json`,
+`data/events.json`. The contract (`aso-copilot/dashboard-data@1`), the meaning of `unavailable` and its four codes are in
+`references/export-and-page.md`.
+
 ## STATE.md
 
-Rewritten in place on every `manual`/`auto` run; `status` mode reads it but never writes it. It holds
-**no authority of its own** — everything in it is derived from the files above plus a live check, and
-exists only so a human can see the whole position at a glance without re-deriving it. A figure carried
-into `STATE.md` keeps its **original** provenance tag; never cite `store:STATE.md` as if the cache
-were the source (see `references/provenance.md`).
+Written by `export` from the exported objects and from nothing else: the day, the hypothesis counts and the
+due list, the queue, the newest headline figures, each source's newest period. Its first line is
+`<!-- generated by export_dashboard; do not edit -->`. The export writes it only when the file is absent or
+starts with that line; a `STATE.md` a person wrote is kept, the export says `KEPT STATE.md: written by hand,
+archive it first`, and it stays until it is moved aside (for example `git mv marketing/STATE.md
+marketing/reports/STATE_until_<month>.md`). A generated one that was edited fails `export --check`.
 
-```markdown
-# <this repo's app> — marketing state
-_Last run: 2026-08-19 · mode: manual_
-
-**Phase**: P1-review (version 1.0, WAITING_FOR_REVIEW, 0 blocking) — live-checked 2026-08-19
-**Next action**: confirm App Privacy is published (web UI only — see queue Q001)
-
-## Open hypotheses
-_none_
-
-## Drafted, waiting for an editable version
-- H001 — lead with video in the app name (see hypotheses/H001-video-first.md)
-
-## Missing weekly records
-_none — measurement starts when the app is live_
-
-## Queue
-- Q001 — confirm App Privacy publish state (yours; web UI)
-```
+It holds **no authority of its own**: a figure in it is a figure of `data/`, which is a figure of the store.
+Never cite `store:STATE.md` as if the cache were the source (see `references/provenance.md`).
 
 ## Entity relationships
 
@@ -288,7 +328,8 @@ Hypothesis ──judged against──▶ Weekly record (P3-measure)
            └──produces────────▶ Decision
            └──may produce─────▶ Queued action
 
-STATE.md ──derived from──▶ everything above + a live check (never authoritative on its own)
+data/ ──derived from──▶ everything above, by `export` (never typed, never a source)
+STATE.md ──derived from──▶ data/ (never authoritative on its own)
 ```
 
 Two invariants that override everything else in this file:

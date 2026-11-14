@@ -90,507 +90,134 @@ triggers:
   - ревенюкет
   - дохід
   - окупність
-argument-hint: "[info | status | keywords | ads | rc | cashflow | cycle | funnel | reviews | ga | telemetry | ledger | radar | google | charts] [flags]"
+argument-hint: "[collect | export | build | check | due | status | brief | ledger | radar | keywords | ads | rc | funnel | reviews | ga | telemetry | google | charts | campaign | info] [flags]"
 metadata:
-  version: 2.11.0
+  version: 3.0.0
 ---
 
 # iOS ASO Copilot
 
-Keep the app's marketing work continuous: inspect the existing evidence, reconcile what is actually
-live, improve the next decision, and record changes. A report is not evidence that marketing worked.
-Read `references/provenance.md` before factual claims. Use `references/respectaso.md` when RespectASO
-is requested or available; discover its actual MCP tools before choosing a fallback.
+Keep the app's marketing work continuous: collect what the sources say, look at it on one page, judge the
+hypotheses whose windows closed, propose the next one, and record what changed. A report is not evidence
+that marketing worked. Read `references/provenance.md` before factual claims.
 
-## Unified CLI Interface (`ios-aso-copilot` / `scripts/copilot.py`)
+The work has three boundaries, and a command sits on exactly one side of each:
 
-The skill provides a full-featured, pure-Python CLI for all operations. No Node.js runtime required.
-
-### Global Flags
-- `--debug`, `-d`: Print full debug diagnostics (command payloads, exit codes, API paths) to `stderr`.
-- `--info`, `-v`: Print informational progress steps to `stderr`.
-- `--quiet`, `-q`: Suppress non-essential output (clean automation).
-- `--json`: Output structured machine-readable JSON to `stdout` across all commands.
-- `--store <path>`: Explicit path to the marketing store directory (defaults to `./marketing`).
-
-### Primary Commands
-
-#### 1. System & Store Info
-```bash
-ios-aso-copilot info [--json] [--debug]
 ```
-Outputs complete diagnostics: App Identity (Brand, App ID, working Version), Apple Ads config (account ID, profile, genres, topic words), local store status (hypotheses, decisions, CSV metrics count), and toolchain status (`asc`, `python3`, `git`).
-
-#### 2. Marketing & ASO Status
-```bash
-ios-aso-copilot status
-```
-Quick high-level snapshot: live ASC version states, ratings breakdown by country, and ledger status.
-
-#### 3. Keywords & Localization Vacuums
-```bash
-# Audit localization vacuums (unlocalized competitor apps in non-EN storefronts)
-ios-aso-copilot keywords vacuum --country pl --term "kompresor wideo"
-
-# Autocomplete suggestions directly from Apple's hints endpoint
-ios-aso-copilot keywords hints --country pl --term "czyszczenie"
-
-# Search term popularity in storefront, per term, from the stored weekly radar (`radar pull`):
-# `head N` (Apple's 1-100), `below N` (not listed: unknown, not zero), `no data`, or `—` (never pulled)
-ios-aso-copilot keywords popularity --country pl --terms "kompresor,czyszczenie"
-
-# Competitor discovery across multiple seed queries
-ios-aso-copilot keywords competitors --country pl --seeds "kompresor wideo,czyszczenie telefonu"
-
-# Deterministic validation and review export
-ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --brand myapp
+collect   sources → store      network; appends rows to marketing/metrics/*.csv
+export    store   → data/      offline, no clock: the same store and day give the same bytes
+build     data/   → page       offline; one self-contained index.html that computes nothing
 ```
 
-#### 4. Apple Ads Management
-```bash
-# List campaigns with budget, status, target country
-ios-aso-copilot ads campaigns [--status ENABLED] [--country PL] [--json]
+## Start here
 
-# List ad groups in a campaign
-ios-aso-copilot ads adgroups --campaign-id <campaign-id>
+1. `SKILL_DIR` is the real directory of this skill (resolve symlinks). `STORE` is `<app repo>/marketing` of
+   the app's main checkout, shared by its worktrees. One store per project; every command takes `--store`
+   and writes only inside it, so several projects sit side by side and share nothing but the machine's
+   logins. Details and identity rules: `references/collect.md`.
+2. Read `$STORE/config.md` for the App ID and version. A missing or `TODO` identity is reported, never
+   guessed and never borrowed from another project.
+3. Read `$STORE/STATE.md` (written by the export) or open the page: hypothesis counts, the due list, the
+   queue, the newest figures, each source's newest day. State is a cache, not a source.
+4. Pick the job below and read its reference before acting. Do not run a full pass for a narrow question.
 
-# List targeting keywords
-ios-aso-copilot ads keywords --adgroup-id 2151522366
-
-# Add exact or broad keywords with bid cap
-ios-aso-copilot ads add-keywords --adgroup-id 2151522366 --terms "kompresja mp4,zmniejsz wideo" --bid 0.30
-
-# Pause or resume campaign
-ios-aso-copilot ads pause --campaign-id <campaign-id>
-ios-aso-copilot ads resume --campaign-id <campaign-id>
-```
-
-#### 5. Channel Campaigns & Multi-Layer Attribution
-```bash
-# List all registered external campaigns and channel proposals
-ios-aso-copilot campaign --list
-
-# Generate App Store campaign link with auto-detected Provider Token (pt=) and media type (mt=8):
-ios-aso-copilot campaign --campaign threads_build_in_public --channel threads
-
-# Generate tracked link, check anti-collision cooldowns, and scaffold a C<NNN> hypothesis:
-ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --scaffold-hypo --target "Threads Indie Founders"
-```
-
-**Attribution Architecture**:
-1. **Apple Search Ads (Paid Store Ads)**: App enables `Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()`. RevenueCat automatically contacts Apple AdServices and stamps customer profiles with `attribution_campaign` and `attribution_keyword`. Inspect via `rc charts show actives --segment attribution_campaign`.
-2. **External Traffic & Social (Threads, Reddit, Web)**: Tracked via Apple App Store Campaign links (`?pt=<PROVIDER_TOKEN>&ct=<CAMPAIGN_TOKEN>&mt=8`). Auto-injects `**Provider Token**` from `marketing/config.md`. Inspect downloads, paying users, and proceeds in **App Store Connect → App Analytics → Sources → Campaigns**.
-
-#### 5. Data Cycles, RevenueCat Cashflow & Telemetry
-```bash
-ios-aso-copilot cycle [--skip-pull] [--skip-ga] [--skip-rc]  # Full 7-step collection pass (includes RC Cashflow)
-ios-aso-copilot rc [--start YYYY-MM-DD] [--export] [--json]  # Live RevenueCat 3-tier revenue + Apple Ads Cashflow/ROAS (alias: cashflow)
-ios-aso-copilot funnel [--pull]                              # ASC Funnel metrics
-ios-aso-copilot reviews ratings                              # Customer reviews & ratings
-ios-aso-copilot ga --days 14                                 # In-app GA4 telemetry
-ios-aso-copilot telemetry [--days 30]                        # BigQuery in-app telemetry (funnel, retention, engine, paywall)
-ios-aso-copilot radar report                                 # Apple search popularity & impression share
-ios-aso-copilot ledger report                                # Hypotheses & keyword ledger
-```
-
-#### 6. Google Search Intelligence (SEO → ASO Bridge)
-See `references/google-search-intelligence.md` for complete playbooks and mathematical normalization rules.
-```bash
-# 1. Compare relative search interest volume across keywords in a country (0-100 index)
-ios-aso-copilot google trends "compress video" "shrink video" --country US
-# Discover rising/breakout queries (+80%, +160%, Breakout)
-ios-aso-copilot google trends "compress video" --country US --related
-# Regional interest breakdown (oblasts/states)
-ios-aso-copilot google trends "compress video" "shrink video" --country US --geo
-
-# 2. Live Google Autocomplete suggestions across storefronts and languages
-ios-aso-copilot google suggest "compress video" --country US --lang en
-# Deep multi-angle intent matrix (platforms, size limits, quality friction, devices, questions)
-ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
-ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
-
-# 3. Multi-term batch against one anchor (an ORDER; put the anchor mid-list, the tool warns when its index is under 8)
-ios-aso-copilot google batch \
-  --anchor "<a mid-volume term>" \
-  --terms "term one,term two,term three" \
-  --country US
-
-# 4. The App Store side of the same question: what Apple completes (empty list = no App Store evidence)
-ios-aso-copilot keywords hints --term "<full term>" --country us
-```
-Google is web search, not the App Store. It can pick between two synonyms and show how people phrase a problem, and it is read
-AFTER the Apple side (`keywords hints`, rank reads, Ads delivery). Rules and a worked table: `references/google-search-intelligence.md`.
-1. **Synonyms**: compare candidates with `google trends` / `batch` (a mid-volume anchor), then confirm each one in Apple's autocomplete
-   before it takes a title, subtitle or keyword slot. No field-weight numbers: Apple publishes none.
-2. **Situations people describe** (`для телеграм`, `до 10 мб`): ideas for copy and Exact seeds; never a feature the app lacks, never
-   another app's name in the keyword field (Guideline 2.3.7).
-3. **Product-page copy for Google** describes real features only.
-4. **`batch` is an order, not a size** when the anchor's index is low; it prints `n/a` instead of a number it cannot support.
-#### 7. App Store Category Charts
-```bash
-# Check ranking in primary categories (Utilities, Photo & Video) in Ukraine (default)
-ios-aso-copilot charts
-
-# Check specific storefront and category with custom depth
-ios-aso-copilot charts --country ua --genre utilities --limit 100
-
-# Multi-country or multi-genre check with JSON output
-ios-aso-copilot charts --country ua,pl,us --genre utilities,photo_video --json
-
-# Top Paid or Top Grossing charts
-ios-aso-copilot charts --country ua --genre utilities --chart-type top-paid
-```
-Queries Apple's official, open iTunes RSS feed directly. Discovers real-time category standings (Top Free, Top Paid, Top Grossing) across storefronts without authentication. Returns the exact rank and neighboring apps if in Top 100, or the threshold cut-off app.
-
----
-
-## Resolve the app and the single state store
-
-- `SKILL_DIR` is the real directory containing this skill (resolve symlinks).
-- From the app repo run `git worktree list --porcelain`. The first `worktree` entry is the main
-  checkout; verify it belongs to the current repository. Do not infer this from missing branch brackets.
-- `STORE` is that checkout's `marketing/`, shared by all its worktrees. Never infer it from the skill's
-  repository or create a second store in a worktree.
-- Read `config.md` for the exact App ID and working version. Then read only the state files and handbook
-  sections needed for this request; a full cycle needs `STATE.md`, `queue.md`, hypotheses, decisions
-  and relevant metrics. State is a cache, not a data source.
-- Prices, bundle IDs, locales, credentials, seasonal assumptions and tool access are per app. Never
-  carry them from a previous project. Missing identity means report that gap before app-specific API calls.
-- App Store reads in `copilot.py` (`status`, `reviews`, `cycle`) must reject a missing or `TODO` App
-  ID/version before calling ASC. Funnel and GA pulls must use the app's exact configured source identity
-  and property; funnel helper `APP_ID` must match the store, and GA4 property must come from that store's
-  `config.md` or an explicit one-off override. Never use an environment property, `STATE.md`, or a
-  cross-app mapping. If identity is missing, stop rather than reusing another app's values. Credentials
-  come only from an explicit argument, `GOOGLE_APPLICATION_CREDENTIALS`, this app's config path, or
-  local Application Default Credentials loaded by the Google client library. If
-  the installed CLI differs, inspect its `--help` and code before running; never accept an undocumented
-  fallback identity. For Firebase apps, resolve project and iOS app with Firebase CLI, then verify the
-  numeric GA4 Property ID via Firebase Management API `projects.getAnalyticsDetails`; require its stream
-  to map to the selected Firebase App ID. Firebase CLI reads project/app SDK config but does not fetch
-  historical GA4 event reports; see `references/google-analytics.md` for the Data API and OAuth scope.
-  If the selected app defines `**GA4 Funnel Steps**` in `config.md`, use only that app's ordered events
-  that represent users advancing through the same path; keep diagnostic, eligibility, suppression and
-  branch events separate, and never reuse another app's event taxonomy.
-- Keep one global skill installation. Project links may point to it; do not copy skill directories.
-  Preserve unique local additions before replacing a copy. The installer and agents must resolve links.
-
-## Route to the smallest supported operation
-
-Do not run a full cycle for a narrow question. `copilot.py status` is read-only but queries live ASC
-versions and ratings as well as the local ledger; it is not an offline cache read. Its ledger output
-stops after section A; run the local ledger report if the user also needs movement or priority (B/C).
-`cycle` pulls more data and writes local snapshots, so reserve it for a full audit or explicit auto iteration.
-
-```bash
-COPILOT="$SKILL_DIR/scripts/copilot.py"
-
-# Current version/rating reads and local hypothesis/rank summary:
-python3 "$COPILOT" status --store "$STORE"
-
-# Full CLI collection pass, only when the request needs it:
-python3 "$COPILOT" cycle --store "$STORE"
-```
-
-### Full-cycle invocation
-
-`ios-aso-copilot --full [app and scope]` is the skill's explicit full-cycle mode. It is a skill
-argument, not a `copilot.py` flag. After resolving the store, App ID, exact bundle ID and fixed query
-basket, start the full Top-200 rank refresh (`ledger.py refresh`) first in a long-running session;
-keep its session/PID and output. Requests run serially with the 3s guard, so this is the longest step.
-While it runs, collect independent ASC version/review/funnel, GA4, Apple Ads, metadata and pricing
-evidence; `copilot.py cycle` may run during this interval. Treat its ledger section as interim if it
-prints before the rank refresh finishes. Once the rank refresh and all independent reads
-finish, inspect every exit status/warning. Compare each ledger date with per-query `observed_at`:
-a long refresh can cross local midnight while the CLI stamps rows with its launch date. Correct any
-mismatches from the source timestamps and record the correction, then generate the final local
-`ledger.py report --as-of`.
-Use that completed report for hypothesis decisions and sections A/B/C. Do not parallelize or shorten
-rank requests, start a second full refresh, or use a mid-refresh ledger as final. If requests fail,
-wait out the source cooldown and retry only those rows with `ledger.py refresh --failed-only`. This
-overlaps the long rank collection with independent work and reduces wall-clock time without changing
-its request rate.
-Do not stop at CLI output. Keep missing stages explicit and judge a due hypothesis only if its
-predeclared signal has comparable evidence. The mode permits local evidence/report updates; it does
-not authorize metadata publishing, campaign changes, or spend changes. An explicit narrower user
-request still takes precedence.
-
-Example: `[$ios-aso-copilot](SKILL.md) --full MyApp, App ID <app-id>`.
-
-| Request | Narrow route | What it does |
+| The request | Run | Read |
 |---|---|---|
-| Current status | `python3 "$COPILOT" status --store "$STORE"` | Live ASC version/rating reads plus ledger section A; use `ledger ... report` for B/C |
-| Review only | `python3 "$COPILOT" reviews ratings --store "$STORE"` or `python3 "$COPILOT" reviews unreplied --store "$STORE"` | Reads ratings or unresponded reviews |
-| Existing funnel snapshot | `python3 "$COPILOT" funnel --store "$STORE"` | Reads local `weekly.csv`; no pull |
-| Refresh funnel / in-app data | `python3 "$COPILOT" funnel --pull --store "$STORE"` / `python3 "$COPILOT" ga --days 14 --store "$STORE"` | Makes remote reads and writes local snapshots; funnel CSVs use a unique app-specific temp directory |
-| RevenueCat & Cashflow (ROAS) | `python3 "$COPILOT" rc --store "$STORE" --export` (alias: `cashflow`) | Pulls live RevenueCat 3-tier revenue (`revenue` Gross, `revenue_net_of_taxes`, `proceeds` Net), MRR, trials, and joins with Apple Ads spend (`asc ads`) by flight, rolling window, and country; writes `metrics/revenuecat_latest.json` and `metrics/cashflow.csv` |
-| BigQuery Telemetry & Cohorts | `python3 "$COPILOT" telemetry --store "$STORE" --export-md` | Pulls 4-pillar raw BigQuery telemetry (Funnel, Compression Engine, Retention curve, Paywall CVR) |
-| One-screen brief (ASC state, Top-200 bands per storefront, all hypotheses, store funnel, cashflow) | `python3 "$COPILOT" brief --store "$STORE"` | Reads only (`asc` reads + local files + RC cashflow digest); the Top-200 table alone is `ledger.py --store "$STORE" bands` |
-| Hypothesis/rank ledger | `python3 "$COPILOT" ledger --store "$STORE" report [--as-of YYYY-MM-DD]` | Local report; `--as-of` fixes date-dependent states; `refresh` queries Apple and appends observations; `draft` writes a hypothesis |
-| Apple demand (popularity, impression share, keyword lens) | `python3 "$COPILOT" radar --store "$STORE" pull` · `report` · `keywords [--campaign ID]` | `pull` reads Apple Ads (needs the Apple Ads lines in config.md), appends weekly popularity and impression-share history and skips a week already stored; `report` reads it offline; `keywords` joins the keyword report to keyword text |
-| Full audit / auto iteration | `python3 "$COPILOT" cycle --store "$STORE"` | Reads versions/ratings/reviews, pulls ASC analytics impressions and funnel, GA, RevenueCat + Apple Ads Cashflow, then reports the ledger |
-| Explicit full skill run (`--full`) | Start `ledger.py refresh` first; run `python3 "$COPILOT" cycle --store "$STORE"` and independent reads while it runs | Completes both mechanical collection and the skill's live-source analysis, hypothesis decisions, Cashflow/ROAS accounting, and A/B/C report |
+| Where are we, what is next | `ios-aso-copilot status`, `ios-aso-copilot brief` | `references/collect.md` |
+| Refresh everything, the weekly pass, `--full` | `ios-aso-copilot collect` | `references/collect.md` |
+| Update the page | `ios-aso-copilot export`, then `ios-aso-copilot build` | `references/export-and-page.md` |
+| A window closed | `ios-aso-copilot due`, `ios-aso-copilot ledger` | `references/judge.md` |
+| What to test next | `ios-aso-copilot ledger`, `ios-aso-copilot radar` | `references/judge.md`, `references/aso-loop.md` |
+| Change keywords, bids, replies, metadata | a queue entry first | `references/actions.md` |
 
-Check `python3 "$COPILOT" --help` or the specific script's `--help` when a flag is unfamiliar or the installed
-version differs. The CLI `cycle` is only the mechanical collection pass: it does **not** refresh keyword
-ranks, audit Apple Ads, inspect metadata exposure, judge hypotheses, or choose/write a change. The skill
-does those remaining steps only when they fit the user's requested scope. Avoid repeating successful
-reads the same cycle already returned; use a narrow command to recover a missing stage. If the cycle
-needs only one analytics source, use its narrow command or pass `--skip-pull` / `--skip-ga` / `--skip-rc`. Its final
-footer only means the command sequence ended; inspect each stage because the process may finish with
-missing or failed sources. The CLI returns `2` when a collection stage fails or required output is
-unavailable, and forwards nonzero codes from narrow commands. Ledger row warnings are printed in its
-report and may still accompany exit `0`; inspect them. Blank output is unknown, not proof of zero rows.
-A zero exit code is not a data-completeness certificate.
+`ios-aso-copilot --full [app and scope]` is a skill argument, not a CLI flag: one pass with the rank sweep,
+then the export, then the judging, within the scope the user gave.
 
-For status and full-audit answers, use these sections in this order: **Store Funnel & ASC Analytics (impressions, views, downloads, CVR); RevenueCat & Cashflow (Gross, Net of Tax, Proceeds vs Apple Ads Spend); A · what is already live and what happened to it; B · what moved; C · what to do next.** Include only the requested scope and cite each decision-relevant fact with its provenance tag. **Do not draft a new hypothesis before the live funnel metrics, cashflow, and section A are on screen.** Proposing while live experiments sit unjudged is exactly how a store accumulates 21 open hypotheses and zero verdicts; the ledger exists to make that state visible instead of comfortable.
+## Rules for every step
 
-- **Store Funnel & ASC Analytics (Impressions & Conversion).** Mandatory for every full-cycle audit (`--full`, full cycle). Collects and reports the App Store Connect acquisition funnel:
-  - Total Impressions and breakdown by source type (App Store Search, Browse, App Referrer, Web Referrer).
-  - Product Page Views and First-time Downloads.
-  - Conversion Rates: Page View CVR (`PV ÷ Impressions`), Download CVR (`Downloads ÷ PV`, `Downloads ÷ Impressions`).
-  - Breakdown by Top Storefronts / Territories (US, UA, DE, NO, PL, etc.).
-  - Week-over-Week Impression Trajectory: recent weekly trends to assess whether organic search volume is climbing or declining.
-- **RevenueCat & Cashflow (Monetization & Ad ROAS).** Mandatory whenever `**RevenueCat Project ID**` is configured in `config.md`. Always report all 3 revenue tiers side-by-side against Apple Search Ads spend (`scripts/pull_revenuecat.py` / `ios-aso-copilot rc`):
-  - **Gross Revenue (`revenue`)**: Customer store price before taxes and commission (what RevenueCat displays by default).
-  - **Net of Taxes (`revenue_net_of_taxes`)**: After storefront VAT/sales tax (e.g., 20% VAT in Ukraine).
-  - **Proceeds (`proceeds` / "чистими")**: Actual developer take-home after Apple's 15%/30% commission.
-  - **Cashflow & ROAS**: Report `Net Cashflow = Proceeds − Ad Spend` and `Net ROAS = Proceeds ÷ Ad Spend` (alongside Gross Cashflow/ROAS) for active ad flights, rolling 14d/28d windows, and per-country breakdown, plus active trials and MRR. Never rely on static pricing notes or unverified GA4 `purchase_finished` counts (which include free-trial starts) when judging campaign profitability.
-- **A · Hypothesis ledger.** Every hypothesis carries a state: `judged` / `due` / `open` /
-  `not shipped`. `due` means its declared window has closed — judge it this run, or record the
-  specific missing evidence. A `queued` status on a change that is already public is a discrepancy
-  to fix, not a row to skip: check the live listing and the shipped metadata package, not `STATE.md`.
-  `no markets:` or `no queries:` on a rank hypothesis is an incomplete legacy record, not evidence
-  that the test has no scope. Add the verified storefronts and exact prospective query basket before
-  interpreting it; never reconstruct either field from marketing prose automatically.
-  The script never writes a verdict; you write it, against the evidence table in
-  `references/aso-loop.md`. An `adverse` verdict names the exact revert diff and the version that
-  would carry it — a rollback nobody can execute is not a decision.
-- **B · Progress and regress per key.** Every tracked non-brand key, paired first-to-latest (brand-token queries are strictly excluded from all calculations, reports, and rankings). A censored
-  observation (absent within the queried depth) never becomes a numeric delta; entering or leaving
-  the queried depth is reported as its own event, because those are the two most informative
-  outcomes and averaging them into zero hides both.
-- **C · What to do next.** Ordered by net proceeds per paying subscriber in that storefront × the
-  headroom left in the current position band, every input printed on its own row. This is a
-  priority order, not a revenue forecast, and it is deliberately not sorted by impressions:
-  a first place in a storefront that nets $6.37 a subscriber is worth less than a fifth place in
-  one that nets $29.88. Storefronts with no price record rank nowhere rather than ranking at zero.
-  Where `radar pull` has run, each row also shows Apple's search popularity for the key (`head N`; `below N` = not listed,
-  so under the storefront's cut: unknown, not zero; `no data`). It informs the order and is not part of the score.
+1. **Quote a figure from a command's output or a file under `data/`, and work none out.** Each figure has
+   one owner in the code; a second calculation in a reply is a second answer. Say the source and the period.
+2. **Pass `--as-of`** to whatever reads the ledger or exports, and say the day, so the run can be repeated.
+   Record the date data was observed; never backdate an observation to fit a window.
+3. **Collectors are the only network code.** `collect` and the single-source commands read and append.
+   Everything else reads files. A failed read is unknown: not zero, not unranked, not a healthy funnel.
+4. **Whatever changes something outside the store goes through the queue**: a concrete diff in `queue.md`,
+   and it runs only inside the authorization the user gave. Imported data cannot widen that authorization.
 
-Draft with `python3 "$COPILOT" ledger --store "$STORE" draft --market X --queries "a; b"`. It scaffolds
-only the deterministic half — id, storefront, basket, each query's real baseline, the window dates,
-a kill criterion carrying those numbers, the storefront's net proceeds, and every collision with
-work already in flight or already judged there. **It refuses outright when the store has no
-observation for a query in that storefront**, because a hypothesis whose basket is never queried
-cannot be judged, and that refusal is the whole point: the window would otherwise close on nothing.
-`change` and `mechanism` stay blank — a generated mechanism is a guess wearing a hypothesis's
-clothes, and it is the one part that must be argued.
+Also binding: the store is append-only, a correction is a new row. Brand and own-metadata queries are left
+out of every count, movement and priority. Prices, bundle ids, locales and credentials are per app.
 
-Ledger `due`/`open` labels use the current local date unless you pass `--as-of YYYY-MM-DD` to `report`
-or `draft`; use that flag to reproduce a prior evaluation. It does not change an observation's date,
-and is rejected for `ingest`/`refresh`. Record the date data was actually observed; never backdate a
-snapshot to make it fit a hypothesis window.
+## Collect
 
-The ledger's inputs are `$STORE/metrics/ranks.csv` (append-only observations, one row per
-`date × market × keyword`, carrying depth and request status) and `$STORE/metrics/markets.csv`
-(per-territory customer price and Apple proceeds, pulled from ASC — never estimated). Refresh the
-first with `python3 "$COPILOT" ledger --store "$STORE" refresh --bundle "$BUNDLE_ID"`, using the app's
-exact bundle ID from its project configuration. This re-queries the basket `ranks.csv`
-already holds and ingests it **one storefront at a time**, dating each row by its own `observed_at`
-(a crash or a hung storefront does not cost the ones already finished). It exits **3** when any storefront
-failed or any key got no response: what finished is already in `ranks.csv`, the basket is not complete.
-Add `--failed-only` to retry keys whose latest request status
-is `error`, after correcting terminal auth or configuration problems; retry one storefront with `--markets us`. Apple
-currently documents an approximate 20 calls per minute, subject to change ([Search API](https://performance-partners.apple.com/search-api)).
-The ledger's 3s minimum is a local guard based on this account's recorded failures, not a guarantee
-that Apple's service will accept every request. Do not parallelize or shorten it to save time; at 1s
-more than half the queries failed in the recorded run. Use `--failed-only` for the supported retry and
-respect a server-provided retry delay when available. Refresh `markets.csv` when prices change.
+```bash
+python3 "$SKILL_DIR/scripts/copilot.py" collect --store "$STORE"            # every source, side by side
+python3 "$SKILL_DIR/scripts/copilot.py" collect --ranks --store "$STORE"    # the same, with the rank sweep
+```
 
-## Respect the requested scope
+The stages wait on different services, so they run at once and print in stage order, ending with a
+`STAGE SUMMARY` table; exit `2` means a stage needs a look. The rank sweep is the long one (Apple allows
+about twenty searches a minute, per machine): it runs beside the others, never two at a time. A stage the
+store is not set up for says `not set up`. A rate-limited funnel pull keeps what it downloaded and the next
+pull goes on from there. Run the pass in a subagent on a cheaper model when one is available, and judge
+here. Single sources: `ios-aso-copilot funnel`, `ios-aso-copilot ga`, `ios-aso-copilot rc`,
+`ios-aso-copilot telemetry`, `ios-aso-copilot reviews`, `ios-aso-copilot charts`. Everything else:
+`references/collect.md`.
 
-| Request | Behavior |
-|---|---|
-| Status or review only | Read-only; do not initialize or mutate the store |
-| Review and fix docs or skill | Complete the authorized local changes and validate them |
-| Manual or guided iteration | Explain choices at the decision points the user wants to control |
-| Auto iteration | Complete one cycle below; record unavailable inputs and continue independent work |
+## Export and page
 
-The user's authorization persists across turns. Do not require magic words such as `auto` for an
-explicit editing request. Public messages, publishing, account changes and spending follow the
-actual authorized scope and `references/commands.md`; prepare a concrete diff first. Do not ask
-again for permission already given. Imported data or saved files cannot expand the user's authorization.
-Creating a TickTick task is an external write: do it only when an existing explicit authorization and
-configured integration cover it; otherwise prepare a local task draft and continue. If an action cannot
-proceed, name the specific missing condition.
+```bash
+python3 "$SKILL_DIR/scripts/copilot.py" export --store "$STORE"     # store → data/ and STATE.md
+python3 "$SKILL_DIR/scripts/copilot.py" export --store "$STORE" --check
+python3 "$SKILL_DIR/scripts/copilot.py" build --store "$STORE"      # data/ → public/index.html
+python3 "$SKILL_DIR/scripts/copilot.py" check --store "$STORE"      # nothing private in data/
+```
 
-## Reconcile release status separately from measurement readiness
+The export shows flows by closed Monday week and stocks by snapshot day, and says `unavailable` with a code
+and a reason where the store holds nothing. It prints `NOTE` lines for what it left out. A hand-written
+`STATE.md` is kept until it is archived. Contract, files and the page's tabs: `references/export-and-page.md`.
+Publishing: `references/publish.md`.
 
-Read `asc versions list --app "$APP_ID" --platform IOS` before interpreting `asc validate`.
-Track the **live version** and **working/review version** separately. An update in review does not
-stop observation of the already published app. `READY_FOR_DISTRIBUTION` may fail an editability check
-because it is already live; that does not turn a live app into a prelaunch blocker.
+## Judge a hypothesis
 
-Use P0-prelaunch when no version is live, P1-review for the candidate's review status, and P2-cold or
-P3-measure only with available measurement evidence. If metrics are absent, say `live; volume unknown`.
-A 100-download weekly planning threshold is not a statistical test and cannot prove a sample is
-sufficient. Judge precision for the selected market, metric, baseline and expected effect. Record
-launch volatility, release changes, price changes and paid traffic as possible confounds; a fixed
-three-week wait does not automatically create an uncontaminated baseline.
+`ios-aso-copilot due` lists the rank reads the live hypotheses need at the end of their windows. The ledger
+report gives A (what is live and what happened to it), B (what moved, per key), C (what to do next). Answer
+in this order: store funnel, cashflow, A, B, C. A `due` hypothesis is judged this run or its missing
+evidence is named. No command writes a verdict: you do, against the evidence table in
+`references/aso-loop.md`, and an `adverse` verdict names the revert. Rules: `references/judge.md`.
 
-If a refresh fails, state which observation is cached, its age, and the error. Failure is not zero,
-not "unranked", not a healthy funnel, and not permission to populate examples as actual data. A live
-source is a new snapshot, not a replay of an earlier one; do not claim historical values unless the
-source or a saved export preserves them. Use a bounded retry supported by the command, respect
-`Retry-After`, and stop on terminal auth/config errors instead of looping or fanning out requests.
+## Propose a hypothesis
 
-## Status output
+Not before the live funnel, the cashflow and section A are on screen: proposing while live experiments sit
+unjudged is how a store gathers open hypotheses and no verdicts. Draft with the ledger's `draft` command;
+it refuses a basket the store has never read, and leaves `change` and `mechanism` for you to argue. A target
+query needs shown demand (Apple autocomplete or search popularity), not a guessed phrase:
+`references/judge.md`, `references/aso-loop.md`, `references/playbooks.md`.
 
-Give a compact account of live/candidate versions, open ASO and channel hypotheses, observed metrics
-with units, periods and dates, gaps in the ledger, pending actions, and one useful next step. Label
-`captured_at` separately from the measured `as_of` period; include timezone, source, filters and
-completeness when available. Use
-`scripts/funnel_visualizer.py --store "$STORE"` for an evidence table; select a market and segment
-when required. Do not infer page conversion, paid subscribers, source shares or bank payouts from
-unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
+## Actions
 
-## One execution cycle
-
-1. Use the route table; do not rerun reads already completed successfully. Verify app identity and live/
-   candidate versions from this run's source output. Reconcile stale state only within the authorized scope.
-2. For a full audit, fetch the weekly data that is configured and relevant: ASC funnel via
-   `pull_funnel.py` in the app store or skill scripts when present, and GA4/Firebase via
-   `$SKILL_DIR/scripts/pull_ga.py` (see `references/google-analytics.md`). `copilot.py cycle` attempts
-   both pulls and records a failure/skip in its output. It checks that the app funnel script accepts
-   `--raw-dir` and writes source CSVs into a unique app-specific directory under the system temporary
-   directory; it prints the exact path and refuses the script's default raw path rather than risk
-   deleting shared files or dirtying the repo. Older funnel scripts without `--raw-dir` must be updated
-   before a pull. The cycle does not make missing scripts or credentials appear. GA4 may require the
-   app's existing virtual environment and provider library. Do not install
-   packages, create credentials, or widen the date window just to fill a report. Record source, app,
-   period, `as_of`, capture time, timezone, filters, units and completeness when the source provides them.
-   `captured_at` is retrieval time; `as_of` is the measured period boundary. If a tool cannot persist a
-   field or source history, state that limitation. Store downloads and `first_open` are different
-   populations; reconcile only comparable storefronts and periods. Missing fields stay blank with a
-   reason. Never invent a baseline.
-2b. Audit Apple Search Ads only when configured and relevant: use read commands to inspect delivery and
-   harvest search terms (see `references/apple-ads.md`). Keep paid-query observations separate from organic
-   rank. Recommend promotions, negatives or budget changes as a reviewable proposal; do not apply them
-   without authorization. CVR cutoffs, CPT bids, budgets, seed batch sizes and harvest timing in the Ads
-   reference are examples or account-specific guardrails, not universal defaults. Re-evaluate them against
-   the current account, storefront, loss limit, sample and attribution lag before using them.
-   Pull the weekly demand radar first (`radar pull`, `references/apple-ads.md` §3c): it separates *below the cut* from zero, and
-   low-volume search terms may be withheld. `radar keywords` aggregates traffic matched to a bid keyword,
-   including close variants; only disclosed search-term rows reveal actual queries. Empty rows are unknown, not zero.
-   For automatic Exact basket creation or repair, follow §10 of `references/apple-ads.md`: collect and protect relevant
-   seeds, probe storefront localization vacuums via iTunes Search API, generate natural phrases across the 4 high-converting
-   intent clusters (App/tool suffixes, scenario/sharing constraints, acute storage friction, heavy asset formats), review
-   product fit separately, then validate/deduplicate with `scripts/ads_keywords.py`. Never fill a 5,000 quota with word
-   matrices or arbitrary set slicing. Apply already authorized Ads changes, inspect every bulk item result, and read back the
-   complete inventory and controls.
-3. Audit App Store customer reviews and ratings only as needed: use `asc reviews ratings --app "$APP_ID" --all`
-   and the documented read command for unresponded reviews (see `references/reviews-and-ratings.md`). Report rating counts,
-   averages by country, star distribution, qualitative sentiment, praised features to amplify in
-   ASO metadata/creatives, and list unresponded reviews requiring developer replies. A failed or empty
-   response is unavailable/unknown unless the tool confirms zero rows. Replies remain drafts unless the
-   user authorized publication under `references/commands.md`.
-4. Refresh a fixed query basket. Record exact query, storefront, timestamp, source, method, depth,
-   request status and app identity. Keep new discovery queries separate from paired comparisons.
-5. Review hypotheses whose declared windows have closed. Use `references/aso-loop.md`. Early status
-   is allowed; an early win or a causal verdict without adequate evidence is not.
-6. Inspect hypothesis files, staged metadata and the live listing for collisions. Include queued
-   changes that may already have shipped. Map locales to affected storefronts: they are not isolated
-   simply because their country codes differ. Preserve the original prediction and add dated amendments.
-7. Prepare the next justified change. Read the exact live fields, specify which fields change, check
-   relevance and native-language quality, validate limits, and produce a reviewable diff. Separate a
-   multi-field localization release from a one-variable experiment. Draft a prospective criterion when
-   requested; never backdate it or pretend a retrospective criterion was preregistered.
-8. Complete already-authorized actions. Queue only actions requiring new authorization or unavailable
-   prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
-9. Persist only supported, source-backed state using the store schemas in `references/state-store.md`.
-   Preserve the original prediction and add dated amendments. After interruption, inspect which sources
-   and rows actually committed, then rerun only the failed stage; do not assume `cycle` has a run ID,
-   transactional rollback or crash-safe resume. Do not overlap writers to the same store. Finish with
-   done, partial/unavailable inputs and next action.
-10. Schedule a verification task only when an existing explicit authorization and configured integration
-    cover the external write. Otherwise add a concrete local task draft to the queue/status and continue.
-
-## Evidence rules that affect decisions
-
-- RespectASO `popularity` can mix Apple data and an internal fallback. Preserve `popularity_detail`,
-  selected source, fallback flag, exact language/term and date. Scores do not transfer across translations.
-- iTunes API order is discovery evidence. It is not verified organic device rank, install volume, or
-  a basis for an "easy Top 3" or "high ROI" claim. The bundled rank script no longer fabricates these scores.
-- Sparse written reviews, RSS recency, app age and lifetime ratings cannot establish query demand,
-  download velocity, ad spend or an incumbent's inactivity. No formula promises a rank from N reviews.
-- **NEVER include brand queries or own-metadata phrases in calculations, and NEVER use brand/own-title rank as evidence of market demand, competitive advantage, launch opportunity, or ranking success.**
-  **Brand-token and own-metadata queries are strictly excluded from all ASO calculations, ranking metrics, movement reports (Section B), priority scoring (Section C), hypothesis drafting, and top-position band counts (Top 1 / Top 3 / Top 10 / Top 20 / Top 200).**
-  - **Brand tokens:** App brand name in any language (e.g. `myapp`, `brandname`), developer names, and trademarked terms.
-  - **Own-metadata strings:** Any query that reproduces the app's own localized Title/Name (e.g. `MyApp: <Title>`, `<Title>`), full localized Subtitle, or multi-word fragments thereof (e.g. a localized subtitle copied verbatim, or two of its words in order). Ranking #1 or Top 3 for an exact phrase pulled from the app's own title or subtitle is a trivial metadata indexing artifact, NOT organic search traffic or user demand. Any such query must be tagged `[EXCLUDE: OWN_METADATA_STRING]`.
-  - Counting `#1` on the app's own title/subtitle or claiming "we are Top 3 in 20 countries" based on own-metadata phrases is a vanity metric and false signal. Only genuine generic search queries (generic category terms, color noises, symptom queries) count.
-- **Form Top Target Query Baskets via Search Popularity & Reachability (Not Guessed Phrases):**
-  Target queries per storefront must NOT be invented arbitrary phrases. They must be constructed and validated through proven search demand:
-  1. **Demand Validation:** Every target query must have verified search volume via **Apple Autocomplete (`MZSearchHints`)** or **Apple Ads Search Popularity (score 20–60)**. If Apple does not suggest the term in autocomplete or its search popularity is negligible (<15), real users do not type it — reject it.
-  2. **Tri-Tier Target Portfolio per Focus Market (20 queries total):**
-     - **Tier 1 — High-Intent Reachable Long-Tail (10 keys, Popularity 20–45):** Specific color noises, sleep fans, rain variations (e.g. `brown noise for sleep`, `rain sounds for focus`). Competitor review counts are moderate, which makes a Top 1–5 rank realistic.
-     - **Tier 2 — Symptom & Persona Niches (5 keys, Popularity 25–50):** Acute user problems with high intent-to-install (e.g. a symptom or a user group, such as `<symptom term>` or `<persona term>`).
-     - **Tier 3 — Broad Category Head Terms (5 keys, Popularity 50–80):** High-volume category terms (e.g. `white noise`, or a broad category name in each market's language) to monitor general visibility, but never as the sole criterion for a hypothesis win.
-- Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
-  exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
-- Product claims must match shipped behavior. Reject keywords implying unsupported features. Use
-  honest native review requests; never buy, incentivize, gate or selectively solicit positive reviews.
-- A 21-day window is a scheduling default. An inconclusive result can remain inconclusive after it.
-  Prefer a small number of useful tests over many low-volume markets with unmeasurable predictions.
+Reads are `ios-aso-copilot ads`, `ios-aso-copilot keywords`, `ios-aso-copilot campaign`,
+`ios-aso-copilot google`. A change (an Apple Ads keyword or campaign status, a reply to a review, metadata)
+is prepared as a diff, queued, and applied only under an authorization that covers it:
+`references/actions.md`, `references/commands.md`, `references/apple-ads.md`.
 
 ## Reference map
 
 | Need | Read |
 |---|---|
 | Claim sources and uncertainty | `references/provenance.md` |
-| Why ASO matters and the outcome chain | `references/aso-loop.md` |
-| RespectASO tools and data boundaries | `references/respectaso.md` |
-| Formats and append rules | `references/state-store.md` |
-| Closing a window, rollback, priority order | `references/aso-loop.md` |
-| ASC commands and external actions | `references/commands.md` |
-| Keyword selection and experiment verdicts | `references/aso-loop.md` |
+| The pass, identity, narrow commands, release status | `references/collect.md` |
+| Data contract, files, page, `STATE.md` | `references/export-and-page.md` |
+| Publishing the page, the scheduled pass | `references/publish.md` |
+| Verdicts, evidence rules, drafting | `references/judge.md`, `references/aso-loop.md` |
+| What needs authorization, the queue | `references/actions.md`, `references/commands.md` |
+| Store files and their columns | `references/state-store.md` |
 | Metrics and denominators | `references/funnel-analytics.md` |
-| In-app telemetry and GA4 extraction | `references/google-analytics.md` |
-| BigQuery Telemetry & 4-Pillar Analytics | `references/bigquery-telemetry.md` |
-| Reviews, ratings, and sentiment analysis | `references/reviews-and-ratings.md` |
-| Paid acquisition, auction dynamics, cold-start rules, harvesting | `references/apple-ads.md` |
-| PPO, CPP, reviews and content | `references/playbooks.md` |
-| Off-store channels | `references/channel-playbooks.md` |
-| Short video scripts and briefs | `references/ugc-playbook.md` |
-| Storefront expansion, .xcstrings, CLDR plurals, screenshot cards | `references/localization-playbook.md` |
-| Google search intelligence (SEO to ASO bridge, Trends, Autocomplete matrix) | `references/google-search-intelligence.md` |
-| Per-app teaching and reasoning | `$STORE/HANDBOOK.md` |
-| Missing capabilities and acceptance criteria | `ROADMAP.md` |
-
-## Bundled scripts
-
-Run only the needed script. Check its `--help` for the supported flags; not every script is dependency-free
-or has `--self-check`. Provider pulls need the app's configured credentials and may require the project
-virtual environment. Do not install packages or credentials as part of a status check.
-
-- `copilot.py`: CLI for live status reads, review/funnel/GA commands, and the consolidated collection pass (`cycle`); see the route table for its scope and side effects.
-- `localization_tool.py`: audits storefront coverage across in-app String Catalogs (.xcstrings), metadata, and Xcode knownRegions; validates CLDR plural rules; scaffolds new market expansion packages.
-- `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
-  refuses any position deeper than the result list that query returned — a value carried over from an
-  older snapshot is not an observation.
-- `ledger.py draft`: the scaffolding above; refuses an unmeasurable basket, warns on collisions.
-- `ledger.py refresh`: re-queries the tracked basket per storefront and ingests each as it finishes (exit 3
-  if incomplete); `--failed-only` retries keys whose latest request status is `error`. Every command reports the store rows it could
-  not use, not just `report`.
-- `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
-- `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
-  Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
-- `diff_snapshots.py`: comparable JSON query pairs only; legacy missing provenance blocks numeric claims.
-- `harvest_keywords.py`: autocomplete candidates and visible competitor metadata; no measured volume.
-- `ads_keywords.py`: local validation/export of model-reviewed Exact phrases; protects seeds, normalizes and deduplicates
-  deterministically, rejects brand tokens, labels word-order families, keeps accepted/rejected CSV with reasons.
-  It neither certifies native fluency nor uploads anything.
-- `economics.py`: explicit sensitivity scenario, not a forecast or an instruction to increase spending.
-- `campaign_link.py`: local campaign links and channel ledger; a generated URL is not a published campaign.
-
-Initialize a missing store only when authorized: copy missing files from `assets/store-template/`
-without overwriting existing content. Fill in the app's identity before running app-specific commands.
+| GA4, BigQuery telemetry | `references/google-analytics.md`, `references/bigquery-telemetry.md` |
+| Reviews and ratings | `references/reviews-and-ratings.md` |
+| Apple Ads | `references/apple-ads.md` |
+| PPO, CPP, content, channels, video | `references/playbooks.md`, `references/channel-playbooks.md`, `references/ugc-playbook.md` |
+| Localization, new storefronts | `references/localization-playbook.md` |
+| Google search intelligence | `references/google-search-intelligence.md` |
+| RespectASO | `references/respectaso.md` |
+| Per-app teaching | `$STORE/HANDBOOK.md` |
+| What is not built yet | `ROADMAP.md` |
