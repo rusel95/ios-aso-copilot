@@ -67,6 +67,23 @@ def append_csv(path: Path, cols: list, rows: list) -> None:
         writer.writerows(rows)
 
 
+def append_changed(path, cols: list, rows: list, key: tuple) -> int:
+    """Append the rows that say something the file does not: a new key, or values that differ from the latest row
+    stored for that key. `captured` and `source` are not values. Returns how many were appended."""
+    values = [c for c in cols if c not in key and c not in ("captured", "source")]
+    latest = {}
+    for stored in read_csv(path):
+        latest[tuple(stored[k] for k in key)] = tuple(stored[v] for v in values)
+    new = []
+    for row in rows:
+        found, said = tuple(str(row[k]) for k in key), tuple(str(row[v]) for v in values)
+        if latest.get(found) != said:
+            latest[found] = said
+            new.append(row)
+    append_csv(path, cols, new)
+    return len(new)
+
+
 def read_ranks(store: Path):
     path = store / "metrics" / "ranks.csv"
     if not path.exists():

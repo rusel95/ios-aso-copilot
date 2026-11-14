@@ -39,7 +39,13 @@ ASO.split = function (key) { var at = key.indexOf("."); return [key.slice(0, at)
 ASO.spec = function (payload, key) {
   var parts = ASO.split(key), family = payload.catalog.families[parts[0]];
   return family.figures[parts[1]] || { title: parts[1].replace(/[._]/g, " "), unit: "count", ratio: null, approximation: null,
-                                       definition: "A count the app's own telemetry stores under this name." };
+                                       open: true, definition: "A number the app's own telemetry stores under this name." };
+};
+
+// The unit a value is printed in. A figure of an open family has no catalog entry: it is a share when the data
+// holds its two totals, else a count.
+ASO.unit = function (spec, entry) {
+  return spec.open && entry && typeof entry.denominator === "number" ? "ratio" : spec.unit;
 };
 
 ASO.periods = function (payload, family) {
@@ -99,7 +105,7 @@ ASO.figure = function (payload, key, entry, show) {
   if (!entry) { return ASO.missing("no_source"); }
   if (entry.unavailable) { return ASO.missing(entry.unavailable.code, entry.unavailable.reason, key, entry.id); }
   var spec = ASO.spec(payload, key), part = show || "value";
-  var text = part === "value" ? ASO.fmt(entry.value, spec.unit) : ASO.group(entry[part]);
+  var text = part === "value" ? ASO.fmt(entry.value, ASO.unit(spec, entry)) : ASO.group(entry[part]);
   return '<button class="fig' + (spec.approximation ? " approx" : "") + '" data-fig="' + ASO.esc(key) + '" data-period="' +
     ASO.esc(entry.id) + '">' + (spec.approximation ? "≈ " : "") + ASO.esc(text) + "</button>";
 };
@@ -191,7 +197,7 @@ ASO.panel = function (payload, key, periodId) {
     out += '<p class="panel-value"><span class="missing">' + ASO.esc(ASO.MISSING[gone.code]) + "</span></p><p>" +
       ASO.esc(gone.reason) + '</p><p class="meta">code: ' + ASO.esc(gone.code) + "</p>";
   } else {
-    out += '<p class="panel-value">' + ASO.esc(ASO.fmt(entry.value, spec.unit)) + ' <span class="chip">' +
+    out += '<p class="panel-value">' + ASO.esc(ASO.fmt(entry.value, ASO.unit(spec, entry))) + ' <span class="chip">' +
       (spec.approximation ? "Approximation" : "Measured") + "</span></p>";
     if (typeof entry.numerator === "number" && typeof entry.denominator === "number") {
       out += "<p>" + ASO.group(entry.numerator) + " of " + ASO.group(entry.denominator) +

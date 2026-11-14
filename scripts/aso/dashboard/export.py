@@ -10,7 +10,7 @@ import json
 import re
 from pathlib import Path
 
-from aso.dashboard.contract import ENTITIES, SCHEMA, canonical, is_number, load_catalog, validate
+from aso.dashboard.contract import ENTITIES, OPEN_KEY, SCHEMA, canonical, is_number, load_catalog, validate
 from aso.dashboard.weeks import closed
 from aso.ledger_state import hypothesis_states, priority
 from aso.ranks import brand_hit, coverage, loose_index, movers, resolve_key, series, sweep_bands, zero_result_keys
@@ -351,6 +351,29 @@ def ads_family_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
     return out, stored
 
 
+def in_app_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
+    """(week start -> the in_app family, stored), from whatever the app's own telemetry stored for closed weeks. The
+    family is open: its keys are `<section>.<metric>` as the collector named them."""
+    rows, stored = latest_rows(store, "telemetry.csv", ("week_start", "section", "metric"), ("numerator", "denominator"), as_of, notes)
+    out = {}
+    for week, theirs in by_closed_week(rows, as_of).items():
+        figures = {}
+        for r in theirs:
+            key = f"{r['section']}.{r['metric']}"
+            if not OPEN_KEY.match(key) or r["numerator"] is None:
+                notes.append(f"metrics/telemetry.csv: {key!r} of {week} is not a readable figure; left out")
+            elif r["denominator"] is None:
+                figures[key] = {"value": r["numerator"]}
+            elif share(r["numerator"], r["denominator"]) is None:
+                figures[key] = unavailable("no_data", "Nothing to divide by: the week's total is zero.")
+            else:
+                figures[key] = {"value": share(r["numerator"], r["denominator"]), "numerator": r["numerator"],
+                                "denominator": r["denominator"]}
+        if figures:
+            out[week] = {"source": "bigquery", "fetched_at": max(r["captured"] for r in theirs).isoformat(), "figures": figures}
+    return out, stored
+
+
 def by_closed_week(rows: list, as_of: dt.date) -> dict:
     """week start -> rows, for the rows whose `week_start` is a Monday of a week closed by `as_of`."""
     weeks = {}
@@ -488,8 +511,9 @@ def build_all(store: Path, as_of: dt.date) -> tuple:
     funnel = funnel_weeks(store, as_of, notes)
     money, money_stored = money_weeks(store, as_of, notes)
     ads, ads_stored = ads_family_weeks(store, as_of, notes)
+    in_app, in_app_stored = in_app_weeks(store, as_of, notes)
     known = {"store_funnel": (funnel, True), "lifecycle": ({}, False), "money": (money, money_stored), "ads": (ads, ads_stored),
-             "in_app": ({}, False)}
+             "in_app": (in_app, in_app_stored)}
     for week in sorted({w for weeks, _ in known.values() for w in weeks}):
         families = {}
         for name, (weeks, stored) in known.items():

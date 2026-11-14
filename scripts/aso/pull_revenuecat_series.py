@@ -6,7 +6,7 @@ from __future__ import annotations
 import datetime as dt
 
 from aso.dashboard.weeks import closed, monday
-from aso.store import append_csv, read_csv
+from aso.store import append_changed  # noqa: F401 — the series files are appended through it
 
 REVENUE_COLS = ["captured", "active_subscriptions", "active_trials", "mrr_usd", "revenue_28d_usd", "new_customers_28d",
                 "active_users_28d", "source"]
@@ -86,23 +86,6 @@ def ads_weeks(daily_spend: dict, as_of: dt.date, captured: str) -> list:
              "impressions": v["impressions"], "taps": v["taps"], "installs": "" if v["installs"] is None else v["installs"],
              "source": "apple-ads", "captured": captured}
             for (week, campaign), v in sorted(weeks.items())]
-
-
-def append_changed(path, cols: list, rows: list, key: tuple) -> int:
-    """Append the rows that say something the file does not: a new key, or values that differ from the latest row
-    stored for that key. `captured` and `source` are not values. Returns how many were appended."""
-    values = [c for c in cols if c not in key and c not in ("captured", "source")]
-    latest = {}
-    for stored in read_csv(path):
-        latest[tuple(stored[k] for k in key)] = tuple(stored[v] for v in values)
-    new = []
-    for row in rows:
-        found, said = tuple(str(row[k]) for k in key), tuple(str(row[v]) for v in values)
-        if latest.get(found) != said:
-            latest[found] = said
-            new.append(row)
-    append_csv(path, cols, new)
-    return len(new)
 
 
 def store_series(store, data: dict) -> dict:

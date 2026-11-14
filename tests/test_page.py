@@ -377,6 +377,13 @@ class Tabs(PageCase):
         self.assertIn("cleanup reached 18", text_of(self.block("#/in-app", "funnel", markup)))
         self.assertIn("video ok 12", text_of(self.block("#/in-app", "compression", markup)))
 
+    def test_in_app_tab_reads_the_stored_weeks_newest_first(self):
+        funnel = self.block("#/in-app", "funnel")
+        self.assertEqual(re.findall(r"<th>([^<]+)</th>", funnel), ["Metric", "2026-11-02", "2026-10-26", "2026-10-19"])
+        self.assertIn("first open 40 30 28", text_of(funnel))
+        self.assertIn("video completed share 75.0% 68.8% 80.0%", text_of(self.block("#/in-app", "compression")))
+        self.assertIn("onboarding buyers share 12.0% 10.0% 6.3%", text_of(self.block("#/in-app", "monetization")))
+
     def test_how_names_the_steps_the_rules_and_the_codes(self):
         seen = self.read("#/how")
         for word in ("Collect", "Export", "Build", "Not stored yet", "no_source", "Nothing to measure", "no_data",
