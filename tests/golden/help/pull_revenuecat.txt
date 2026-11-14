@@ -8,7 +8,7 @@ options:
   --store STORE         Path to marketing store
   --project-id PROJECT_ID
                         Explicit RevenueCat project ID
-  --start START         Start date YYYY-MM-DD (default: 2026-09-01)
+  --start START         Start date YYYY-MM-DD (default: the day the app was first released)
   --end END             End date YYYY-MM-DD (default: today)
   --json                Print JSON output
   --export              Write metrics/revenuecat_latest.json and metrics/cashflow.csv

@@ -99,8 +99,12 @@ def self_check():
         args = argparse.Namespace(store=str(store), skip_pull=True, skip_ga=False, jobs=1)
 
         def cycle_result(responses):
-            # the pass also asks the public store lookup for the live release; a self-check reaches no network
-            with everywhere("run_cmd", side_effect=responses), everywhere("fetch_lookup", return_value=None):
+            # the pass also asks the public store lookup for the live release, and Apple Ads for its results by week
+            # (this store names an Apple Ads account and no RevenueCat project); a self-check reaches no network
+            import pull_revenuecat
+            from unittest.mock import patch
+            with everywhere("run_cmd", side_effect=responses), everywhere("fetch_lookup", return_value=None), \
+                    patch.object(pull_revenuecat, "collect_ads", return_value=([], None)):
                 with contextlib.redirect_stdout(io.StringIO()) as output:
                     code = cmd_cycle(args)
             return code, output.getvalue()

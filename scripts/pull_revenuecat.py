@@ -119,7 +119,41 @@ def aggregate_window(start_str: str, end_str: str, by_country_daily: dict, trial
     }
 
 
-def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None, start_date: str = "2026-09-01", end_date: str = None):
+def first_release_day(lookup):
+    """The day the public store lookup says the app was first released, or None."""
+    found = (lookup.get("results") or [None])[0] if isinstance(lookup, dict) else None
+    day = str((found or {}).get("releaseDate") or "")[:10]
+    try:
+        return dt.date.fromisoformat(day).isoformat()
+    except ValueError:
+        return None
+
+
+def history_start(lookup, today: dt.date) -> str:
+    """Where a pull of the whole history begins: the app's first release day, or a year back when the lookup is silent."""
+    return first_release_day(lookup) or (today - dt.timedelta(days=365)).isoformat()
+
+
+def default_start(cfg: dict, today: dt.date) -> str:
+    from aso.commands.collect import fetch_lookup
+    return history_start(fetch_lookup(cfg["app_id"]) if cfg.get("app_id") else None, today)
+
+
+def collect_ads(store: Path, start_date: str = None, end_date: str = None):
+    """Apple Ads results by closed week for a store with no subscription provider -> (rows for ads.csv, error)."""
+    cfg = resolve_config(store)
+    if not cfg.get("ads_account"):
+        return None, f"Missing **Apple Ads account**: in {store / 'config.md'}"
+    today = dt.date.today()
+    end_str = end_date or today.isoformat()
+    _, campaign_rows, daily_spend = fetch_apple_ads_spend(find_bin("asc"), cfg.get("ads_account"), cfg.get("ads_profile"),
+                                                          start_date or default_start(cfg, today), end_str)
+    if not campaign_rows and not daily_spend:
+        return None, "Apple Ads returned no campaign report (check the Apple Ads profile and account in config.md)"
+    return ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str), None
+
+
+def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None, start_date: str = None, end_date: str = None):
     cfg = resolve_config(store)
     project_id = project_id_override or cfg.get("rc_project_id")
     if not project_id:
@@ -129,6 +163,7 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
     asc_bin = find_bin("asc")
     today = dt.date.today()
     end_str = end_date or today.isoformat()
+    start_date = start_date or default_start(cfg, today)
 
     overview, err = fetch_rc_overview(rc_bin, project_id)
     if err:
@@ -353,7 +388,7 @@ def print_cashflow_report(data: dict):
     win_labels = [
         ("Last 14 Days (Global)", data["windows"]["last_14d_global"]),
         ("Last 28 Days (Global)", data["windows"]["last_28d_global"]),
-        ("All-Time (Since Sep 1)", data["windows"]["all_time_global"]),
+        (f"All-Time (since {data['period']['start']})", data["windows"]["all_time_global"]),
     ]
     for wname, w in win_labels:
         per = f"{w['start']}→{w['end']}"
@@ -419,7 +454,7 @@ def main():
     parser = argparse.ArgumentParser(description="Pull RevenueCat metrics and Apple Ads Cashflow")
     parser.add_argument("--store", default=str(Path.cwd() / "marketing"), help="Path to marketing store")
     parser.add_argument("--project-id", help="Explicit RevenueCat project ID")
-    parser.add_argument("--start", default="2026-09-01", help="Start date YYYY-MM-DD (default: 2026-09-01)")
+    parser.add_argument("--start", help="Start date YYYY-MM-DD (default: the day the app was first released)")
     parser.add_argument("--end", help="End date YYYY-MM-DD (default: today)")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     parser.add_argument("--export", action="store_true", help="Write metrics/revenuecat_latest.json and metrics/cashflow.csv")

@@ -12,6 +12,8 @@ from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identit
 from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.commands.parallel import run_stages
+from aso.pull_revenuecat_series import ADS_COLS
+from aso.store import append_changed
 from aso.store_state import store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
 
@@ -439,10 +441,18 @@ def stage_revenue(store: Path, app: dict, skip: bool) -> bool:
     if skip:
         print("  (RevenueCat pull explicitly skipped)")
         return True
+    import pull_revenuecat
     if not app.get("rc_project_id"):
         print("  revenue: not set up (config.md names no RevenueCat Project ID)")
+        if not app.get("ads_account"):
+            return True
+        rows, err = pull_revenuecat.collect_ads(store)       # Apple Ads needs no subscription provider
+        if err or rows is None:
+            print(f"  ⚠️ Apple Ads results could not be read: {err or 'nothing came back'}")
+            return False
+        gained = append_changed(store / "metrics" / "ads.csv", ADS_COLS, rows, ("week_start", "campaign_id"))
+        print(f"  stored: ads.csv +{gained} (Apple Ads results by closed week, {len(rows)} read)")
         return True
-    import pull_revenuecat
     data, err = pull_revenuecat.collect_revenuecat_and_cashflow(store, project_id_override=app["rc_project_id"])
     if err or not data:
         print(f"  ⚠️ RevenueCat & Cashflow live pull failed: {err or 'nothing came back'}")

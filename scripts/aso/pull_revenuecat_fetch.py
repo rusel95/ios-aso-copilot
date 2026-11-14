@@ -237,6 +237,19 @@ def daily_rows(report, country_by_cid: dict, campaigns_meta: dict) -> dict:
     return rows
 
 
+def day_chunks(start: str, end: str, days: int) -> list:
+    """[(start, end), ...]: the range cut into pieces of at most `days` days, in order, each day in one piece."""
+    first, last, pieces = dt.date.fromisoformat(start), dt.date.fromisoformat(end), []
+    while first <= last:
+        until = min(first + dt.timedelta(days=days - 1), last)
+        pieces.append((first.isoformat(), until.isoformat()))
+        first = until + dt.timedelta(days=1)
+    return pieces
+
+
+DAILY_REPORT_DAYS = 90        # Apple Ads gives day-by-day results for at most this many days a request
+
+
 def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: str, end_date: str):
     """Fetch all Apple Ads campaign metadata, all-time country spend, and daily spend per campaign."""
     if not account:
@@ -303,16 +316,18 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
     # too; a CLI or an account that refuses that field is asked again without it, so spend is never lost to it.
     country_by_cid = {r["campaign_id"]: r["country"] for r in all_campaign_rows}
     daily_spend = {}
-    for fields in (["impressions", "taps", "tapInstalls", "localSpend"], ["impressions", "taps", "localSpend"]):
-        payload_daily = {
-            "timeRange": {"start": start_date, "end": end_date, "timeZone": "ORTZ", "granularity": "DAILY"},
-            "fields": fields,
-            "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
-            "pagination": {"offset": 0, "pageSize": 100},
-        }
-        rep_daily, _ = run_json_cmd(cmd_rep, input_text=json.dumps(payload_daily))
-        daily_spend = daily_rows(rep_daily, country_by_cid, campaigns_meta)
-        if daily_spend or (isinstance(rep_daily, dict) and "result" in rep_daily):
-            break                                       # an answer, even an empty one: do not ask again
+    for piece_start, piece_end in day_chunks(start_date, end_date, DAILY_REPORT_DAYS):
+        for fields in (["impressions", "taps", "tapInstalls", "localSpend"], ["impressions", "taps", "localSpend"]):
+            payload_daily = {
+                "timeRange": {"start": piece_start, "end": piece_end, "timeZone": "ORTZ", "granularity": "DAILY"},
+                "fields": fields,
+                "filters": [{"field": "deleted", "operator": "IN", "value": [True, False]}],
+                "pagination": {"offset": 0, "pageSize": 100},
+            }
+            rep_daily, _ = run_json_cmd(cmd_rep, input_text=json.dumps(payload_daily))
+            found = daily_rows(rep_daily, country_by_cid, campaigns_meta)
+            daily_spend.update(found)                   # a day sits in one piece, so nothing is overwritten
+            if found or (isinstance(rep_daily, dict) and "result" in rep_daily):
+                break                                   # an answer, even an empty one: do not ask again
 
     return campaigns_meta, all_campaign_rows, daily_spend

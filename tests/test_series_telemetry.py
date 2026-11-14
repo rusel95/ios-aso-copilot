@@ -30,6 +30,11 @@ def rows_by_metric(rows):
     return {(r["section"], r["metric"]): (r["numerator"], r["denominator"]) for r in rows}
 
 
+def COVERED(project, dataset):
+    """The tables hold every day from 2026-09-01 to 2026-11-13."""
+    return dt.date(2026, 9, 1), dt.date(2026, 11, 13)
+
+
 class Rows(unittest.TestCase):
     def test_one_row_per_number_with_both_totals_where_there_are_two(self):
         rows = telemetry.telemetry_rows(DATA, WEEK, "2026-11-10")
@@ -84,8 +89,8 @@ class StoreWeeks(unittest.TestCase):
 
             today = dt.date(2026, 11, 14)
             with contextlib.redirect_stdout(io.StringIO()):
-                first = telemetry.store_weeks(store, "proj", "data", today, limit=2, run=fake)
-                second = telemetry.store_weeks(store, "proj", "data", today, limit=2, run=fake)
+                first = telemetry.store_weeks(store, "proj", "data", today, limit=2, run=fake, days=COVERED)
+                second = telemetry.store_weeks(store, "proj", "data", today, limit=2, run=fake, days=COVERED)
             self.assertEqual(first, ["2026-11-02", "2026-10-26"])                  # the week of 11-09 is still open
             self.assertEqual(second, ["2026-10-19", "2026-10-12"])
             self.assertEqual(asked[0], ("2026-11-02", "2026-11-08"))
@@ -104,10 +109,50 @@ class StoreWeeks(unittest.TestCase):
                 return DATA
 
             with contextlib.redirect_stdout(io.StringIO()) as said:
-                stored = telemetry.store_weeks(store, "proj", "data", dt.date(2026, 11, 14), limit=5, run=fake)
+                stored = telemetry.store_weeks(store, "proj", "data", dt.date(2026, 11, 14), limit=5, run=fake, days=COVERED)
             self.assertEqual(stored, ["2026-11-02"])
             self.assertIn("2026-10-26", said.getvalue())
             self.assertIn("quota", said.getvalue())
+
+
+class WeeksTheTablesCover(unittest.TestCase):
+    """A week before the first daily events table has no data, which is not a week of zeros; a week the tables cover
+    only in part is not a week either. Only weeks the tables hold whole are asked for, back to the first of them."""
+
+    def weeks(self, first, last, today=dt.date(2026, 11, 14), **more):
+        asked = []
+
+        def fake(project, dataset, days=0, start=None, end=None):
+            asked.append(start.isoformat())
+            return {"funnel": {"total_users": 3}}
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()) as said:
+            store = copy_store(tmp)
+            (store / "metrics" / "telemetry.csv").unlink(missing_ok=True)
+            stored = telemetry.store_weeks(store, "proj", "data", today, run=fake, days=lambda p, d: (first, last), **more)
+        return stored, asked, said.getvalue()
+
+    def test_back_to_the_first_whole_week_and_no_further(self):
+        stored, asked, _ = self.weeks(dt.date(2026, 9, 10), dt.date(2026, 11, 11))       # the first table is a Thursday
+        self.assertEqual(stored, ["2026-11-02", "2026-10-26", "2026-10-19", "2026-10-12", "2026-10-05", "2026-09-28",
+                                  "2026-09-21", "2026-09-14"])
+        self.assertEqual(asked, stored)                                                    # 09-07 is held only in part
+
+    def test_a_week_the_tables_have_not_reached_the_end_of_waits(self):
+        stored, _, _ = self.weeks(dt.date(2026, 9, 14), dt.date(2026, 11, 7))             # tables end on a Saturday
+        self.assertEqual(stored[0], "2026-10-26")
+        self.assertEqual(stored[-1], "2026-09-14")                                         # a first table on a Monday counts
+
+    def test_no_tables_asks_for_nothing_and_says_so(self):
+        stored, asked, said = self.weeks(None, None)
+        self.assertEqual((stored, asked), ([], []))
+        self.assertIn("no daily events table", said)
+
+    def test_the_table_days_are_read_from_the_table_names(self):
+        answer = [{"first": "events_20260910", "last": "events_20261111"}]
+        self.assertEqual(telemetry.table_days("proj", "data", query=lambda project, sql: answer),
+                         (dt.date(2026, 9, 10), dt.date(2026, 11, 11)))
+        self.assertEqual(telemetry.table_days("proj", "data", query=lambda project, sql: [{"first": None, "last": None}]), (None, None))
+        self.assertEqual(telemetry.table_days("proj", "data", query=lambda project, sql: []), (None, None))
 
 
 class Family(unittest.TestCase):

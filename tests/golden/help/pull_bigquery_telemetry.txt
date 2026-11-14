@@ -9,5 +9,5 @@ options:
   --days DAYS    Days to look back (0 for all-time)
   --export-md    Save markdown report to metrics/telemetry_latest.md
   --export-json  Save raw JSON to metrics/telemetry_latest.json
-  --weekly       Store the closed weeks not yet in metrics/telemetry.csv (newest first, at most
-                 12) and stop
+  --weekly       Store every closed week the event tables hold whole and metrics/telemetry.csv
+                 does not, then stop

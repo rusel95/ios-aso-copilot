@@ -310,19 +310,37 @@ def append_week(path: Path, rows: list) -> int:
     return append_changed(path, TELEMETRY_COLS, rows, ("week_start", "section", "metric"))
 
 
-def store_weeks(store: Path, project_id: str, dataset_id: str, today: dt.date, limit: int = 12, horizon: int = 12, run=None) -> list:
-    """Ask for the closed weeks the store does not hold yet, newest first, and append each as it answers. At most
-    `limit` weeks a run, out of the last `horizon` closed weeks. A week that fails stops the run; the weeks already
-    appended stay. Returns the weeks stored."""
+def table_days(project_id: str, dataset_id: str, query=None) -> tuple:
+    """(first, last) day the dataset holds a daily events table for, or (None, None). A read of table names only."""
+    rows = (query or run_bq_query)(project_id, (
+        f"SELECT MIN(table_id) AS first, MAX(table_id) AS last FROM `{project_id}.{dataset_id}.__TABLES_SUMMARY__` "
+        "WHERE REGEXP_CONTAINS(table_id, r'^events_[0-9]{8}$')"))
+    found = rows[0] if rows else {}
+    try:
+        return tuple(dt.datetime.strptime(found[k], "events_%Y%m%d").date() for k in ("first", "last"))
+    except (KeyError, TypeError, ValueError):
+        return None, None
+
+
+def store_weeks(store: Path, project_id: str, dataset_id: str, today: dt.date, limit=None, run=None, days=None) -> list:
+    """Ask for every closed week the store does not hold yet, newest first, back to the first week the event tables
+    hold whole, and append each as it answers; `limit` caps the weeks of one run. A week before the first table has
+    no data, which is not a week of zeros, and a week the tables cover in part is not a week: neither is asked for.
+    A week that fails stops the run; the weeks already appended stay. Returns the weeks stored."""
     run = run or analyze_telemetry
+    first, last = (days or table_days)(project_id, dataset_id)
+    if first is None:
+        print("  telemetry: the dataset holds no daily events table yet; nothing asked")
+        return []
     path = store / "metrics" / "telemetry.csv"
     held = {r["week_start"] for r in read_csv(path)}
-    newest = monday(today)
-    while not closed(newest, today):
-        newest -= dt.timedelta(days=7)
-    wanted = [newest - dt.timedelta(days=7 * n) for n in range(horizon)]
+    week, wanted = monday(today), []
+    while week >= first:                                  # the Monday itself must be a day the tables hold
+        if closed(week, today) and week + dt.timedelta(days=6) <= last and week.isoformat() not in held:
+            wanted.append(week)
+        week -= dt.timedelta(days=7)
     stored = []
-    for week in [w for w in wanted if w.isoformat() not in held][:limit]:
+    for week in wanted[:limit]:
         try:
             data = run(project_id, dataset_id, start=week, end=week + dt.timedelta(days=6))
         except RuntimeError as exc:
@@ -415,7 +433,7 @@ def main():
     parser.add_argument("--export-md", action="store_true", help="Save markdown report to metrics/telemetry_latest.md")
     parser.add_argument("--export-json", action="store_true", help="Save raw JSON to metrics/telemetry_latest.json")
     parser.add_argument("--weekly", action="store_true",
-                        help="Store the closed weeks not yet in metrics/telemetry.csv (newest first, at most 12) and stop")
+                        help="Store every closed week the event tables hold whole and metrics/telemetry.csv does not, then stop")
     args = parser.parse_args()
 
     store_path = Path(args.store).resolve()
