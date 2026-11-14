@@ -1,0 +1,472 @@
+{
+ "families": {
+  "ads": {
+   "figures": {
+    "cpi_usd": {
+     "approximation": null,
+     "definition": "Spend divided by installs from a tap, of the same week.",
+     "ratio": [
+      "spend_usd",
+      "installs"
+     ],
+     "title": "Cost per install",
+     "unit": "usd"
+    },
+    "impressions": {
+     "approximation": null,
+     "definition": "Times an ad of the app was shown in search results.",
+     "ratio": null,
+     "title": "Ad impressions",
+     "unit": "count"
+    },
+    "installs": {
+     "approximation": null,
+     "definition": "Installs Apple Ads attributes to a tap on an ad.",
+     "ratio": null,
+     "title": "Installs from a tap",
+     "unit": "count"
+    },
+    "spend_usd": {
+     "approximation": null,
+     "definition": "What Apple Ads charged for the week, in US dollars.",
+     "ratio": null,
+     "title": "Spend",
+     "unit": "usd"
+    },
+    "taps": {
+     "approximation": null,
+     "definition": "Times a shown ad was tapped.",
+     "ratio": null,
+     "title": "Taps",
+     "unit": "count"
+    },
+    "ttr": {
+     "approximation": null,
+     "definition": "Taps divided by ad impressions of the same week.",
+     "ratio": [
+      "taps",
+      "impressions"
+     ],
+     "title": "Tap-through rate",
+     "unit": "ratio"
+    }
+   },
+   "kind": "week",
+   "open": false,
+   "rows": null,
+   "title": "Apple Ads"
+  },
+  "charts": {
+   "figures": {},
+   "kind": "snapshot",
+   "open": false,
+   "rows": {
+    "rows": [
+     "market",
+     "genre",
+     "chart_type",
+     "position",
+     "status"
+    ]
+   },
+   "title": "Category charts"
+  },
+  "coverage": {
+   "figures": {
+    "failed_requests": {
+     "approximation": null,
+     "definition": "Every request in the ledger that failed, up to that day.",
+     "ratio": null,
+     "title": "Failed requests so far",
+     "unit": "count"
+    },
+    "observations": {
+     "approximation": null,
+     "definition": "Every row in the rank ledger up to that day.",
+     "ratio": null,
+     "title": "Observations",
+     "unit": "count"
+    },
+    "paired_keys": {
+     "approximation": null,
+     "definition": "Tracked keys with two reads that can be compared: same source, same depth, different days.",
+     "ratio": null,
+     "title": "Keys with a comparable pair",
+     "unit": "count"
+    },
+    "unmeasurable_keys": {
+     "approximation": null,
+     "definition": "Keys whose latest answer is an empty result list.",
+     "ratio": null,
+     "title": "Unmeasurable keys",
+     "unit": "count"
+    }
+   },
+   "kind": "snapshot",
+   "open": false,
+   "rows": null,
+   "title": "Coverage of the measurement"
+  },
+  "demand": {
+   "figures": {},
+   "kind": "snapshot",
+   "open": false,
+   "rows": {
+    "cuts": [
+     "market",
+     "genre",
+     "listed",
+     "min_popularity_100"
+    ],
+    "rows": [
+     "market",
+     "genre",
+     "term",
+     "popularity_100"
+    ]
+   },
+   "title": "Apple search popularity"
+  },
+  "impression_share": {
+   "figures": {},
+   "kind": "snapshot",
+   "open": false,
+   "rows": {
+    "rows": [
+     "market",
+     "term",
+     "rank",
+     "share_low",
+     "share_high"
+    ]
+   },
+   "title": "Impression share"
+  },
+  "in_app": {
+   "figures": {},
+   "kind": "week",
+   "open": true,
+   "rows": null,
+   "title": "In-app"
+  },
+  "lifecycle": {
+   "figures": {
+    "deleted_within_1d": {
+     "approximation": "Counted only on devices that share analytics with developers: a sample, not a total and not a cohort.",
+     "definition": "Opt-in deletions that happened within one day of the install.",
+     "ratio": null,
+     "title": "Deleted within a day",
+     "unit": "count"
+    },
+    "deletions_per_100": {
+     "approximation": "Counted only on devices that share analytics with developers: a sample, not a total and not a cohort.",
+     "definition": "Opt-in deletions for every hundred opt-in installs of the same week.",
+     "ratio": [
+      "optin_deletions",
+      "optin_installs"
+     ],
+     "title": "Deletions per 100 installs",
+     "unit": "per_100"
+    },
+    "optin_deletions": {
+     "approximation": "Counted only on devices that share analytics with developers: a sample, not a total and not a cohort.",
+     "definition": "Deletions of the app reported by the same opt-in devices.",
+     "ratio": null,
+     "title": "Deletions, opt-in devices",
+     "unit": "count"
+    },
+    "optin_installs": {
+     "approximation": "Counted only on devices that share analytics with developers: a sample, not a total and not a cohort.",
+     "definition": "First installs reported by devices that share analytics with developers.",
+     "ratio": null,
+     "title": "Installs, opt-in devices",
+     "unit": "count"
+    }
+   },
+   "kind": "week",
+   "open": false,
+   "rows": null,
+   "title": "Install lifecycle"
+  },
+  "money": {
+   "figures": {
+    "ad_spend_usd": {
+     "approximation": null,
+     "definition": "What Apple Ads charged for the week, in US dollars.",
+     "ratio": null,
+     "title": "Apple Ads spend",
+     "unit": "usd"
+    },
+    "net_cashflow_usd": {
+     "approximation": null,
+     "definition": "Proceeds minus Apple Ads spend for the week. Not profit: no other cost is in it.",
+     "ratio": null,
+     "title": "Net cashflow",
+     "unit": "usd"
+    },
+    "new_trials": {
+     "approximation": null,
+     "definition": "Free trials started in the week. A trial is not a paying customer.",
+     "ratio": null,
+     "title": "Trials started",
+     "unit": "count"
+    },
+    "proceeds_usd": {
+     "approximation": null,
+     "definition": "What the store pays out for the week's transactions, after its commission and taxes, in US dollars.",
+     "ratio": null,
+     "title": "Proceeds",
+     "unit": "usd"
+    },
+    "transactions": {
+     "approximation": null,
+     "definition": "Purchases and renewals that were paid for in the week.",
+     "ratio": null,
+     "title": "Paid transactions",
+     "unit": "count"
+    }
+   },
+   "kind": "week",
+   "open": false,
+   "rows": null,
+   "title": "Money"
+  },
+  "ranks": {
+   "figures": {
+    "beyond": {
+     "approximation": null,
+     "definition": "Keys read and not found within the depth searched.",
+     "ratio": null,
+     "title": "Beyond depth",
+     "unit": "count"
+    },
+    "errors": {
+     "approximation": null,
+     "definition": "Keys whose request failed that day: unknown, not absent.",
+     "ratio": null,
+     "title": "Failed requests",
+     "unit": "count"
+    },
+    "keys_read": {
+     "approximation": null,
+     "definition": "Tracked keys that got an answer that day: a position, or not found within the depth searched.",
+     "ratio": null,
+     "title": "Keys read",
+     "unit": "count"
+    },
+    "no_results": {
+     "approximation": null,
+     "definition": "Keys for which the search returned nothing at all, so they cannot say where the app stands.",
+     "ratio": null,
+     "title": "No results",
+     "unit": "count"
+    },
+    "share_top10": {
+     "approximation": null,
+     "definition": "Keys in the top 10 divided by keys read that day.",
+     "ratio": [
+      "top10",
+      "keys_read"
+     ],
+     "title": "Share in the top 10",
+     "unit": "ratio"
+    },
+    "share_top30": {
+     "approximation": null,
+     "definition": "Keys at positions 1 to 30 divided by keys read that day.",
+     "ratio": [
+      "top10 + top30",
+      "keys_read"
+     ],
+     "title": "Share in the top 30",
+     "unit": "ratio"
+    },
+    "top10": {
+     "approximation": null,
+     "definition": "Keys read at positions 1 to 10.",
+     "ratio": null,
+     "title": "Top 10",
+     "unit": "count"
+    },
+    "top100": {
+     "approximation": null,
+     "definition": "Keys read at positions 31 to 100.",
+     "ratio": null,
+     "title": "31 to 100",
+     "unit": "count"
+    },
+    "top200": {
+     "approximation": null,
+     "definition": "Keys read at positions 101 to 200.",
+     "ratio": null,
+     "title": "101 to 200",
+     "unit": "count"
+    },
+    "top30": {
+     "approximation": null,
+     "definition": "Keys read at positions 11 to 30.",
+     "ratio": null,
+     "title": "11 to 30",
+     "unit": "count"
+    },
+    "tracked_keys": {
+     "approximation": null,
+     "definition": "Non-brand keys the store had asked about by that day, read or not.",
+     "ratio": null,
+     "title": "Tracked keys",
+     "unit": "count"
+    }
+   },
+   "kind": "snapshot",
+   "open": false,
+   "rows": null,
+   "title": "Keyword ranks"
+  },
+  "ratings": {
+   "figures": {
+    "rating_average": {
+     "approximation": null,
+     "definition": "The mean of those star ratings, from 1 to 5.",
+     "ratio": null,
+     "title": "Average rating",
+     "unit": "stars"
+    },
+    "ratings_count": {
+     "approximation": null,
+     "definition": "Star ratings the app holds at the moment of the read.",
+     "ratio": null,
+     "title": "Ratings",
+     "unit": "count"
+    },
+    "reviews": {
+     "approximation": null,
+     "definition": "Reviews with text at the moment of the read.",
+     "ratio": null,
+     "title": "Written reviews",
+     "unit": "count"
+    },
+    "reviews_unanswered": {
+     "approximation": null,
+     "definition": "Written reviews that have no developer reply.",
+     "ratio": null,
+     "title": "Unanswered reviews",
+     "unit": "count"
+    }
+   },
+   "kind": "snapshot",
+   "open": false,
+   "rows": null,
+   "title": "Ratings and reviews"
+  },
+  "store_funnel": {
+   "figures": {
+    "first_downloads": {
+     "approximation": null,
+     "definition": "Downloads by accounts that never had the app before. Updates and re-downloads are left out.",
+     "ratio": null,
+     "title": "First-time downloads",
+     "unit": "count"
+    },
+    "impression_cvr": {
+     "approximation": null,
+     "definition": "First-time downloads divided by impressions, both of the same week.",
+     "ratio": [
+      "first_downloads",
+      "impressions"
+     ],
+     "title": "Impressions that download",
+     "unit": "ratio"
+    },
+    "impressions": {
+     "approximation": null,
+     "definition": "Times the app was seen in the store on a unique device: in search results, on a chart, on the Today tab or on its own product page.",
+     "ratio": null,
+     "title": "Impressions",
+     "unit": "count"
+    },
+    "page_cvr": {
+     "approximation": null,
+     "definition": "First-time downloads divided by product page views, both of the same week.",
+     "ratio": [
+      "first_downloads",
+      "page_views"
+     ],
+     "title": "Page views that download",
+     "unit": "ratio"
+    },
+    "page_views": {
+     "approximation": null,
+     "definition": "Times the app's product page was opened on a unique device.",
+     "ratio": null,
+     "title": "Product page views",
+     "unit": "count"
+    },
+    "view_rate": {
+     "approximation": null,
+     "definition": "Product page views divided by impressions, both of the same week.",
+     "ratio": [
+      "page_views",
+      "impressions"
+     ],
+     "title": "Impressions that open the page",
+     "unit": "ratio"
+    }
+   },
+   "kind": "week",
+   "open": false,
+   "rows": null,
+   "title": "Store funnel"
+  },
+  "subscriptions": {
+   "figures": {
+    "active_subscriptions": {
+     "approximation": null,
+     "definition": "Paid subscriptions active at the moment of the read.",
+     "ratio": null,
+     "title": "Active subscriptions",
+     "unit": "count"
+    },
+    "active_trials": {
+     "approximation": null,
+     "definition": "Free trials running at the moment of the read.",
+     "ratio": null,
+     "title": "Active trials",
+     "unit": "count"
+    },
+    "active_users_28d": {
+     "approximation": null,
+     "definition": "Users seen in the 28 days before the read.",
+     "ratio": null,
+     "title": "Active users, 28 days",
+     "unit": "count"
+    },
+    "mrr_usd": {
+     "approximation": null,
+     "definition": "Monthly recurring revenue as the subscription provider computes it, in US dollars.",
+     "ratio": null,
+     "title": "MRR",
+     "unit": "usd"
+    },
+    "new_customers_28d": {
+     "approximation": null,
+     "definition": "Customers first seen in the 28 days before the read.",
+     "ratio": null,
+     "title": "New customers, 28 days",
+     "unit": "count"
+    },
+    "revenue_28d_usd": {
+     "approximation": null,
+     "definition": "Gross revenue of the 28 days before the read, in US dollars.",
+     "ratio": null,
+     "title": "Revenue, 28 days",
+     "unit": "usd"
+    }
+   },
+   "kind": "snapshot",
+   "open": false,
+   "rows": null,
+   "title": "Subscriptions"
+  }
+ },
+ "schema": "aso-copilot/catalog@1"
+}
