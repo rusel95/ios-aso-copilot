@@ -314,6 +314,7 @@ ios-aso-copilot export [--as-of YYYY-MM-DD] [--check]        # Store → data/ a
 ios-aso-copilot build [--out DIR]                            # data/ → index.html (offline)
 ios-aso-copilot check                                        # Look through data/ for what must not be published
 ios-aso-copilot due [--as-of YYYY-MM-DD]                     # The rank reads live hypotheses still need
+ios-aso-copilot propose [--limit N] [--basket K]             # Generate the next rank hypotheses: free storefronts by money at stake
 ios-aso-copilot rc [--start YYYY-MM-DD] [--export] [--json]  # Live RevenueCat 3-tier revenue + Apple Ads Cashflow/ROAS (alias: cashflow)
 ios-aso-copilot funnel [--pull]                              # ASC Funnel metrics
 ios-aso-copilot reviews ratings                              # Customer reviews & ratings

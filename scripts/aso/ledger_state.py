@@ -122,3 +122,29 @@ def priority(pairs: dict, markets: dict, hyps: list, brand: list, demand) -> lis
                      "demand": demand_label(demand, market, keyword) if shown else None})
     rows.sort(key=lambda r: (r["score"], r["market"], r["keyword"]), reverse=True)
     return rows
+
+
+def proposals(rows: list, states: list, basket: int = 4, limit: int = 5) -> list:
+    """Where the next rank hypothesis can start: one entry a storefront with no window in flight there (one change
+    at a time, or the window measures two things), best first by its strongest key, each with the untaken keys to
+    aim at, those Apple lists demand for first. `rows` is the priority order, `states` the hypothesis states. A storefront whose only hypothesis is a
+    draft that never shipped is still free, and the draft is named so it is shipped or revised, not written twice.
+    This is the deterministic half of a proposal: which storefront, which keys, from which positions. The change
+    and its mechanism are argued by whoever writes the hypothesis."""
+    busy = {m for h in states if h["state"] in ("open", "due") for m in h["markets"]}
+    drafted = {}
+    for h in states:
+        if h["state"] == "not-shipped":
+            for m in h["markets"]:
+                drafted.setdefault(m, []).append(h["id"])
+    found = {}
+    for r in rows:                                        # already ordered by score, best first
+        if r["market"] in busy:
+            continue
+        entry = found.setdefault(r["market"], {"market": r["market"], "score": r["score"], "proceeds": r["proceeds"],
+                                               "drafted": sorted(drafted.get(r["market"], [])), "keys": []})
+        entry["keys"].append({k: r[k] for k in ("keyword", "position", "band", "score", "demand")})
+    chosen = list(found.values())[:limit]
+    for entry in chosen:        # a target needs shown demand: keys Apple lists a score for first, then by score as they came
+        entry["keys"] = sorted(entry["keys"], key=lambda k: not str(k["demand"] or "").startswith("head"))[:basket]
+    return chosen

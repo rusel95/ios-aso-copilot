@@ -81,6 +81,19 @@ respect a server-provided retry delay when available. Refresh `markets.csv` when
 
 ## Propose a hypothesis
 
+```bash
+python3 "$COPILOT" propose --store "$STORE" [--limit 5] [--basket 4] [--as-of YYYY-MM-DD]
+```
+
+`propose` is the deterministic half of generating a hypothesis. It names what is due first, then lists the
+storefronts with no window in flight, best first by net proceeds x unclaimed gain x reach of their strongest key,
+each with the keys to aim at (those Apple lists a demand score for come first: a target needs shown demand), a
+note of any draft there that never shipped, and the `ledger draft` line. The other half is the argument: what
+changes, and why that should move these keys. Write it from the store's own figures and save the file under
+`hypotheses/`; a hypothesis about the funnel, the app or the paywall carries `primary_signal: funnel` and
+names the figure in `data/` its prediction is read from.
+
+
 Draft with `python3 "$COPILOT" ledger --store "$STORE" draft --market X --queries "a; b"`. It scaffolds
 only the deterministic half — id, storefront, basket, each query's real baseline, the window dates,
 a kill criterion carrying those numbers, the storefront's net proceeds, and every collision with

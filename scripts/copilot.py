@@ -25,7 +25,7 @@ from aso.commands.campaign import cmd_campaign  # noqa: E402
 from aso.commands.charts import cmd_charts  # noqa: E402
 from aso.commands.collect import cmd_funnel, cmd_ga, cmd_ledger, cmd_radar, cmd_rc, cmd_reviews, cmd_telemetry  # noqa: E402
 from aso.commands.cycle import cmd_cycle  # noqa: E402
-from aso.commands.dashboard import cmd_build, cmd_check, cmd_due, cmd_export  # noqa: E402
+from aso.commands.dashboard import cmd_build, cmd_check, cmd_due, cmd_export, cmd_propose  # noqa: E402
 from aso.commands.google import cmd_google  # noqa: E402
 from aso.commands.keywords import cmd_keywords  # noqa: E402
 from aso.commands.status import cmd_brief, cmd_info, cmd_status  # noqa: E402
@@ -125,6 +125,11 @@ def build_parser():
     p_due.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the list is made for (default: today)")
     subparsers.add_parser("check", help="Look through the data folder for what must not be published (offline)",
                           parents=[common_parent])
+    p_propose = subparsers.add_parser("propose", help="Generate the next rank hypotheses from the store: free storefronts by money at stake (offline)",
+                                      parents=[common_parent])
+    p_propose.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the proposals are made for (default: today)")
+    p_propose.add_argument("--limit", type=int, default=5, help="How many storefronts to propose (default: 5)")
+    p_propose.add_argument("--basket", type=int, default=4, help="How many keys a proposal aims at (default: 4)")
 
     # cycle
     subparsers.add_parser("brief", help="One screen: ASC state, Top-200 bands, all hypotheses, store funnel & cashflow", parents=[common_parent])
@@ -285,6 +290,8 @@ def main():
         return cmd_due(args)
     elif args.command == "check":
         return cmd_check(args)
+    elif args.command == "propose":
+        return cmd_propose(args)
     return 0
 
 

@@ -1,0 +1,13 @@
+usage: copilot.py propose [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                          [--as-of YYYY-MM-DD] [--limit LIMIT] [--basket BASKET]
+
+options:
+  -h, --help          show this help message and exit
+  --store STORE       Path to marketing store directory
+  --debug, -d         Print debug diagnostics to stderr
+  --info, -v          Print informational logs to stderr
+  --quiet, -q         Suppress non-essential output
+  --json              Format output as JSON where applicable
+  --as-of YYYY-MM-DD  The day the proposals are made for (default: today)
+  --limit LIMIT       How many storefronts to propose (default: 5)
+  --basket BASKET     How many keys a proposal aims at (default: 4)

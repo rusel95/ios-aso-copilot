@@ -127,7 +127,7 @@ build     data/   → page       offline; one self-contained index.html that com
 | Refresh everything, the weekly pass, `--full` | `ios-aso-copilot collect` | `references/collect.md` |
 | Update the page | `ios-aso-copilot export`, then `ios-aso-copilot build` | `references/export-and-page.md` |
 | A window closed | `ios-aso-copilot due`, `ios-aso-copilot ledger` | `references/judge.md` |
-| What to test next | `ios-aso-copilot ledger`, `ios-aso-copilot radar` | `references/judge.md`, `references/aso-loop.md` |
+| What to test next | `ios-aso-copilot propose`, `ios-aso-copilot radar` | `references/judge.md`, `references/aso-loop.md` |
 | Change keywords, bids, replies, metadata | a queue entry first | `references/actions.md` |
 
 `ios-aso-copilot --full [app and scope]` is a skill argument, not a CLI flag: one pass with the rank sweep,
@@ -188,11 +188,22 @@ evidence is named. No command writes a verdict: you do, against the evidence tab
 
 ## Propose a hypothesis
 
-Not before the live funnel, the cashflow and section A are on screen: proposing while live experiments sit
-unjudged is how a store gathers open hypotheses and no verdicts. Draft with the ledger's `draft` command;
-it refuses a basket the store has never read, and leaves `change` and `mechanism` for you to argue. A target
-query needs shown demand (Apple autocomplete or search popularity), not a guessed phrase:
-`references/judge.md`, `references/aso-loop.md`, `references/playbooks.md`.
+Generating hypotheses is the skill's job, and a full run ends with it: after the due ones are judged, write the
+next ones into `$STORE/hypotheses/` as drafts. Not before the live funnel, the cashflow and section A are on
+screen: proposing while live experiments sit unjudged is how a store gathers open hypotheses and no verdicts.
+
+1. `ios-aso-copilot propose` lists the storefronts free to start a rank hypothesis, by money at stake, each with
+   its basket (keys Apple lists demand for first) and the line that drafts it. A storefront with a window in
+   flight is left out; a draft that never shipped is named, to be shipped or revised rather than written twice.
+2. Run the draft line for the best ones. It fills in the id, the baselines, the window and a kill criterion, and
+   refuses a basket the store has never read. `change` and `mechanism` are yours: argue them from what the data
+   shows (the keys' movement, the demand trend, the storefront's funnel), never from a guessed phrase.
+3. Look beyond rank: a storefront with impressions and few page views, an in-app step that loses most users, a
+   paywall entry with few buyers, deletions rising after a release. Each is a hypothesis with
+   `primary_signal: funnel`, a prediction with numbers from `data/`, and a kill criterion.
+4. A draft changes nothing outside the store. Shipping it is an action: the queue.
+
+Rules and the evidence a target needs: `references/judge.md`, `references/aso-loop.md`, `references/playbooks.md`.
 
 ## Actions
 
