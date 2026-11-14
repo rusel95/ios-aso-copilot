@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import os
 import re
 import sys
 from pathlib import Path
@@ -42,6 +43,23 @@ def read_config(store: Path) -> dict:
     cfg["genres"] = [g.strip().upper() for g in cfg.get("genres", "").split(",") if g.strip()]
     cfg["topics"] = [t.strip().casefold() for t in cfg.get("topics", "").split(",") if t.strip()]
     return cfg
+
+
+def credentials_path(named: str, env) -> tuple:
+    """(the Google credentials file to use, what to tell the user). A project names its own file in config.md, and
+    that file wins when it is on this machine. When it is not, the machine's own settings are used instead of a
+    path that leads nowhere: GOOGLE_APPLICATION_CREDENTIALS, else None, and the client library then looks for
+    gcloud's application-default login by itself."""
+    named = os.path.expanduser(named or "")
+    if named and os.path.isfile(named):
+        return named, ""
+    fallback = env.get("GOOGLE_APPLICATION_CREDENTIALS") or None
+    if not named:
+        return fallback, ""
+    return fallback, (f"config.md names GA4 credentials at {named}, and no such file is on this machine; using "
+                      + ("GOOGLE_APPLICATION_CREDENTIALS instead." if fallback else
+                         "the machine's own login instead (set one up with: gcloud auth application-default login "
+                         "--scopes=https://www.googleapis.com/auth/analytics.readonly,https://www.googleapis.com/auth/cloud-platform)."))
 
 
 def norm(text) -> str:

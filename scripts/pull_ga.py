@@ -48,6 +48,7 @@ except ImportError:
         "    pip3 install google-analytics-data\n"
         "або використовуйте віртуальне оточення проекту (.venv)."
     )
+from aso.store import credentials_path  # noqa: E402
 from aso.pull_ga_reports import (  # noqa: E402,F401
     KNOWN_EVENTS,
     event_name_filter,
@@ -142,10 +143,11 @@ def resolve_app_info(store: Path):
 
 
 def find_default_credentials(app_info: dict):
-    """Prefer this app's explicit credential path, then a configured runtime credential."""
-    if app_info.get("ga4_creds"):
-        return os.path.expanduser(app_info["ga4_creds"])
-    return os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    """This app's own credential file when it is on this machine, else the machine's own settings."""
+    path, said = credentials_path(app_info.get("ga4_creds") or "", os.environ)
+    if said:
+        print(f"⚠️  {said}", file=sys.stderr)
+    return path
 
 
 def verify_firebase_app(app_info: dict, store: Path):

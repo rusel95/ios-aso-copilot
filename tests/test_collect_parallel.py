@@ -149,3 +149,43 @@ class FunnelCache(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WhereTheFetchSettingsComeFrom(unittest.TestCase):
+    """A project names its own credentials in its config.md; when that file is not on this machine, the machine's
+    own settings are used rather than a path that leads nowhere."""
+
+    def test_the_projects_own_file_wins_when_it_exists(self):
+        from aso.store import credentials_path
+        with tempfile.TemporaryDirectory() as tmp:
+            key = Path(tmp) / "key.json"
+            key.write_text("{}", encoding="utf-8")
+            self.assertEqual(credentials_path(str(key), {"GOOGLE_APPLICATION_CREDENTIALS": "/global.json"}), (str(key), ""))
+
+    def test_a_named_file_that_is_missing_falls_back_to_the_machines_settings_and_says_so(self):
+        from aso.store import credentials_path
+        path, said = credentials_path("/nowhere/app-adc.json", {"GOOGLE_APPLICATION_CREDENTIALS": "/global.json"})
+        self.assertEqual(path, "/global.json")
+        self.assertIn("/nowhere/app-adc.json", said)
+        path, said = credentials_path("/nowhere/app-adc.json", {})
+        self.assertIsNone(path)              # the client library then looks for gcloud's application-default login
+        self.assertIn("gcloud auth application-default login", said)
+
+    def test_nothing_named_is_not_a_warning(self):
+        from aso.store import credentials_path
+        self.assertEqual(credentials_path("", {}), (None, ""))
+
+
+class TheLatestObservation(unittest.TestCase):
+    """History can be ingested after the fact, so the last line of ranks.csv is not always a key's newest read."""
+
+    def test_a_key_is_retried_by_its_newest_day_not_its_last_line(self):
+        from aso.ledger_ingest import refresh_basket
+        rows = [{"date": "2026-11-02", "market": "us", "keyword": "tide times", "group": "target", "status": "error"},
+                {"date": "2026-11-02", "market": "us", "keyword": "moon phase", "group": "asa-observed", "status": "ok"},
+                {"date": "2026-08-26", "market": "us", "keyword": "tide times", "group": "target", "status": "ok"}]   # backfilled later
+        basket, groups = refresh_basket(rows, None, failed_only=True)
+        self.assertEqual(basket, {"us": ["tide times"]})
+        self.assertEqual(groups[("us", "moon phase")], "asa-observed")
+        self.assertEqual(refresh_basket(rows, {"ua"}, failed_only=False)[0], {})
+        self.assertEqual(refresh_basket(rows, None, failed_only=False)[0], {"us": ["tide times", "moon phase"]})

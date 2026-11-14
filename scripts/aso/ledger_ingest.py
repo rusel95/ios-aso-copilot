@@ -200,6 +200,22 @@ def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target", g
     return new
 
 
+def refresh_basket(rows: list, markets_filter, failed_only: bool) -> tuple:
+    """({market: [keywords]}, {(market, keyword): group}) to ask again. A key's newest observation decides: by its
+    date, then by its line, because history ingested after the fact sits below newer rows in the file."""
+    latest = {}
+    for r in sorted(rows, key=lambda r: r["date"]):          # stable: a retry on the same day is the later line
+        latest[(r["market"], r["keyword"])] = r
+    basket = {}
+    for (market, keyword), r in latest.items():
+        if markets_filter and market not in markets_filter:
+            continue
+        if failed_only and r["status"] != "error":
+            continue
+        basket.setdefault(market, []).append(keyword)
+    return basket, {key: (r.get("group") or "target") for key, r in latest.items()}
+
+
 def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: float,
             out_dir: Path):
     """Re-query the basket the store already tracks, then ingest it. One command, so that the
@@ -219,23 +235,13 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     rows = read_ranks(store)
     if not rows:
         sys.exit("nothing tracked yet: ingest a snapshot before refreshing")
-    latest = {}
-    for r in rows:                                   # last observation per key decides what to redo
-        latest[(r["market"], r["keyword"])] = r
-    basket = {}
-    for (market, keyword), r in latest.items():
-        if markets_filter and market not in markets_filter:
-            continue
-        if failed_only and r["status"] != "error":
-            continue
-        basket.setdefault(market, []).append(keyword)
+    basket, groups = refresh_basket(rows, markets_filter, failed_only)
     if not basket:
         print("nothing to refresh with those filters")
         return 0
     script = Path(__file__).resolve().parent.parent / "rank_audit.py"
     out_dir.mkdir(parents=True, exist_ok=True)
     merged, ok, err, ingested = {}, 0, 0, 0
-    groups = {key: (r.get("group") or "target") for key, r in latest.items()}
     failed_markets: list[str] = []
     missing_by_market: dict[str, list[str]] = {}
     for market in sorted(basket):
