@@ -133,6 +133,10 @@ def build_parser():
     p_cycle.add_argument("--skip-pull", action="store_true", help="Skip remote ASC funnel download")
     p_cycle.add_argument("--skip-ga", action="store_true", help="Skip GA4 pull")
     p_cycle.add_argument("--skip-rc", action="store_true", help="Skip live RevenueCat & Cashflow pull")
+    p_cycle.add_argument("--ranks", action="store_true",
+                         help="Also ask the App Store again for every tracked key (about an hour; it runs beside the other stages)")
+    p_cycle.add_argument("--jobs", type=int, default=None, metavar="N",
+                         help="How many stages run side by side (default: all of them; 1 runs them one after another)")
 
     # rc / cashflow
     p_rc = subparsers.add_parser("rc", aliases=["cashflow"], help="Pull RevenueCat metrics, 3-tier revenue (Gross/NetTax/Proceeds) & Apple Ads Cashflow", parents=[common_parent])

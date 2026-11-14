@@ -11,8 +11,12 @@ from pathlib import Path
 from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identity, run_cmd
 from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
+from aso.commands.parallel import run_stages
 from aso.store_state import store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
+
+
+DEFAULT_JOBS = 8       # the stages wait on different services; side by side, a pass takes as long as its slowest one
 
 
 class _Tee:
@@ -32,7 +36,7 @@ class _Tee:
 
 
 def cycle_stage_table(text):
-    """Stage | status | reason, read back from the cycle's own `▶ [n/7]` sections.
+    """Stage | status | reason, read back from the cycle's own `▶ [n/N]` sections.
 
     The long output scrolls and a caller that tails it loses the warnings; this is the part that
     must still be on screen. ok = no warning; partial = a warning line; failed = a source error or
@@ -112,8 +116,8 @@ def funnel_digest(store, today=None):
                   f"{pct(r.get('deletions_optin'), r.get('first_installs_optin')):>10}{r.get('deleted_within_1d', ''):>8}")
 
 
-def cashflow_digest(store: Path, refresh: bool = False):
-    """Print or refresh RevenueCat & Apple Ads Cashflow summary (Gross, Net Tax, Proceeds vs Ad Spend)."""
+def cashflow_digest(store: Path):
+    """Print the stored RevenueCat & Apple Ads cashflow summary (Gross, Net Tax, Proceeds vs Ad Spend)."""
     store = Path(store).resolve()
     try:
         app = resolve_app_identity(store)
@@ -121,19 +125,6 @@ def cashflow_digest(store: Path, refresh: bool = False):
         return
     rc_project_id = app.get("rc_project_id")
     rc_json_path = store / "metrics" / "revenuecat_latest.json"
-
-    if refresh and rc_project_id:
-        try:
-            import pull_revenuecat
-            data, err = pull_revenuecat.collect_revenuecat_and_cashflow(store, project_id_override=rc_project_id)
-            if not err and data:
-                pull_revenuecat.export_snapshots(store, data)
-                pull_revenuecat.print_cashflow_report(data)
-                return
-            elif err:
-                print(f"\n⚠️ RevenueCat & Cashflow live pull failed: {err}")
-        except Exception as exc:
-            print(f"\n⚠️ RevenueCat & Cashflow live pull error: {exc}")
 
     if rc_json_path.is_file():
         try:
@@ -209,7 +200,7 @@ def cmd_cycle(args):
     rows = cycle_stage_table("".join(tee.parts))
     store = Path(args.store).resolve()
     funnel_digest(store)
-    cashflow_digest(store, refresh=not getattr(args, "skip_rc", False))
+    cashflow_digest(store)
     print("\nSTAGE SUMMARY (a footer above is not a completeness certificate)")
     print(f"{'#':<2} {'stage':<46} {'status':<8} reason")
     for num, name, status, reason in rows:
@@ -297,38 +288,21 @@ def print_step_funnel_summary(store):
             print(f"       {w}: {w_imp:>7,} impr (Search: {w_s_imp:>6,}) · {w_dl:>3} first-dl")
 
 
-def _cycle_run(args):
-    """Run the consolidated live-read and local snapshot pass."""
-    store = Path(args.store).resolve()
-    app = resolve_app_identity(store)
-    app_id = app["app_id"]
-    partial = False
-
-    print("=================================================================")
-    print(f"🚀 {app['brand']} Marketing CLI Cycle · {store}")
-    print(f"App ID: {app_id} · Version: {app['version']}")
-    print("=================================================================\n")
-
-    # Step 1: Reconcile versions
-    print("▶ [1/7] Verifying App Store Connect Versions...")
+def stage_versions(app_id: str) -> bool:
     rc, out, err = run_cmd(["asc", "versions", "list", "--app", app_id, "--platform", "IOS"])
-    if rc == 0:
-        if out.strip():
-            summary = compact_asc_output(out, "versions")
-            if summary:
-                print(f"  {summary}")
-            else:
-                print("  ⚠️ ASC version output format is unknown; payload omitted.")
-                partial = True
-        else:
-            print("  ⚠️ ASC version query returned no output.")
-            partial = True
-    else:
+    if rc != 0:
         print(f"  ⚠️ Could not query ASC versions: {err.strip() or f'exit {rc}'}")
-        partial = True
+        return False
+    if not out.strip():
+        print("  ⚠️ ASC version query returned no output.")
+        return False
+    summary = compact_asc_output(out, "versions")
+    print(f"  {summary}" if summary else "  ⚠️ ASC version output format is unknown; payload omitted.")
+    return bool(summary)
 
-    # Step 2: Reviews & Ratings
-    print("\n▶ [2/7] Auditing Customer Reviews & Ratings...")
+
+def stage_ratings(store: Path, app_id: str) -> bool:
+    clean = True
     rc, out, err = run_cmd(["asc", "reviews", "ratings", "--app", app_id, "--all"])
     ratings_out = out if rc == 0 else ""
     if rc == 0 and out.strip():
@@ -337,13 +311,13 @@ def _cycle_run(args):
             print(f"  {summary}")
         else:
             print("  ⚠️ ASC ratings output format is unknown; payload omitted.")
-            partial = True
+            clean = False
     elif rc == 0:
         print("  ⚠️ ASC ratings query returned no output.")
-        partial = True
+        clean = False
     else:
         print(f"  ⚠️ Could not query ASC ratings: {err.strip() or f'exit {rc}'}")
-        partial = True
+        clean = False
     rc, out, err = run_cmd(["asc", "reviews", "--app", app_id, "--only-unresponded"])
     # the history: what this pass read of the store's own state is appended to the store, never rewritten
     seen = dt.date.today().isoformat()
@@ -357,39 +331,40 @@ def _cycle_run(args):
             print(f"  📝 {summary}")
         else:
             print("  📝 Unresponded review output format is unknown; payload omitted.")
-            partial = True
+            clean = False
     elif rc == 0:
         print("  📝 Unresponded review query returned no output; whether there are zero rows is unknown.")
-        partial = True
+        clean = False
     else:
         print(f"  ⚠️ Could not query unresponded reviews: {err.strip() or f'exit {rc}'}")
-        partial = True
+        clean = False
+    return clean
 
-    # Step 3: Funnel metrics & App Store impressions
-    print("\n▶ [3/7] Syncing Funnel Analytics & Impressions (ASC)...")
-    pull_script = funnel_script(store)
-    if args.skip_pull:
+
+def stream(command: list, env=None) -> tuple:
+    """Run a long child and pass its lines on as they come -> (exit code, lines)."""
+    proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
+    lines = []
+    for line in proc.stdout:
+        lines.append(line.strip())
+        print("  " + line.rstrip("\n"), flush=True)
+    return proc.wait(), lines
+
+
+def stage_funnel(store: Path, app_id: str, skip: bool) -> bool:
+    pull_script, clean = funnel_script(store), True
+    if skip:
         print("  (Funnel pull explicitly skipped)")
-        print_step_funnel_summary(store)
     elif pull_script.exists():
         command, raw_dir, reason = prepare_funnel_pull(pull_script, store, app_id)
         if command is None:
             print(f"  ⚠️ {reason}")
-            print_step_funnel_summary(store)
-            partial = True
+            clean = False
         else:
-            print("  Running pull_funnel.py (ASC analytics reporting is not real-time — this can take "
-                  "several minutes for a storefront with many tracked keywords)...")
-            print(f"  Preserving source CSVs under {raw_dir}")
-            env = dict(os.environ)
-            env["ASC_TIMEOUT"] = "120s"
-            proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    text=True, bufsize=1, env=env)
-            lines = []
-            for line in proc.stdout:
-                lines.append(line.strip())
-                print("  " + line.rstrip("\n"), flush=True)
-            rc = proc.wait()
+            print("  Running pull_funnel.py (ASC analytics is not real-time, and a first pull downloads every daily "
+                  "report: half an hour is normal; later pulls ask only for new days)...")
+            print(f"  Keeping source CSVs under {raw_dir}")
+            rc, lines = stream(command, dict(os.environ, ASC_TIMEOUT="120s"))
             if rc == 0:
                 print("  ✓ Funnel metrics & impressions updated.")
             else:
@@ -397,93 +372,142 @@ def _cycle_run(args):
                            next((l for l in reversed(lines) if l), "no output"))
                 print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale. "
                       f"Cause: {why[:200]}")
-                partial = True
-            print_step_funnel_summary(store)
+                clean = False
     else:
         print("  ⚠️ Funnel pull unavailable — pull_funnel.py not found in store or skill scripts/.")
-        print_step_funnel_summary(store)
-        partial = True
+        clean = False
+    print_step_funnel_summary(store)
+    return clean
 
-    # Step 4: GA4 Telemetry
-    print("\n▶ [4/7] Pulling In-App Telemetry (GA4)...")
+
+def stage_ga(store: Path, app: dict, skip: bool) -> bool:
     ga_script = SKILL_DIR / "scripts" / "pull_ga.py"
     if not ga_script.exists():
         ga_script = store / "scripts" / "pull_ga.py"
     venv_py = Path.cwd() / ".venv" / "bin" / "python"
     py_exec = str(venv_py) if venv_py.exists() else sys.executable
-    if args.skip_ga:
+    if skip:
         print("  (GA4 pull explicitly skipped)")
-    elif not app["ga4_property_id"]:
+        return True
+    if not app["ga4_property_id"]:
         print(f"  ⚠️ GA4 Property ID missing from {store / 'config.md'}; skipping rather than using a fallback.")
-        partial = True
-    elif ga_script.exists():
-        rc, out, err = run_cmd([py_exec, str(ga_script), "--store", str(store), "--days", "14",
-                                "--property-id", app["ga4_property_id"]])
-        if rc == 0:
-            if not out.strip():
-                print("  ⚠️ GA4 returned no output; whether the result is empty or unavailable is unknown.")
-                partial = True
-            else:
-                lines = out.splitlines()
-                for l in lines[:250]:
-                    print(f"  {l}")
-                if len(lines) > 250:
-                    print(f"  … {len(lines) - 250} additional GA4 output lines omitted.")
-        elif rc == 2 and out.strip():
-            # pull_ga.py uses exit 2 for "partial" and prints everything it did get; the cycle used to
-            # report "failed: exit 2" and drop the tables (and the reason) on the floor.
-            lines = out.splitlines()
-            for l in lines[:250]:
-                print(f"  {l}")
-            if len(lines) > 250:
-                print(f"  … {len(lines) - 250} additional GA4 output lines omitted.")
-            why = next((l.strip(" ⚠️") for l in reversed(lines) if "⚠️" in l), "see the GA4 output above")
-            print(f"  ⚠️ GA4 pull partial (exit 2): {why[:160]}")
-            partial = True
-        else:
-            print(f"  ⚠️ GA4 pull failed: {err.strip() or f'exit {rc}'}")
-            partial = True
-    else:
+        return False
+    if not ga_script.exists():
         print("  ⚠️ GA4 pull unavailable — pull_ga.py not found in skill or store scripts/.")
-        partial = True
+        return False
+    rc, out, err = run_cmd([py_exec, str(ga_script), "--store", str(store), "--days", "14",
+                            "--property-id", app["ga4_property_id"]])
+    lines = out.splitlines()
+    if rc in (0, 2) and out.strip():
+        for l in lines[:250]:
+            print(f"  {l}")
+        if len(lines) > 250:
+            print(f"  … {len(lines) - 250} additional GA4 output lines omitted.")
+    if rc == 0 and out.strip():
+        return True
+    if rc == 0:
+        print("  ⚠️ GA4 returned no output; whether the result is empty or unavailable is unknown.")
+    elif rc == 2 and out.strip():
+        # pull_ga.py uses exit 2 for "partial" and prints everything it did get, with the reason
+        why = next((l.strip(" ⚠️") for l in reversed(lines) if "⚠️" in l), "see the GA4 output above")
+        print(f"  ⚠️ GA4 pull partial (exit 2): {why[:160]}")
+    else:
+        print(f"  ⚠️ GA4 pull failed: {err.strip() or f'exit {rc}'}")
+    return False
 
-    # Step 5: Apple demand radar
-    print("\n▶ [5/7] Storing In-App Weeks & Chart Positions...")
-    if not collect_extras(store, app):
-        partial = True
 
-    print("\n▶ [6/7] Apple demand radar (search popularity, impression share)...")
-    radar_py = SKILL_DIR / "scripts" / "radar.py"
-    rc, out, err = run_cmd([sys.executable, str(radar_py), "--store", str(store), "pull", "--if-configured"])
+def stage_radar(store: Path) -> bool:
+    rc, out, err = run_cmd([sys.executable, str(SKILL_DIR / "scripts" / "radar.py"), "--store", str(store), "pull", "--if-configured"])
     if rc == 0:
         for l in out.splitlines():
             print(f"  {l}")
-    else:
-        print(f"  ⚠️ Radar pull incomplete (exit {rc}); stored weeks are unchanged for the markets that failed:")
-        for l in (out + err).splitlines()[:20]:
-            print(f"    {l}")
-        partial = True
+        return True
+    print(f"  ⚠️ Radar pull incomplete (exit {rc}); stored weeks are unchanged for the markets that failed:")
+    for l in (out + err).splitlines()[:20]:
+        print(f"    {l}")
+    return False
 
-    # Step 6: Ledger Report
-    print("\n▶ [7/7] Generating Hypothesis & Keyword Ledger Report...")
+
+def stage_revenue(store: Path, app: dict, skip: bool) -> bool:
+    """RevenueCat and Apple Ads: the snapshot, and the closed weeks of cashflow and of ads results."""
+    if skip:
+        print("  (RevenueCat pull explicitly skipped)")
+        return True
+    if not app.get("rc_project_id"):
+        print("  revenue: not set up (config.md names no RevenueCat Project ID)")
+        return True
+    import pull_revenuecat
+    data, err = pull_revenuecat.collect_revenuecat_and_cashflow(store, project_id_override=app["rc_project_id"])
+    if err or not data:
+        print(f"  ⚠️ RevenueCat & Cashflow live pull failed: {err or 'nothing came back'}")
+        return False
+    pull_revenuecat.export_snapshots(store, data)
+    pull_revenuecat.print_cashflow_report(data)
+    return True
+
+
+def stage_ranks(store: Path) -> bool:
+    """Ask the App Store again for every tracked key. Apple allows about twenty searches a minute, so this is the
+    long stage of a pass: it runs beside the others, and the ledger report waits for it."""
+    config = parse_config(store)
+    bundle = (config.get("Bundle ID") or config.get("Firebase Bundle ID") or "").split(maxsplit=1)
+    if not bundle or bundle[0].upper().startswith("TODO"):
+        print("  ⚠️ rank sweep: config.md names no Bundle ID (`**Bundle ID**: com.example.app`); nothing was asked")
+        return False
+    rc, _ = stream([sys.executable, str(SKILL_DIR / "scripts" / "ledger.py"), "--store", str(store), "refresh", "--bundle", bundle[0]])
+    if rc:
+        print(f"  ⚠️ rank sweep exited with code {rc}; ranks.csv holds what was read before it stopped")
+    return rc == 0
+
+
+def stage_ledger(store: Path) -> bool:
     ledger_py = SKILL_DIR / "scripts" / "ledger.py"
-    if ledger_py.exists():
-        rc, out, err = run_cmd([sys.executable, str(ledger_py), "--store", str(store), "report"])
-        if rc == 0:
-            if out.strip():
-                print(out)
-            else:
-                print("  ⚠️ Ledger report returned no output.")
-                partial = True
-        else:
-            print(f"  ⚠️ Ledger report failed: {err.strip() or f'exit {rc}'}")
-            partial = True
-    else:
+    if not ledger_py.exists():
         print(f"  ⚠️ Ledger report unavailable — {ledger_py} not found.")
-        partial = True
+        return False
+    rc, out, err = run_cmd([sys.executable, str(ledger_py), "--store", str(store), "report"])
+    if rc == 0 and out.strip():
+        print(out)
+        return True
+    print("  ⚠️ Ledger report returned no output." if rc == 0 else f"  ⚠️ Ledger report failed: {err.strip() or f'exit {rc}'}")
+    return False
+
+
+def stage_plan(args, store: Path, app: dict) -> tuple:
+    """(the stages that read sources independent of one another and so run side by side, the stages that read what
+    those stored). The rank sweep is one of the first only when asked for: it takes about an hour."""
+    app_id = app["app_id"]
+    together = [
+        ("Verifying App Store Connect Versions", lambda: stage_versions(app_id)),
+        ("Auditing Customer Reviews & Ratings", lambda: stage_ratings(store, app_id)),
+        ("Syncing Funnel Analytics & Impressions (ASC)", lambda: stage_funnel(store, app_id, args.skip_pull)),
+        ("Pulling In-App Telemetry (GA4)", lambda: stage_ga(store, app, args.skip_ga)),
+        ("Storing In-App Weeks & Chart Positions", lambda: collect_extras(store, app)),
+        ("Apple demand radar (search popularity, impression share)", lambda: stage_radar(store)),
+        ("Revenue, Cashflow & Apple Ads (RevenueCat)", lambda: stage_revenue(store, app, getattr(args, "skip_rc", False))),
+    ]
+    if getattr(args, "ranks", False):
+        together.append(("Full Rank Sweep of the Tracked Keys", lambda: stage_ranks(store)))
+    return together, [("Generating Hypothesis & Keyword Ledger Report", lambda: stage_ledger(store))]
+
+
+def _cycle_run(args):
+    """Run the consolidated live-read and local snapshot pass."""
+    store = Path(args.store).resolve()
+    app = resolve_app_identity(store)
+
+    print("=================================================================")
+    print(f"🚀 {app['brand']} Marketing CLI Cycle · {store}")
+    print(f"App ID: {app['app_id']} · Version: {app['version']}")
+    print("=================================================================\n")
+
+    together, after = stage_plan(args, store, app)
+    total = len(together) + len(after)
+    clean = run_stages(together, getattr(args, "jobs", None) or DEFAULT_JOBS, total=total)
+    clean += run_stages(after, 1, first=len(together) + 1, total=total)
 
     print("\n=================================================================")
-    state = "PARTIAL" if partial else "finished"
+    state = "finished" if all(clean) else "PARTIAL"
     print(f"Cycle command {state}. Review every warning and skipped stage; this footer does not certify data completeness.")
     print("=================================================================")
-    return 2 if partial else 0
+    return 0 if all(clean) else 2

@@ -2,6 +2,7 @@
 
 import ast
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -58,11 +59,19 @@ def prepare_funnel_pull(pull_script, store, app_id):
         detail = (err.strip() or f"exit {rc}") if rc != 0 else "--raw-dir is unsupported"
         return None, None, f"Funnel pull has no verified safe raw directory option ({detail}); refusing its default path."
 
-    run_root = Path(tempfile.gettempdir()).resolve() / "ios-aso-copilot" / "funnel"
-    run_root.mkdir(parents=True, exist_ok=True)
-    raw_dir = Path(tempfile.mkdtemp(prefix=f"{app_id}-cycle-", dir=run_root)).resolve()
+    if is_skill_helper:
+        # A daily report does not change once Apple publishes it. The skill's collector keeps them in one folder per
+        # app and resumes there, so a pass after the first asks only for the days it does not hold.
+        raw_dir = (Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "ios-aso-copilot" / "funnel" / str(app_id)).resolve()
+        raw_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        run_root = Path(tempfile.gettempdir()).resolve() / "ios-aso-copilot" / "funnel"
+        run_root.mkdir(parents=True, exist_ok=True)
+        raw_dir = Path(tempfile.mkdtemp(prefix=f"{app_id}-cycle-", dir=run_root)).resolve()
     command = [sys.executable, str(pull_script), "--out", str(store / "metrics"),
                "--raw-dir", str(raw_dir)]
+    if is_skill_helper:
+        command.append("--resume")
     if "--app" in help_text:
         command.extend(["--app", str(app_id)])
     return command, raw_dir, ""

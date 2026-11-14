@@ -92,7 +92,7 @@ def cmd_status(args):
         print(f"  Category chart query skipped ({exc}).")
 
     # 5. RevenueCat & Cashflow digest (from cached snapshot or config)
-    cashflow_digest(store, refresh=False)
+    cashflow_digest(store)
 
     return 2 if partial else 0
 
@@ -240,5 +240,5 @@ def cmd_brief(args):
     print(section.strip() or f"  ⚠️ ledger report unavailable: {err.strip()[:160]}")
 
     funnel_digest(store)
-    cashflow_digest(store, refresh=False)
+    cashflow_digest(store)
     return 0

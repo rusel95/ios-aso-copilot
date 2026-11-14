@@ -24,6 +24,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 DISCOVERY_REPORT = "App Store Discovery and Engagement Standard"
 DOWNLOADS_REPORT = "App Downloads Standard"
@@ -134,15 +136,20 @@ def load_manifest(raw_dir, request_id, app_id=None):
     if app_id and manifest.get("app_id") and manifest.get("app_id") != str(app_id):
         raise RuntimeError("Resume manifest does not match this app.")
     if manifest.get("request_id") != request_id or not isinstance(manifest.get("reports"), dict):
-        raise RuntimeError("Resume manifest does not match this ongoing ASC request.")
+        # the folder was filled under a request that no longer runs: its instances are not this request's, start over
+        return {"app_id": app_id, "request_id": request_id, "reports": {}}
     return manifest
+
+
+MANIFEST_LOCK = threading.Lock()     # the three reports are read at once and share one manifest file
 
 
 def save_manifest(raw_dir, manifest):
     path = raw_dir / "segments.json"
     temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    with MANIFEST_LOCK:
+        temporary.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(path)
 
 
 def manifest_key(processing_date, instance_id):
@@ -193,7 +200,8 @@ def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False,
         raise RuntimeError(f"ASC report {prefix} has no daily instances yet.")
     exports = []
     manifest = manifest or {"app_id": app_id, "request_id": request_id, "reports": {}}
-    report_manifest = manifest.setdefault("reports", {}).setdefault(prefix, {})
+    with MANIFEST_LOCK:
+        report_manifest = manifest.setdefault("reports", {}).setdefault(prefix, {})
     total_inst = len(instances)
     for index, instance in enumerate(instances, start=1):
         instance_id = instance.get("id")
@@ -221,7 +229,8 @@ def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False,
             is_cached = False
         if not segments:
             continue
-        report_manifest[manifest_key(processing_date, instance_id)] = [s[:8] for s in segments]
+        with MANIFEST_LOCK:
+            report_manifest[manifest_key(processing_date, instance_id)] = [s[:8] for s in segments]
         for segment_id in segments:
             segment_prefix = segment_id if is_cached else segment_id[:8]
             output = raw_dir / f"{prefix}_{processing_date}_{instance_id[:8]}_{segment_prefix}.csv"
@@ -489,40 +498,42 @@ def main():
         print(f"Funnel pull unavailable: {exc}", file=sys.stderr)
         return 2
 
-    manifest = load_manifest(raw_dir, request_id, app_id=app_id)
-    discovery_rows, download_rows, summaries = [], [], []
-    report_start = None
+    try:
+        manifest = load_manifest(raw_dir, request_id, app_id=app_id)
+    except RuntimeError as exc:
+        print(f"Funnel pull unavailable: {exc}", file=sys.stderr)
+        return 2
 
-    for report_name, prefix, target in (
-        (DISCOVERY_REPORT, "r14", discovery_rows),
-        (DOWNLOADS_REPORT, "r3", download_rows),
-    ):
+    def read(name, prefix):
         try:
-            rows, file_count, instance_count, start = fetch_report(
-                request_id, reports.get(report_name), raw_dir, prefix,
-                app_id=app_id, resume=args.resume, manifest=manifest
-            )
+            return fetch_report(request_id, reports.get(name), raw_dir, prefix, app_id=app_id, resume=args.resume, manifest=manifest)
+        except (RuntimeError, OSError) as exc:
+            print(f"Partial funnel stage for {prefix}: {exc}", file=sys.stderr)
+            return None
+
+    # three reports of one request, each a long row of daily downloads: read side by side, they take a third of the time
+    wanted = ((DISCOVERY_REPORT, "r14"), (DOWNLOADS_REPORT, "r3"), (INSTALLS_REPORT, "lifecycle"))
+    with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
+        discovery, downloads, lifecycle = pool.map(lambda pair: read(*pair), wanted)
+
+    discovery_rows, download_rows, summaries, report_start = [], [], [], None
+    for prefix, found, target in (("r14", discovery, discovery_rows), ("r3", downloads, download_rows)):
+        if found:
+            rows, file_count, instance_count, start = found
             target.extend(rows)
             summaries.append(f"{prefix}: {instance_count} daily instances, {file_count} CSVs")
             if start is not None and (report_start is None or start < report_start):
                 report_start = start
-        except (RuntimeError, OSError) as exc:
-            print(f"Partial funnel stage for {prefix}: {exc}", file=sys.stderr)
 
     out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # the install lifecycle is its own report and its own file: a funnel that could not be read does not stop it
-    try:
-        lifecycle_rows, file_count, instance_count, start = fetch_report(
-            request_id, reports.get(INSTALLS_REPORT), raw_dir, "lifecycle",
-            app_id=app_id, resume=args.resume, manifest=manifest)
-        folded = fold_lifecycle(lifecycle_rows, first_processing_date=start)
-        written, skipped = write_lifecycle_weeks(out_dir, folded)
+    if lifecycle:
+        lifecycle_rows, file_count, instance_count, start = lifecycle
+        written, skipped = write_lifecycle_weeks(out_dir, fold_lifecycle(lifecycle_rows, first_processing_date=start))
         print(f"App ID {app_id}: lifecycle from {instance_count} daily instances, {file_count} CSVs; appended {written} "
               f"new rows to {out_dir / 'lifecycle.csv'}; skipped {len(skipped)} existing week/segment keys.")
-    except (RuntimeError, OSError) as exc:
-        print(f"Partial funnel stage for lifecycle: {exc}", file=sys.stderr)
 
     # a week is written once: a row holding one report without the other would stay half empty for good
     if not discovery_rows or not download_rows:
