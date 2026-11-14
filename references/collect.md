@@ -84,8 +84,10 @@ the reason. Exit `2` means at least one stage needs a look.
 | Rank sweep (`--ranks`) | App Store search, twenty a minute | `ranks.csv` |
 | Ledger report | the store | nothing (printed); waits for all the above |
 
-A week is written once it has closed, and only when both funnel reports were read: a half-read week would
-stay half empty. App Store Connect limits analytics downloads; when it says `rate limited … asked to wait
+A week is written once it has closed, only when both funnel reports were read (a half-read week would
+stay half empty), and only when the reports already hold a day after it: Apple publishes a day about two
+days late, so a pass on the Monday after a week leaves that week to the next pass rather than write it
+without its Sunday. Run the weekly pass on a Wednesday or later and it carries the week just ended. App Store Connect limits analytics downloads; when it says `rate limited … asked to wait
 12m`, the funnel stage fails for this pass and keeps what it downloaded, and the next pull continues from
 there. A first pull (about a hundred daily reports) can take two passes.
 

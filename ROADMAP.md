@@ -17,7 +17,8 @@ The owner's direction, 2026-11-14. Collection is already scripts only: `collect`
    `marketing/data/`, and publishes the page. Templates are in `assets/workflows/`; `references/publish.md`
    says what the owner decides first (public or private page, which secrets the job gets). Open work: the
    job's credentials for App Store Connect, GA4, BigQuery, RevenueCat and Apple Ads as repository secrets,
-   and a cache for the funnel's daily reports so a run asks only for new days.
+   a cache for the funnel's daily reports so a run asks only for new days, and a midweek schedule: a week
+   is written once Apple has published the Monday after it, which is a Wednesday.
    Done when: a week passes with no manual pass and the page shows that week.
 2. **Rank reads on the days a window needs them.** A daily workflow runs `due` and sweeps only when a live
    hypothesis is in the last three days of its window. Done when: no window closes with `(missed)` reads.
@@ -32,10 +33,11 @@ The owner's direction, 2026-11-14. Collection is already scripts only: `collect`
    model and the main session reads its stage table; `references/collect.md` says how.
 6. **Funnel by new-install cohort.** The in-app weeks are per week of events; the share of a week's new
    installs that reach each step is not built. Done when: `in_app` carries cohort figures with both totals.
-7. **A week settles before it is written.** App Store Connect restates recent days for about three days.
-   A week is written once, so a pass on the Monday after it may freeze a short last weekend. Either write
-   a week four days after it closes, or append a correction when a later pull differs. Done when: a week
-   read on its Monday and again on Friday shows the Friday figures.
+7. **Corrections for restated days.** A week is written once, when the reports already hold a later day,
+   so it never lacks its Sunday. App Store Connect still restates a day in its next two daily reports: in
+   the measured store a day's first reading was within 1.4% of its final one. Appending a correction when
+   a later pull differs would remove that too. Done when: a week read on its Wednesday and again a week
+   later shows the later figures.
 8. **Corrections in the digests.** `funnel` and the pass's funnel digest read the first row of a week;
    once corrections are appended they must take the latest, as the export does.
 9. **`keys.json` grows with keys times sweeps.** Fine for a year of weekly sweeps of a thousand keys; split

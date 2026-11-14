@@ -257,8 +257,18 @@ def fetch_report(request_id, report, raw_dir, prefix, app_id=None, resume=False,
     return [item[1] for item in latest.values()], len(exports), len(instances), (instances[0].get("processingDate") if instances else None)
 
 
+def reached(*reports):
+    """The newest day every one of these reports holds, as an ISO date, or None when they hold nothing.
+
+    Apple publishes a day about two days late, so on the Monday after a week its Sunday is in no report yet. A week
+    is written once, and is therefore folded only when the reports already hold a day after it."""
+    newest = [max(row["Date"] for row in rows) for rows in reports if rows]
+    return min(newest) if newest else None
+
+
 def fold_reports(discovery_rows, download_rows, today=None, first_processing_date=None):
     today = today or date.today()
+    reach = reached(discovery_rows, download_rows)
     first_full_week = (
         week_start(date.fromisoformat(first_processing_date)) + timedelta(days=7)
         if first_processing_date else None
@@ -276,7 +286,8 @@ def fold_reports(discovery_rows, download_rows, today=None, first_processing_dat
 
     def record_day(day):
         start = week_start(date.fromisoformat(day))
-        if start + timedelta(days=6) >= today or (first_full_week and start < first_full_week):
+        sunday = start + timedelta(days=6)
+        if sunday >= today or (first_full_week and start < first_full_week) or sunday.isoformat() >= reach:
             return None
         return start
 
@@ -386,11 +397,12 @@ def fold_lifecycle(rows, today=None, first_processing_date=None):
     today = today or date.today()
     first_full_week = (week_start(date.fromisoformat(first_processing_date)) + timedelta(days=7)
                        if first_processing_date else None)
-    weeks = {}
+    weeks, reach = {}, reached(rows)
     for row in rows:
         day = date.fromisoformat(row["Date"])
         start = week_start(day)
-        if start + timedelta(days=6) >= today or (first_full_week and start < first_full_week):
+        sunday = start + timedelta(days=6)
+        if sunday >= today or (first_full_week and start < first_full_week) or sunday.isoformat() >= reach:
             continue
         kind, count = (row.get("Event") or "").strip().casefold(), count_value(row.get("Counts"))
         if count is None or kind not in ("install", "delete"):

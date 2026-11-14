@@ -88,6 +88,35 @@ class Family(unittest.TestCase):
         self.assertEqual((figures["optin_installs"]["value"], figures["optin_deletions"]["value"]), (20, 8))
 
 
+class AWeekTheReportsHaveNotReachedYet(unittest.TestCase):
+    """Apple publishes a day about two days late. On the Monday after a week its Sunday is not in any report yet, and
+    a week is written once: so a week is folded only when the reports already hold a day after it."""
+    DAY = {"Territory": "US", "Counts": "5", "Source Type": "App Store search"}
+
+    def funnel(self, last_day):
+        days = [f"2026-11-{n:02d}" for n in range(2, 16) if f"2026-11-{n:02d}" <= last_day]
+        discovery = [dict(self.DAY, Date=d, Event="Impression") for d in days]
+        downloads = [dict(self.DAY, Date=d, **{"Download Type": "First-time download"}) for d in days]
+        return discovery, downloads
+
+    def test_the_week_waits_until_both_reports_hold_a_later_day(self):
+        monday = dt.date(2026, 11, 9)                   # the week of 11-02 closed yesterday, by the clock
+        discovery, downloads = self.funnel("2026-11-07")        # ...but the reports reach Saturday only
+        self.assertEqual(pull_funnel.fold_reports(discovery, downloads, today=monday), {})
+        discovery, downloads = self.funnel("2026-11-09")
+        self.assertEqual(sorted({week for week, _ in pull_funnel.fold_reports(discovery, downloads, today=dt.date(2026, 11, 11))}),
+                         ["2026-11-02"])
+        late, _ = self.funnel("2026-11-09")
+        _, short = self.funnel("2026-11-08")                    # one report a day behind the other: still waiting
+        self.assertEqual(pull_funnel.fold_reports(late, short, today=dt.date(2026, 11, 11)), {})
+
+    def test_the_lifecycle_week_waits_the_same_way(self):
+        rows = [event("2026-11-04", "Install", "US", 4), event("2026-11-08", "Install", "US", 1)]
+        self.assertEqual(pull_funnel.fold_lifecycle(rows, today=dt.date(2026, 11, 11)), {})
+        rows.append(event("2026-11-09", "Install", "US", 2))
+        self.assertEqual(sorted(pull_funnel.fold_lifecycle(rows, today=dt.date(2026, 11, 11))), [("2026-11-02", "all"), ("2026-11-02", "us")])
+
+
 class HalfAPull(unittest.TestCase):
     """A funnel week needs both reports. A week is written once, so a row holding only one of them would stay half
     empty for good: when one report cannot be read, no funnel week is written at all."""
@@ -97,8 +126,10 @@ class HalfAPull(unittest.TestCase):
             if prefix == failing:
                 raise RuntimeError("rate limited")
             day = {"Date": "2026-11-03", "Territory": "US", "Counts": "5", "Source Type": "App Store search"}
-            rows = {"r14": [dict(day, Event="Impression")], "r3": [dict(day, **{"Download Type": "First-time download"})],
-                    "lifecycle": [event("2026-11-03", "Install", "US", 4)]}[prefix]
+            later = dict(day, Date="2026-11-09")       # the reports have reached past the week of 11-02
+            rows = {"r14": [dict(day, Event="Impression"), dict(later, Event="Impression")],
+                    "r3": [dict(d, **{"Download Type": "First-time download"}) for d in (day, later)],
+                    "lifecycle": [event("2026-11-03", "Install", "US", 4), event("2026-11-09", "Install", "US", 1)]}[prefix]
             return rows, 1, 1, "2026-10-01"
         argv = ["pull_funnel.py", "--app", "1000000001", "--out", str(out), "--raw-dir", str(out / "raw")]
         with mock.patch.object(pull_funnel, "request_and_reports", return_value=("req", {})), \
