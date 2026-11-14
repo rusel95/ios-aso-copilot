@@ -40,7 +40,9 @@ self-contained page. The same store and day give the same bytes.
   store: the storefronts with no window in flight, by money at stake, each with its basket and the line that
   drafts it; writing the drafts is now the closing step of a full run.
 - `publish` pushes the built page, and only the page, to the `gh-pages` branch of the app's repository, after
-  the data and the clean check pass; the app's checkout is not touched. The export masks the store's own
+  the data and the clean check pass; the app's checkout is not touched. With `**Pages repository**`, `**Pages branch**`
+  and `**Pages path**` in `config.md` it adds the page to a folder of a repository that already serves pages,
+  as one commit on top. The export masks the store's own
   account identifiers where a text holds one, and the page carries `noindex`.
 - Chart positions are read for every storefront the store tracks a key in, with no config line; the count of
   written reviews is stored beside the ratings.

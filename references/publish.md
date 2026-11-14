@@ -37,6 +37,24 @@ plan, and the page is public either way; it carries `noindex`, which asks search
 stops nobody who has the address. The export masks the store's own account identifiers where a text holds
 one, and says so in a `NOTE`.
 
+### Into a repository that already serves pages
+
+A free GitHub plan serves Pages from public repositories only. When the app's repository is private, the page
+can go into a folder of a public repository that already serves pages (a site of legal documents, say), beside
+what is there. Name the place once, in the store's `config.md`:
+
+```text
+**Pages repository**: https://github.com/<owner>/<site>.git
+**Pages branch**: main
+**Pages path**: <App>/dashboard
+```
+
+`publish` then clones that branch to a temporary folder, writes `<App>/dashboard/index.html` and pushes one
+commit on top. It changes no other file and never rewrites the branch; a page that has not changed is not
+committed again. The address is `https://<owner>.github.io/<site>/<App>/dashboard/`. Each project names its own
+folder, so several projects share one site. What is in a public repository is public and searchable: revenue,
+ad spend, the keyword basket and the hypotheses on the page included. That is the owner's choice to make.
+
 ## The page from a workflow: `assets/workflows/aso-dashboard.yml`
 
 Copy it to `.github/workflows/aso-dashboard.yml` in the app repository, replace the forty zeros with the
