@@ -156,5 +156,81 @@ class Panel(PageCase):
         self.assertIn("us 900", seen)
 
 
+class Ledger(PageCase):
+    def card(self, title):
+        """The markup of the block whose heading is `title`."""
+        found = re.search(r'<section class="block[^"]*">\s*<h2>' + re.escape(title) + r"</h2>(.*?)</section>",
+                          self.render("#/ledger"), re.S)
+        self.assertIsNotNone(found, title)
+        return found.group(1)
+
+    def test_judge_lists_what_is_due_oldest_first(self):
+        seen = text_of(self.card("Judge"))
+        self.assertIn("H005 ua tide phrases closed 11 d ago", seen)
+        self.assertIn("C001 threads launch post closed 6 d ago", seen)
+        self.assertLess(seen.index("H005"), seen.index("C001"))
+
+    def test_decide_lists_the_queue_with_its_age(self):
+        seen = text_of(self.card("Decide"))
+        self.assertIn("Q001 needs a go — create the us penny flight queued 15 d ago", seen)
+        self.assertIn("Q002 stage 1.0.1 metadata queued 2 d ago", seen)
+
+    def test_next_is_the_ledgers_priority_order(self):
+        rows = re.findall(r"<li>(.*?)</li>", self.card("Next by money at stake"), re.S)
+        self.assertEqual(text_of(rows[0]), "us moon phase open hypothesis, not yet dominant #30 14.00")
+        self.assertEqual(len(rows), 5)
+        self.assertIn("tide tracker", text_of(rows[1]))                       # 11.25 comes second
+
+    def test_one_square_per_hypothesis(self):
+        markup = self.render("#/ledger")
+        squares = re.findall(r'<span class="sq m-([a-z-]+)" title="([^"]+)"></span>', markup)
+        self.assertEqual(len(squares), 8)
+        self.assertIn(("due", "H005 · due"), squares)
+        self.assertIn(("worked", "H001 · worked"), squares)
+        self.assertIn(("not-shipped", "H007 · not shipped"), squares)
+
+    def test_legend_counts(self):
+        seen = text_of(self.render("#/ledger"))
+        self.assertIn("1 worked 1 no-effect 1 adverse 1 withheld 2 due 1 open 1 not shipped", seen)
+        self.assertIn("Of 4 judged, 1 worked.", seen)
+
+    def test_what_worked_and_what_hurt_show_the_basket_and_no_typed_proof(self):
+        self.assertEqual(text_of(self.card("What worked")), "H001 us tide tracker title 2 up · 0 down · 0 flat")
+        self.assertEqual(text_of(self.card("What hurt")), "H003 us moon phase 0 up · 1 down · 0 flat")
+
+    def test_timeline_has_one_bar_per_hypothesis_that_went_live(self):
+        markup = self.render("#/ledger")
+        bars = re.findall(r'<rect class="tl-bar m-([a-z-]+)"[^>]*><title>([^<]+)</title>', markup)
+        self.assertEqual(len(bars), 7)                                        # H007 never shipped
+        self.assertIn(("due", "H005 · due · 2026-10-20 → 2026-11-03"), bars)
+        self.assertIn("today", text_of(markup))
+
+    def test_due_card_shows_reads_queries_and_the_prediction(self):
+        markup = self.render("#/ledger")
+        card = re.search(r'<section class="block due-card" id="due-H005">(.*?)</section>', markup, re.S).group(1)
+        seen = text_of(card)
+        self.assertIn("H005 ua tide phrases", seen)
+        self.assertIn("window closed 2026-11-03", seen)
+        self.assertIn("1 read inside the window", seen)
+        self.assertIn("приплив", seen)
+        self.assertIn("графік припливів", seen)
+        self.assertIn("Prediction", seen)
+        self.assertEqual(card.count("<polyline"), 2)                           # one line per query of the basket
+        self.assertIn("live 2026-10-20", seen)
+
+    def test_due_card_of_a_channel_hypothesis_draws_no_rank_chart(self):
+        markup = self.render("#/ledger")
+        card = re.search(r'<section class="block due-card" id="due-C001">(.*?)</section>', markup, re.S).group(1)
+        self.assertNotIn("<polyline", card)
+        self.assertIn("not judged on rank", text_of(card))
+
+    def test_text_from_a_hypothesis_file_is_escaped(self):
+        markup = self.js("(payload.hypotheses.hypotheses.forEach(function (h) { h.title = '<b>x</b>'; h.prediction = '<i>y</i>'; }), "
+                         "ASO.render('#/ledger', payload, '2026-11-14'))")
+        self.assertNotIn("<b>x</b>", markup)
+        self.assertNotIn("<i>y</i>", markup)
+        self.assertIn("&lt;b&gt;x&lt;/b&gt;", markup)
+
+
 if __name__ == "__main__":
     unittest.main()

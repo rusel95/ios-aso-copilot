@@ -49,13 +49,20 @@ def list_field(path: Path, name: str) -> list:
     return [item.strip("\"'") for item in items]
 
 
-def reads_in_window(queries: list, markets: list, live: dt.date, end: dt.date, rows: list) -> int:
-    """Sweep dates inside the window that read at least one key of the basket: a position, or beyond depth."""
+def basket_of(queries: list, markets: list, rows: list) -> list:
+    """The tracked keys a hypothesis's queries name, each resolved as the ledger resolves it. A query that names no
+    tracked key is absent: the page draws what was read, and resolves nothing itself."""
     tracked = {(r["market"], r["keyword"]) for r in rows}
     index = loose_index(tracked)
-    basket = {resolve_key(tracked, index, market, query.lower()) for market in markets for query in queries}
+    found = {resolve_key(tracked, index, market, query.lower()) for market in markets for query in queries}
+    return sorted(key for key in found if key is not None)
+
+
+def reads_in_window(basket: list, live: dt.date, end: dt.date, rows: list) -> int:
+    """Sweep dates inside the window that read at least one key of the basket: a position, or beyond depth."""
+    keys = set(basket)
     return len({r["date"] for r in rows
-                if (r["market"], r["keyword"]) in basket and r["status"] in ("ok", "beyond-depth")
+                if (r["market"], r["keyword"]) in keys and r["status"] in ("ok", "beyond-depth")
                 and live.isoformat() <= r["date"] <= end.isoformat()})
 
 
@@ -68,6 +75,7 @@ def hypotheses(store: Path, as_of: dt.date) -> dict:
         channel = s["id"].startswith("C")
         end = s["live"] + dt.timedelta(days=s["window"]) if s["live"] else None
         queries = [q.strip() for q in (h.get("queries") or "").split(";") if q.strip()]
+        basket = basket_of(queries, s["markets"], rows) if s["basket"] is not None else []
         ranked = s["basket"] is not None and s["live"] is not None
         out.append({
             "id": s["id"],
@@ -84,8 +92,9 @@ def hypotheses(store: Path, as_of: dt.date) -> dict:
             "state": s["state"],
             "age_days": s["age_days"],
             "days_past_window": (as_of - end).days if s["state"] == "due" else None,
-            "reads_in_window": reads_in_window(queries, s["markets"], s["live"], min(end, as_of), rows) if ranked else None,
+            "reads_in_window": reads_in_window(basket, s["live"], min(end, as_of), rows) if ranked else None,
             "basket": s["basket"],
+            "basket_keys": [list(key) for key in basket],
             "prediction": (h.get("prediction") or "").strip() or None,
             "kill_criterion": (h.get("kill_criterion") or "").strip() or None,
             "confounds": list_field(store / "hypotheses" / h["_path"], "confounds"),

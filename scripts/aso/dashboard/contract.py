@@ -185,8 +185,8 @@ def check_rows(label: str, rows, columns: list) -> list:
 
 STATES = ("judged", "due", "open", "not-shipped")
 HYPOTHESIS_KEYS = {"id", "kind", "title", "markets", "queries", "status", "verdict", "signal", "went_live", "window_days",
-                   "window_end", "state", "age_days", "days_past_window", "reads_in_window", "basket", "prediction",
-                   "kill_criterion", "confounds"}
+                   "window_end", "state", "age_days", "days_past_window", "reads_in_window", "basket", "basket_keys",
+                   "prediction", "kill_criterion", "confounds"}
 BASKET_KEYS = {"up", "down", "flat", "unpaired", "unmeasurable"}
 KEY_KEYS = {"market", "keyword", "group", "brand", "positions", "movement", "priority"}
 
@@ -209,8 +209,10 @@ def check_hypotheses(obj: dict) -> list:
             problems.append(f"{label}: basket must be null or hold {', '.join(sorted(BASKET_KEYS))}")
         if any(h[k] is not None and as_date(h[k]) is None for k in ("went_live", "window_end")):
             problems.append(f"{label}: went_live and window_end must be dates or null")
-        if not all(isinstance(h[k], list) for k in ("markets", "queries", "confounds")):
-            problems.append(f"{label}: markets, queries and confounds must be lists")
+        if not all(isinstance(h[k], list) for k in ("markets", "queries", "confounds", "basket_keys")):
+            problems.append(f"{label}: markets, queries, confounds and basket_keys must be lists")
+        elif not all(isinstance(k, list) and len(k) == 2 for k in h["basket_keys"]):
+            problems.append(f"{label}: a basket key is a market and a keyword")
     return problems
 
 

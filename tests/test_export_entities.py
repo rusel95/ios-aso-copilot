@@ -34,12 +34,14 @@ class Hypotheses(unittest.TestCase):
                          ("rank", "2026-10-20", 14, "live", None))
         self.assertEqual(h["basket"], {"up": 1, "down": 0, "flat": 0, "unpaired": 1, "unmeasurable": 0})
         self.assertEqual(h["confounds"], [])
+        self.assertEqual(h["basket_keys"], [["ua", "графік припливів"], ["ua", "приплив"]])
         self.assertTrue(h["prediction"] and h["kill_criterion"])
 
     def test_a_channel_hypothesis_has_a_state_and_no_basket(self):
         c = self.by_id()["C001"]
         self.assertEqual((c["state"], c["signal"], c["basket"], c["reads_in_window"]), ("due", "channel", None, None))
         self.assertEqual((c["window_end"], c["days_past_window"]), ("2026-11-08", 6))
+        self.assertEqual(c["basket_keys"], [])
 
     def test_states_that_are_not_due_have_no_days_past(self):
         h = self.by_id()
