@@ -33,6 +33,8 @@ def reads_due(hyps: list, rows: list, as_of) -> list:
                 or (h.get("id") or "").startswith("C")):
             continue
         queries, end = basket_queries(h), live + dt.timedelta(days=window_days(h))
+        if not queries:                  # an incomplete record: there is nothing a sweep could read for it
+            continue
         for market in hyp_markets(h):
             keys = {resolve_key(tracked, index, market, query) for query in queries} - {None}
             for back in (2, 1, 0):

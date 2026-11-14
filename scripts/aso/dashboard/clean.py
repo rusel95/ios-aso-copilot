@@ -10,8 +10,9 @@ from pathlib import Path
 NEVER_PUBLISH = []
 
 # config.md lines whose values identify the app's accounts. A value is looked for as a whole word.
-IDENTIFIERS = ("App ID", "Provider Token", "Apple Ads account", "GA4 Property ID", "GA4 Credentials", "Firebase Project ID",
-               "Firebase App ID", "Firebase Bundle ID", "BigQuery Project ID", "BigQuery Dataset", "RevenueCat Project ID")
+IDENTIFIERS = ("App ID", "Bundle ID", "Provider Token", "Apple Ads account", "GA4 Property ID", "GA4 Stream ID", "GA4 Credentials",
+               "Firebase Project ID", "Firebase Project Number", "Firebase App ID", "Firebase Bundle ID", "BigQuery Project ID",
+               "BigQuery Dataset", "RevenueCat Project ID")
 
 SHAPES = (
     ("an e-mail address", re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")),
@@ -29,7 +30,7 @@ def identifiers(store: Path) -> dict:
     found = {}
     path = store / "config.md"
     for line in path.read_text(encoding="utf-8").splitlines() if path.is_file() else []:
-        match = re.match(r"\*\*([^*]+)\*\*:\s*(\S+)", line.strip())
+        match = re.match(r"\*\*([^*]+)\*\*:\s*[`\"']?([^\s`\"']+)", line.strip())      # a value may sit in backticks or quotes
         if match and match.group(1).strip() in IDENTIFIERS and len(match.group(2)) >= 5 and not match.group(2).upper().startswith("TODO"):
             found[match.group(1).strip()] = match.group(2)
     return found

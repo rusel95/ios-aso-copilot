@@ -118,9 +118,21 @@ class HalfAPull(unittest.TestCase):
     def test_both_reports_write_the_week_and_a_missing_lifecycle_does_not_stop_them(self):
         with tempfile.TemporaryDirectory() as tmp:
             code, said = self.pull(Path(tmp), "lifecycle")
-            self.assertEqual(code, 0, said)
             self.assertEqual(len(read_csv(Path(tmp) / "weekly.csv")), 3)          # all, search, us
             self.assertFalse((Path(tmp) / "lifecycle.csv").exists())
+            # but the pull is not clean: a report that could not be read is said in the exit code, not only in a line
+            self.assertEqual(code, 2, said)
+            self.assertIn("Partial funnel stage for lifecycle: rate limited", said)
+
+    def test_a_clean_pull_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self.pull(Path(tmp), None)[0], 0)
+
+    def test_the_pass_names_the_report_that_failed(self):
+        lines = ["App ID 1: 3 observed week/segment groups; appended 3 new rows to weekly.csv; skipped 0 existing week/segment keys.",
+                 "Partial funnel stage for lifecycle: ASC command failed (asc analytics instances; exit 39).", ""]
+        self.assertIn("lifecycle", cycle.funnel_failure(lines))
+        self.assertEqual(cycle.funnel_failure(["", ""]), "no output")
 
 
 class TheSkillsOwnCollector(unittest.TestCase):

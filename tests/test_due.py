@@ -37,6 +37,10 @@ class ReadsDue(unittest.TestCase):
                    "primary_signal": "funnel"}]
         self.assertEqual(due("2026-11-03", hyps=funnel), [])
 
+    def test_a_hypothesis_with_no_basket_asks_for_nothing(self):
+        hyp = [{"id": "H902", "markets": "us", "queries": "", "went_live": "2026-10-20", "window_days": "14"}]
+        self.assertEqual(due("2026-11-03", hyps=hyp), [])
+
     def test_one_entry_per_storefront_and_a_failed_request_is_not_a_read(self):
         hyp = [{"id": "H901", "markets": "us, ua", "queries": "tide times", "went_live": "2026-10-20", "window_days": "14"}]
         rows = [{"date": "2026-11-03", "market": "us", "keyword": "tide times", "position": 9, "status": "ok"},

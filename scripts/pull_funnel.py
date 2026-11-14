@@ -548,7 +548,8 @@ def main():
     written, skipped = write_new_weeks(out_dir, metrics, "; ".join(summaries), raw_dir)
     print(f"App ID {app_id}: {len(metrics)} observed week/segment groups; appended {written} new rows to "
           f"{out_dir / 'weekly.csv'}; skipped {len(skipped)} existing week/segment keys.")
-    return 0
+    # a report that could not be read was named above; the exit code says it too, so no caller takes the pull for whole
+    return 2 if lifecycle is None else 0
 
 
 if __name__ == "__main__":

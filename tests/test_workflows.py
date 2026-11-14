@@ -67,6 +67,17 @@ class RankReads(unittest.TestCase):
         self.assertIn("(missed)", text)                              # a day gone by cannot be read any more
         self.assertNotIn("collect", text)
 
+    def test_its_shell_runs_where_it_is_scheduled(self):
+        text = runs(read("rank-reads.yml"))
+        awk = re.search(r"awk '([^']+)'", text).group(1)
+        self.assertNotRegex(awk, r"\{\d+(,\d*)?\}")                 # Ubuntu's awk is mawk, which has no {n} repetition
+        import shutil
+        import subprocess
+        if shutil.which("awk"):
+            due = "2026-11-03  H005  ua  a; b\n2026-11-01  H005  pl  a; b  (missed)\n2026-11-03  H009  us  c\nNothing due.\n"
+            done = subprocess.run(["awk", awk], input=due, capture_output=True, text=True)
+            self.assertEqual(done.stdout.split(), ["ua", "us"])
+
     def test_it_commits_the_observations_and_nothing_else(self):
         text = runs(read("rank-reads.yml"))
         self.assertEqual(re.findall(r"git add (.+)", text), ["marketing/metrics/ranks.csv"])

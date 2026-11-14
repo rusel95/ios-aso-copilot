@@ -351,6 +351,14 @@ def stream(command: list, env=None) -> tuple:
     return proc.wait(), lines
 
 
+def funnel_failure(lines: list) -> str:
+    """The line of a failed pull that says why: the last one naming a report that could not be read, a refusal or a
+    rate limit; else its last line."""
+    said = [line for line in lines if line]
+    return next((l for l in reversed(said) if re.search(r"Partial funnel stage|refus|rate limit|429|Error:", l)),
+                said[-1] if said else "no output")
+
+
 def stage_funnel(store: Path, app_id: str, skip: bool) -> bool:
     pull_script, clean = funnel_script(store), True
     if skip:
@@ -368,10 +376,8 @@ def stage_funnel(store: Path, app_id: str, skip: bool) -> bool:
             if rc == 0:
                 print("  ✓ Funnel metrics & impressions updated.")
             else:
-                why = next((l for l in reversed(lines) if re.search(r"refus|rate limit|429|Error:", l)),
-                           next((l for l in reversed(lines) if l), "no output"))
                 print(f"  ⚠️ pull_funnel.py exited with code {rc}; funnel metrics may be stale. "
-                      f"Cause: {why[:200]}")
+                      f"Cause: {funnel_failure(lines)[:200]}")
                 clean = False
     else:
         print("  ⚠️ Funnel pull unavailable — pull_funnel.py not found in store or skill scripts/.")

@@ -46,6 +46,15 @@ class Clean(unittest.TestCase):
         for label in ("Provider Token", "GA4 Property ID", "Firebase Project ID", "RevenueCat Project ID"):
             self.assertIn(label, named)
 
+    def test_a_value_written_in_backticks_or_quotes_is_still_looked_for(self):
+        with (self.store / "config.md").open("a", encoding="utf-8") as fh:
+            fh.write('**GA4 Property ID**: `345678901`\n**GA4 Stream ID**: "9876543210"\n**Firebase Project Number**: 112233445566 (prod)\n'
+                     "**Bundle ID**: com.example.tidepool\n")
+        self.plant("345678901 9876543210 112233445566 com.example.tidepool")
+        named = " ".join(clean.check(self.data, self.store))
+        for label in ("GA4 Property ID", "GA4 Stream ID", "Firebase Project Number", "Bundle ID"):
+            self.assertIn(label, named)
+
     def test_an_address_and_anything_shaped_like_a_key_are_flagged(self):
         for text, word in (("write to owner@example.com", "e-mail"),
                            ("-----BEGIN PRIVATE KEY-----", "key"),

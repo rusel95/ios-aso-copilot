@@ -38,7 +38,7 @@ jobs:
         run: |
           python3 .aso-copilot/scripts/copilot.py due --store marketing | tee due.txt
           # a day already gone by is marked (missed): no sweep can read it any more
-          MARKETS=$(awk '$1 ~ /^[0-9]{4}-/ && $NF != "(missed)" {print $3}' due.txt | sort -u | paste -sd, -)
+          MARKETS=$(awk '$1 ~ /^[0-9][0-9][0-9][0-9]-/ && $NF != "(missed)" {print $3}' due.txt | sort -u | paste -sd, -)
           echo "markets=$MARKETS" >> "$GITHUB_OUTPUT"
 
       - name: Read them
