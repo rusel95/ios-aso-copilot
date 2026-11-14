@@ -183,13 +183,65 @@ def check_rows(label: str, rows, columns: list) -> list:
     return []
 
 
-def check_entity_header(obj: dict, key: str) -> list:
-    """What every entity file shares; each file's own shape is checked beside the code that writes it."""
-    return [] if isinstance(obj.get(key), (list, dict)) else [f"must hold `{key}`"]
+STATES = ("judged", "due", "open", "not-shipped")
+HYPOTHESIS_KEYS = {"id", "kind", "title", "markets", "queries", "status", "verdict", "signal", "went_live", "window_days",
+                   "window_end", "state", "age_days", "days_past_window", "reads_in_window", "basket", "prediction",
+                   "kill_criterion", "confounds"}
+BASKET_KEYS = {"up", "down", "flat", "unpaired", "unmeasurable"}
+KEY_KEYS = {"market", "keyword", "group", "brand", "positions", "movement", "priority"}
 
 
-ENTITY_CHECKS = {
-    "hypotheses.json": lambda obj: check_entity_header(obj, "hypotheses"),
-    "keys.json": lambda obj: check_entity_header(obj, "keys"),
-    "events.json": lambda obj: check_entity_header(obj, "queue"),
-}
+def check_top(obj: dict, keys: set) -> list:
+    extra = sorted(set(obj) ^ ({"schema", "as_of"} | keys))
+    return [f"top-level keys must be schema, as_of, {', '.join(sorted(keys))}; differs by {', '.join(extra)}"] if extra else []
+
+
+def check_hypotheses(obj: dict) -> list:
+    problems = check_top(obj, {"hypotheses"})
+    for n, h in enumerate(obj.get("hypotheses") if isinstance(obj.get("hypotheses"), list) else []):
+        label = f"hypotheses[{n}]"
+        if not isinstance(h, dict) or set(h) != HYPOTHESIS_KEYS:
+            problems.append(f"{label} must hold exactly: {', '.join(sorted(HYPOTHESIS_KEYS))}")
+            continue
+        if h["kind"] not in ("H", "C") or h["state"] not in STATES:
+            problems.append(f"{label}: kind must be H or C and state one of {', '.join(STATES)}")
+        if h["basket"] is not None and (not isinstance(h["basket"], dict) or set(h["basket"]) != BASKET_KEYS):
+            problems.append(f"{label}: basket must be null or hold {', '.join(sorted(BASKET_KEYS))}")
+        if any(h[k] is not None and as_date(h[k]) is None for k in ("went_live", "window_end")):
+            problems.append(f"{label}: went_live and window_end must be dates or null")
+        if not all(isinstance(h[k], list) for k in ("markets", "queries", "confounds")):
+            problems.append(f"{label}: markets, queries and confounds must be lists")
+    return problems
+
+
+def check_keys(obj: dict) -> list:
+    problems = check_top(obj, {"dates", "keys"})
+    dates = obj.get("dates") if isinstance(obj.get("dates"), list) else []
+    if any(as_date(d) is None for d in dates) or dates != sorted(set(dates)):
+        problems.append("dates must be distinct dates in order")
+    for n, k in enumerate(obj.get("keys") if isinstance(obj.get("keys"), list) else []):
+        label = f"keys[{n}]"
+        if not isinstance(k, dict) or set(k) != KEY_KEYS:
+            problems.append(f"{label} must hold exactly: {', '.join(sorted(KEY_KEYS))}")
+            continue
+        positions = k["positions"]
+        if not isinstance(positions, list) or len(positions) != len(dates):
+            problems.append(f"{label}: positions must line up with dates, one entry per date")
+        elif not all(p is None or p in ("b", "e", "z") or (isinstance(p, int) and not isinstance(p, bool) and p >= 1)
+                     for p in positions):
+            problems.append(f"{label}: a position is a rank, b (beyond depth), e (error), z (no results) or null")
+        if not isinstance(k["brand"], bool):
+            problems.append(f"{label}: brand must be true or false")
+    return problems
+
+
+def check_events(obj: dict) -> list:
+    problems = check_top(obj, {"releases", "queue"})
+    for name, keys in (("releases", {"version", "date"}), ("queue", {"id", "date", "title"})):
+        for n, item in enumerate(obj.get(name) if isinstance(obj.get(name), list) else []):
+            if not isinstance(item, dict) or set(item) != keys or as_date(item.get("date")) is None:
+                problems.append(f"{name}[{n}] must hold {', '.join(sorted(keys))}, with a real date")
+    return problems
+
+
+ENTITY_CHECKS = {"hypotheses.json": check_hypotheses, "keys.json": check_keys, "events.json": check_events}

@@ -191,11 +191,15 @@ def parse_date(value):
         return None
 
 
-def demand_lookup(store: Path):
-    """(heads, cuts) from the latest stored week per market.
+def demand_lookup(store: Path, as_of=None):
+    """(heads, cuts) from the latest stored week per market; with `as_of`, only what had been captured by that day.
     heads[(market, term)] = (popularity_100, week) for any stored head row; cuts[market] = (lowest listed score or None, week);
     a None score means Apple listed nothing for that storefront."""
-    cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
+    def captured(path):
+        rows = read_csv(path)
+        return rows if as_of is None else [r for r in rows if (r.get("captured") or "") <= str(as_of)]
+
+    cut_rows = captured(store / "metrics" / "popularity_cut.csv")
     latest = {}
     for r in cut_rows:
         latest[r["market"]] = max(latest.get(r["market"], ""), r["week"])
@@ -205,7 +209,7 @@ def demand_lookup(store: Path):
                   if r["market"] == market and r["week"] == week and r["min_popularity_100"] != ""]
         cuts[market] = (min(scores) if scores else None, week)
     heads = {}
-    for r in read_csv(store / "metrics" / "popularity.csv"):
+    for r in captured(store / "metrics" / "popularity.csv"):
         if r["week"] == latest.get(r["market"]):  # `why` records how the row was picked at pull time, not whether it is tracked now
             key = (r["market"], r["term"])
             heads[key] = (max(int(r["popularity_100"]), heads.get(key, (0, ""))[0]), r["week"])
