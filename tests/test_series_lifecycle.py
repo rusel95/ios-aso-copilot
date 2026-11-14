@@ -271,7 +271,10 @@ class EveryWriter(unittest.TestCase):
 
     def test_a_store_not_set_up_for_them_says_so_and_reads_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
-            said = self.run_extras(copy_store(tmp), store_weeks=mock.Mock(side_effect=AssertionError("must not run")),
+            store = copy_store(tmp)
+            (store / "metrics" / "ranks.csv").write_text("date,market,keyword,group,position,popularity,difficulty,source,depth,status\n",
+                                                         encoding="utf-8")     # no tracked key: no storefront to read a chart for
+            said = self.run_extras(store, store_weeks=mock.Mock(side_effect=AssertionError("must not run")),
                                    fetch_category_chart=mock.Mock(side_effect=AssertionError("must not run")))
         self.assertIn("in-app weeks: not set up", said)
         self.assertIn("chart positions: not set up", said)

@@ -1,5 +1,6 @@
 """App Store category charts: where the app stands in Top Free, Paid and Grossing."""
 
+from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
 import json
 import sys
@@ -136,42 +137,43 @@ def read_charts(app: dict, countries: list, genres: list, chart_type: str = "top
                 fetch=None) -> list:
     """One result per storefront and genre: where the app stands in that chart, or the error that stopped the read."""
     fetch = fetch or fetch_category_chart
+    asked = [(country, gid) for country in countries for gid in genres]
+    with ThreadPoolExecutor(max_workers=8) as pool:      # public feeds, one a storefront and genre: asked side by side
+        answers = list(pool.map(lambda pair: fetch(pair[0], pair[1], chart_type=chart_type, limit=limit), asked))
     all_results = []
-    for country in countries:
-        for gid in genres:
-            gname = GENRE_NAMES.get(gid, f"Genre {gid}")
-            apps, err = fetch(country, gid, chart_type=chart_type, limit=limit)
-            if err or apps is None:
-                all_results.append({
-                    "country": country.upper(),
-                    "genre": gname,
-                    "genre_id": gid,
-                    "chart_type": chart_type,
-                    "error": err,
-                    "found": False,
-                    "rank": None,
-                })
-                continue
-
-            match = find_app_in_chart(apps, app["app_id"], app["brand"])
-            res = {
+    for (country, gid), (apps, err) in zip(asked, answers):
+        gname = GENRE_NAMES.get(gid, f"Genre {gid}")
+        if err or apps is None:
+            all_results.append({
                 "country": country.upper(),
                 "genre": gname,
                 "genre_id": gid,
                 "chart_type": chart_type,
-                "chart_size": len(apps),
-                "found": match is not None,
-                "rank": match["rank"] if match else None,
-                "matched_app": match,
-                "threshold_app": apps[-1] if apps else None,
+                "error": err,
+                "found": False,
+                "rank": None,
+            })
+            continue
+
+        match = find_app_in_chart(apps, app["app_id"], app["brand"])
+        res = {
+            "country": country.upper(),
+            "genre": gname,
+            "genre_id": gid,
+            "chart_type": chart_type,
+            "chart_size": len(apps),
+            "found": match is not None,
+            "rank": match["rank"] if match else None,
+            "matched_app": match,
+            "threshold_app": apps[-1] if apps else None,
+        }
+        if match:
+            r = match["rank"]
+            res["neighbors"] = {
+                "prev": apps[r - 2] if r > 1 else None,
+                "next": apps[r] if r < len(apps) else None,
             }
-            if match:
-                r = match["rank"]
-                res["neighbors"] = {
-                    "prev": apps[r - 2] if r > 1 else None,
-                    "next": apps[r] if r < len(apps) else None,
-                }
-            all_results.append(res)
+        all_results.append(res)
     return all_results
 
 

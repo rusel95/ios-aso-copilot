@@ -146,6 +146,34 @@ class ThePassAsksForTheWholeSpan(unittest.TestCase):
         self.assertNotIn("--since", seen[0])
 
 
+class EverythingTheSourcesGive(unittest.TestCase):
+    def test_the_count_of_written_reviews_is_stored(self):
+        from aso.store_state import ratings_rows
+        ratings = {"averageRating": 4.5, "totalCount": 12, "byCountry": [{"country": "US", "ratingCount": 9, "averageRating": 4.4}]}
+        listing = {"data": [{"attributes": {"body": "not kept"}}], "meta": {"paging": {"total": 7, "limit": 1}}}
+        rows = ratings_rows(ratings, {"meta": {"paging": {"total": 2}}}, "2026-11-14", listing)
+        self.assertEqual((rows[0]["market"], rows[0]["reviews"], rows[0]["reviews_unanswered"]), ("all", 7, 2))
+        self.assertEqual(rows[1]["reviews"], "")                             # the listing's total is for all storefronts
+        self.assertEqual(ratings_rows(ratings, None, "2026-11-14")[0]["reviews"], "")       # not read: blank, not zero
+        self.assertNotIn("not kept", str(rows))
+
+    def test_chart_positions_are_read_for_every_storefront_the_store_tracks_when_none_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / "metrics" / "charts.csv").unlink()
+            seen = []
+
+            def chart(country, genre, **_):
+                seen.append(country)
+                return [{"app_id": "1000000001", "name": "Tidepool", "developer": "", "rank": 1}], ""
+            with contextlib.redirect_stdout(io.StringIO()) as said, mock.patch.object(cycle, "fetch_category_chart", side_effect=chart), \
+                    mock.patch.object(cycle, "store_weeks", return_value=[]):
+                cycle.collect_extras(store, {"app_id": "1000000001", "brand": "tidepool"})
+            self.assertEqual(sorted(set(seen)), ["ua", "us"])                 # the storefronts of ranks.csv
+            self.assertIn("chart positions: charts.csv +", said.getvalue())
+            self.assertEqual({r["market"] for r in read_csv(store / "metrics" / "charts.csv")}, {"ua", "us"})
+
+
 class AdsWithoutASubscriptionProvider(unittest.TestCase):
     """A store with Apple Ads and no RevenueCat still gets its ads results by week."""
     APP = {"app_id": "1000000001", "brand": "tidepool", "rc_project_id": None}

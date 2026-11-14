@@ -14,20 +14,25 @@ CHART_COLS = ["captured", "market", "genre", "chart_type", "position", "depth", 
 RELEASE_COLS = ["version", "state", "state_date", "source", "captured"]
 
 
-def ratings_rows(ratings: dict, unanswered, captured: str) -> list:
+def paging_total(reply):
+    """The total a listing's paging block states, or "" when the reply has none: not read is blank, never zero."""
+    paging = ((reply or {}).get("meta") or {}).get("paging") if isinstance(reply, dict) else None
+    return paging["total"] if isinstance(paging, dict) and isinstance(paging.get("total"), int) else ""
+
+
+def ratings_rows(ratings: dict, unanswered, captured: str, written=None) -> list:
     """One row for all storefronts together and one per storefront that has ratings. `unanswered` is the reply of
-    the unresponded-reviews read, or None; its total goes on the `all` row. A cell nothing filled is blank."""
+    the unresponded-reviews read and `written` that of the reviews listing, or None; their totals go on the `all`
+    row (only the totals are kept, never a review's text). A cell nothing filled is blank."""
     if not isinstance(ratings, dict) or "averageRating" not in ratings or "totalCount" not in ratings:
         return []
-    paging = ((unanswered or {}).get("meta") or {}).get("paging") if isinstance(unanswered, dict) else None
-    waiting = paging.get("total") if isinstance(paging, dict) and isinstance(paging.get("total"), int) else ""
 
-    def row(market, count, average, left=""):
-        return {"captured": captured, "market": market, "ratings_count": count, "rating_average": average, "reviews": "",
+    def row(market, count, average, left="", reviews=""):
+        return {"captured": captured, "market": market, "ratings_count": count, "rating_average": average, "reviews": reviews,
                 "reviews_unanswered": left, "source": "itunes-ratings"}
 
     countries = [c for c in ratings.get("byCountry") or [] if isinstance(c, dict) and c.get("country")]
-    return [row("all", ratings["totalCount"], ratings["averageRating"], waiting)] + sorted(
+    return [row("all", ratings["totalCount"], ratings["averageRating"], paging_total(unanswered), paging_total(written))] + sorted(
         (row(c["country"].lower(), c.get("ratingCount", ""), c.get("averageRating", "")) for c in countries),
         key=lambda r: r["market"])
 
@@ -74,8 +79,8 @@ def loads(text):
         return None
 
 
-def store_ratings(store: Path, ratings_text, unanswered_text, captured: str) -> int:
-    rows = ratings_rows(loads(ratings_text), loads(unanswered_text), captured)
+def store_ratings(store: Path, ratings_text, unanswered_text, captured: str, written_text=None) -> int:
+    rows = ratings_rows(loads(ratings_text), loads(unanswered_text), captured, loads(written_text))
     return append_changed(store / "metrics" / "ratings.csv", RATINGS_COLS, rows, ("captured", "market"))
 
 

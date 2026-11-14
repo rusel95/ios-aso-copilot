@@ -13,7 +13,7 @@ from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.commands.parallel import run_stages
 from aso.pull_revenuecat_series import ADS_COLS
-from aso.store import append_changed
+from aso.store import append_changed, read_ranks
 from aso.store_state import first_release_day, store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
 
@@ -173,9 +173,11 @@ def collect_extras(store: Path, app: dict) -> bool:
             print(f"  ⚠️ in-app weeks: failed ({str(exc).splitlines()[0] if str(exc) else type(exc).__name__})")
             clean = False
 
-    storefronts = [c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
+    # the storefronts config.md names, else every storefront the store tracks a key in: the feeds are public
+    storefronts = ([c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
+                   or sorted({r["market"] for r in read_ranks(store) if r.get("market")}))
     if not storefronts:
-        print("  chart positions: not set up (config.md names no Charts storefronts, e.g. `**Charts storefronts**: us, gb`)")
+        print("  chart positions: not set up (the store tracks no key yet, and config.md names no Charts storefronts)")
     else:
         try:
             results = read_charts(app, storefronts, genre_ids(config.get("Charts genres"), app), fetch=fetch_category_chart)
@@ -323,7 +325,8 @@ def stage_ratings(store: Path, app_id: str) -> bool:
     rc, out, err = run_cmd(["asc", "reviews", "--app", app_id, "--only-unresponded"])
     # the history: what this pass read of the store's own state is appended to the store, never rewritten
     seen = dt.date.today().isoformat()
-    gained = store_ratings(store, ratings_out, out if rc == 0 else None, seen)
+    rc_all, listing, _ = run_cmd(["asc", "reviews", "--app", app_id, "--limit", "1"])     # for its total only
+    gained = store_ratings(store, ratings_out, out if rc == 0 else None, seen, listing if rc_all == 0 else None)
     lookup = fetch_lookup(app_id)
     print(f"  stored: ratings.csv +{gained}, releases.csv +{store_release(store, lookup, seen) if lookup else 0}"
           + ("" if lookup else " (the store lookup could not be read)"))

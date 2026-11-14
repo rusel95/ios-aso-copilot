@@ -103,6 +103,8 @@ def self_check():
             # (this store names an Apple Ads account and no RevenueCat project); a self-check reaches no network
             import pull_revenuecat
             from unittest.mock import patch
+            # the reviews stage reads the listing once more, for its total: its answer follows the unresponded one
+            responses = responses[:3] + [(0, json.dumps({"data": [], "meta": {"paging": {"total": 0}}}), "")] + responses[3:]
             with everywhere("run_cmd", side_effect=responses), everywhere("fetch_lookup", return_value=None), \
                     patch.object(pull_revenuecat, "collect_ads", return_value=([], None)):
                 with contextlib.redirect_stdout(io.StringIO()) as output:
