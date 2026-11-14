@@ -17,7 +17,27 @@ the account has access-controlled Pages). So the first decision is the owner's: 
   `scripts/aso/dashboard/clean.py`: a list of patterns, empty until the owner fills it. The page shows
   everything in `data/`, so what `check` lets through is what the world sees.
 
-## The page: `assets/workflows/aso-dashboard.yml`
+## The short way: `publish`
+
+```bash
+python3 "$COPILOT" publish --store "$STORE" --dry-run     # checks, builds, says what it would push
+python3 "$COPILOT" publish --store "$STORE"               # pushes index.html to the gh-pages branch of the app's repository
+```
+
+`publish` is an action: it puts a page where the world can read it, so it runs only with the owner's go. It
+pushes nothing unless `data/` is what the store exports for its day and the clean check passes. The page is
+committed in a temporary folder and pushed from it, replacing the branch: the app's own checkout, its `main`
+and its uncommitted work are not touched, and the branch always holds one commit with `index.html` and
+`.nojekyll`. Run it after every `export` and the page follows the data.
+
+Once per repository, tell GitHub to serve that branch (Settings → Pages → Deploy from a branch → `gh-pages`,
+or `gh api -X POST repos/<owner>/<repo>/pages -f 'source[branch]=gh-pages' -f 'source[path]=/'`). The page
+is then at `https://<owner>.github.io/<repo>/`. Serving Pages from a private repository needs a paid GitHub
+plan, and the page is public either way; it carries `noindex`, which asks search engines to leave it out and
+stops nobody who has the address. The export masks the store's own account identifiers where a text holds
+one, and says so in a `NOTE`.
+
+## The page from a workflow: `assets/workflows/aso-dashboard.yml`
 
 Copy it to `.github/workflows/aso-dashboard.yml` in the app repository, replace the forty zeros with the
 full commit hash of the skill commit you reviewed (a branch or a tag can move; a hash cannot), and in the

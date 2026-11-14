@@ -42,6 +42,7 @@ continue.
 | `asc product-pages custom-pages create` / `update` | creates public pages |
 | `asc app-tags update` | changes public store-page tags |
 | `asc analytics request` | creates a persistent App Store Connect account resource |
+| `ios-aso-copilot publish` | pushes the page to a branch GitHub Pages serves: public to whoever has the address |
 | `asc screenshots` (writes), `asc video-previews` (writes) | changes public media |
 | `asc subscriptions` (writes), `asc pricing` (writes) | **money and public commercial terms** |
 | `asc release` (any), `asc testflight` distribution | ships |
@@ -315,6 +316,7 @@ ios-aso-copilot build [--out DIR]                            # data/ → index.h
 ios-aso-copilot check                                        # Look through data/ for what must not be published
 ios-aso-copilot due [--as-of YYYY-MM-DD]                     # The rank reads live hypotheses still need
 ios-aso-copilot propose [--limit N] [--basket K]             # Generate the next rank hypotheses: free storefronts by money at stake
+ios-aso-copilot publish [--dry-run] [--branch gh-pages]      # ACTION: push the built page to the branch GitHub Pages serves
 ios-aso-copilot rc [--start YYYY-MM-DD] [--export] [--json]  # Live RevenueCat 3-tier revenue + Apple Ads Cashflow/ROAS (alias: cashflow)
 ios-aso-copilot funnel [--pull]                              # ASC Funnel metrics
 ios-aso-copilot reviews ratings                              # Customer reviews & ratings

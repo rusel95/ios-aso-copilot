@@ -21,6 +21,8 @@ def outside_change(elements):
         return "replies to a review"
     if words[:3] == ["asc", "ads", "campaigns"] and len(words) > 3 and words[3] not in CAMPAIGN_READS:
         return "changes an Apple Ads campaign"
+    if words[:1] == ["git"] and "push" in words:
+        return "pushes to a repository"
     return None
 
 
@@ -45,7 +47,7 @@ def imported_modules(path: Path):
 class Actions(unittest.TestCase):
     def test_only_actions_module_changes_the_outside(self):
         self.assertEqual(outside_changes(ACTIONS), ["changes an Apple Ads campaign", "creates Apple Ads keywords",
-                                                    "replies to a review"])
+                                                    "pushes to a repository", "replies to a review"])
         elsewhere = {str(p.relative_to(ROOT)): found for p in SCRIPTS.rglob("*.py")
                      if p != ACTIONS and (found := outside_changes(p))}
         self.assertEqual(elsewhere, {})

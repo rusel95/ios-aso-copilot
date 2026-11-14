@@ -1,0 +1,13 @@
+usage: copilot.py publish [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                          [--branch BRANCH] [--remote REMOTE] [--dry-run]
+
+options:
+  -h, --help       show this help message and exit
+  --store STORE    Path to marketing store directory
+  --debug, -d      Print debug diagnostics to stderr
+  --info, -v       Print informational logs to stderr
+  --quiet, -q      Suppress non-essential output
+  --json           Format output as JSON where applicable
+  --branch BRANCH  The branch GitHub Pages serves (default: gh-pages)
+  --remote REMOTE  The repository to push to (default: the origin of the store's repository)
+  --dry-run        Check and build, and say what would be pushed

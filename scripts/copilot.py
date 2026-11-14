@@ -125,6 +125,11 @@ def build_parser():
     p_due.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the list is made for (default: today)")
     subparsers.add_parser("check", help="Look through the data folder for what must not be published (offline)",
                           parents=[common_parent])
+    p_publish = subparsers.add_parser("publish", help="Push the built page, and only the page, to a branch of the app's repository (public once served)",
+                                      parents=[common_parent])
+    p_publish.add_argument("--branch", default="gh-pages", help="The branch GitHub Pages serves (default: gh-pages)")
+    p_publish.add_argument("--remote", help="The repository to push to (default: the origin of the store's repository)")
+    p_publish.add_argument("--dry-run", action="store_true", help="Check and build, and say what would be pushed")
     p_propose = subparsers.add_parser("propose", help="Generate the next rank hypotheses from the store: free storefronts by money at stake (offline)",
                                       parents=[common_parent])
     p_propose.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the proposals are made for (default: today)")
@@ -292,6 +297,9 @@ def main():
         return cmd_check(args)
     elif args.command == "propose":
         return cmd_propose(args)
+    elif args.command == "publish":
+        from aso.commands.ads_actions import cmd_publish        # an action: imported only when asked for
+        return cmd_publish(args)
     return 0
 
 

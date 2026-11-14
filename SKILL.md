@@ -176,7 +176,7 @@ python3 "$SKILL_DIR/scripts/copilot.py" check --store "$STORE"      # nothing pr
 The export shows flows by closed Monday week and stocks by snapshot day, and says `unavailable` with a code
 and a reason where the store holds nothing. It prints `NOTE` lines for what it left out. A hand-written
 `STATE.md` is kept until it is archived. Contract, files and the page's tabs: `references/export-and-page.md`.
-Publishing: `references/publish.md`.
+Publishing is an action, `ios-aso-copilot publish`, with the owner's go: `references/publish.md`.
 
 ## Judge a hypothesis
 
