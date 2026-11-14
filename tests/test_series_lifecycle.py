@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import SAMPLE, copy_store  # noqa: E402
 
 import pull_funnel  # noqa: E402
-from aso.commands import cycle  # noqa: E402
+from aso.commands import collect, cycle  # noqa: E402
 from aso.dashboard import export  # noqa: E402
 from aso.store import read_csv  # noqa: E402
 
@@ -86,6 +86,64 @@ class Family(unittest.TestCase):
     def test_the_sample_holds_three_weeks(self):
         figures = self.lifecycle(SAMPLE)["figures"]
         self.assertEqual((figures["optin_installs"]["value"], figures["optin_deletions"]["value"]), (20, 8))
+
+
+class HalfAPull(unittest.TestCase):
+    """A funnel week needs both reports. A week is written once, so a row holding only one of them would stay half
+    empty for good: when one report cannot be read, no funnel week is written at all."""
+
+    def pull(self, out, failing):
+        def fetch(request_id, report, raw_dir, prefix, **_):
+            if prefix == failing:
+                raise RuntimeError("rate limited")
+            day = {"Date": "2026-11-03", "Territory": "US", "Counts": "5", "Source Type": "App Store search"}
+            rows = {"r14": [dict(day, Event="Impression")], "r3": [dict(day, **{"Download Type": "First-time download"})],
+                    "lifecycle": [event("2026-11-03", "Install", "US", 4)]}[prefix]
+            return rows, 1, 1, "2026-10-01"
+        argv = ["pull_funnel.py", "--app", "1000000001", "--out", str(out), "--raw-dir", str(out / "raw")]
+        with mock.patch.object(pull_funnel, "request_and_reports", return_value=("req", {})), \
+                mock.patch.object(pull_funnel, "fetch_report", side_effect=fetch), mock.patch.object(sys, "argv", argv), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
+            return pull_funnel.main(), said.getvalue()
+
+    def test_one_report_missing_writes_no_funnel_week(self):
+        for failing in ("r14", "r3"):
+            with tempfile.TemporaryDirectory() as tmp:
+                code, said = self.pull(Path(tmp), failing)
+                self.assertEqual(code, 2)
+                self.assertFalse((Path(tmp) / "weekly.csv").exists(), failing)
+                self.assertIn("weekly.csv was not updated", said)
+                self.assertTrue((Path(tmp) / "lifecycle.csv").is_file())          # its own report, its own file
+
+    def test_both_reports_write_the_week_and_a_missing_lifecycle_does_not_stop_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, said = self.pull(Path(tmp), "lifecycle")
+            self.assertEqual(code, 0, said)
+            self.assertEqual(len(read_csv(Path(tmp) / "weekly.csv")), 3)          # all, search, us
+            self.assertFalse((Path(tmp) / "lifecycle.csv").exists())
+
+
+class TheSkillsOwnCollector(unittest.TestCase):
+    """Only the skill's pull_funnel.py writes closed Monday weeks the export can show. A store that carries a script
+    of its own under the same name must not take its place, or its page never gets a funnel week."""
+
+    def test_a_store_local_script_does_not_replace_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / "scripts").mkdir()
+            (store / "scripts" / "pull_funnel.py").write_text('APP_ID = "1000000001"\n', encoding="utf-8")
+            self.assertEqual(collect.funnel_script(store), collect.SKILL_DIR / "scripts" / "pull_funnel.py")
+
+    def test_the_pass_and_the_command_both_ask_for_it(self):
+        for module in (collect, cycle):
+            source = Path(module.__file__).read_text(encoding="utf-8")
+            self.assertNotIn('store / "scripts" / "pull_funnel.py"', source.replace(collect_helper(source), ""), module.__name__)
+
+
+def collect_helper(source: str) -> str:
+    """The text of `funnel_script` itself, the one place allowed to name a store-local script."""
+    start = source.find("def funnel_script(")
+    return source[start:source.find("\n\n\n", start)] if start >= 0 else ""
 
 
 class EveryWriter(unittest.TestCase):

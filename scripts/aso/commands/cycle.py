@@ -10,7 +10,7 @@ from pathlib import Path
 
 from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identity, run_cmd
 from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
-from aso.commands.collect import fetch_lookup, prepare_funnel_pull
+from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.store_state import store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
 
@@ -367,9 +367,7 @@ def _cycle_run(args):
 
     # Step 3: Funnel metrics & App Store impressions
     print("\n▶ [3/7] Syncing Funnel Analytics & Impressions (ASC)...")
-    pull_script = store / "scripts" / "pull_funnel.py"
-    if not pull_script.exists():
-        pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
+    pull_script = funnel_script(store)
     if args.skip_pull:
         print("  (Funnel pull explicitly skipped)")
         print_step_funnel_summary(store)

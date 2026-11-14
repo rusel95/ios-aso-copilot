@@ -524,8 +524,9 @@ def main():
     except (RuntimeError, OSError) as exc:
         print(f"Partial funnel stage for lifecycle: {exc}", file=sys.stderr)
 
-    if not discovery_rows and not download_rows:
-        print("No usable R14 or R3 rows; weekly.csv was not updated.", file=sys.stderr)
+    # a week is written once: a row holding one report without the other would stay half empty for good
+    if not discovery_rows or not download_rows:
+        print("R14 and R3 were not both read; weekly.csv was not updated.", file=sys.stderr)
         return 2
 
     metrics = fold_reports(discovery_rows, download_rows, first_processing_date=report_start)

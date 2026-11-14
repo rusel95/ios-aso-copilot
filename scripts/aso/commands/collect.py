@@ -33,6 +33,13 @@ def declared_funnel_app_id(pull_script):
     return values[0] if len(values) == 1 and isinstance(values[0], str) and values[0].isdigit() else None
 
 
+def funnel_script(store: Path) -> Path:
+    """The collector the funnel is pulled with: the skill's own. Only it folds the daily reports into closed Monday
+    weeks, which is all the export shows; a store-local script of the same name is used only if the skill has none."""
+    own = SKILL_DIR / "scripts" / "pull_funnel.py"
+    return own if own.exists() else store / "scripts" / "pull_funnel.py"
+
+
 def prepare_funnel_pull(pull_script, store, app_id):
     """Build a safe pull only after verifying the helper identity and raw directory option."""
     store = Path(store).resolve()
@@ -81,9 +88,7 @@ def cmd_reviews(args):
 def cmd_funnel(args):
     """Pull or summarize App Store Connect Funnel Analytics."""
     store = Path(args.store).resolve()
-    pull_script = store / "scripts" / "pull_funnel.py"
-    if not pull_script.exists():
-        pull_script = SKILL_DIR / "scripts" / "pull_funnel.py"
+    pull_script = funnel_script(store)
 
     if args.pull:
         if not pull_script.is_file():
