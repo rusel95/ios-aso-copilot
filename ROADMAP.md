@@ -44,18 +44,18 @@ The owner's direction, 2026-11-14. Collection is already scripts only: `collect`
    by quarter when the page gets slow.
 10. **Chart history needs a config line.** Chart positions are stored only when `config.md` names
     `**Charts storefronts**`; offer the storefronts with live hypotheses as the default.
-12. **Sales and Trends reports.** Daily, weekly and monthly sales reports are kept for a year and yearly ones
+11. **Sales and Trends reports.** Daily, weekly and monthly sales reports are kept for a year and yearly ones
     for ten; they give downloads and proceeds by storefront, and are the only money source for a store with no
     subscription provider. Blocked on the vendor number (`~/.asc/config.json` holds none and no API lists
     it), then: a collector for weekly reports, proceeds in their own currencies, a `sales` family.
     Done when: such a store's Money tab shows a year of weeks.
-13. **The snapshot's shape.** The funnel collector reads a one-time snapshot's daily reports as it reads the
+12. **The snapshot's shape.** The funnel collector reads a one-time snapshot's daily reports as it reads the
     ongoing ones. If a filled snapshot holds older periods only as weekly or monthly reports, fold those too.
     Done when: a store shows funnel weeks from before its ongoing request.
-14. **In-app history before the BigQuery export.** The in-app weeks begin with the first daily events table.
+13. **In-app history before the BigQuery export.** The in-app weeks begin with the first daily events table.
     GA4's own reports reach back to the property's start. Done when: weeks before the export are filled from
     GA4, marked as a different source.
-15. **Release days of past versions.** App Store Connect lists versions with the day each record was created,
+14. **Release days of past versions.** App Store Connect lists versions with the day each record was created,
     not the day it went live; the public lookup gives the live version's day only. Done when: every past
     version has a dated row from a source that states the day.
 
