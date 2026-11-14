@@ -5,7 +5,9 @@ ASO.SOURCES = [["Keyword ranks", "ranks"], ["Store funnel", "store_funnel"], ["I
 
 ASO.sources = function (payload, today) {
   return '<ul class="sources">' + ASO.SOURCES.map(function (source) {
-    var day = ASO.fetched(payload, source[1]);
+    // ranks are as fresh as the newest sweep that covered the basket; a later read of three keys does not refresh them
+    var sweep = ASO.last(ASO.fullSweeps(payload));
+    var day = source[1] === "ranks" ? (sweep ? sweep.period.id : null) : ASO.fetched(payload, source[1]);
     return '<li><span class="src-name">' + ASO.esc(source[0]) + "</span> " +
       (day ? '<span class="src-day">' + ASO.esc(day) + "</span> " + ASO.age(day, today) : ASO.missing("no_source")) + "</li>";
   }).join("") + "</ul>";

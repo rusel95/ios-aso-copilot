@@ -92,7 +92,7 @@ class Shell(PageCase):
 class Overview(PageCase):
     def test_sources_and_their_age(self):
         seen = self.read("#/")
-        self.assertIn("Keyword ranks 2026-11-09 5 d", seen)
+        self.assertIn("Keyword ranks 2026-11-02 12 d", seen)     # the newest full sweep, not the 2-key read of 11-09
         self.assertIn("Store funnel 2026-11-10 4 d", seen)
         self.assertIn("Apple search popularity 2026-11-03 11 d", seen)
         self.assertNotIn('class="age stale"', self.render("#/"))       # no source is marked stale
@@ -105,7 +105,7 @@ class Overview(PageCase):
 
     def test_a_source_older_than_two_weeks_is_stale(self):
         seen = self.read("#/", "2026-12-01")
-        self.assertIn("Keyword ranks 2026-11-09 22 d · stale", seen)
+        self.assertIn("Keyword ranks 2026-11-02 29 d · stale", seen)
         self.assertIn("Store funnel 2026-11-10 21 d · stale", seen)
 
     def test_headline_tiles(self):
@@ -243,6 +243,8 @@ class Keywords(PageCase):
         for day in ("2026-10-05", "2026-10-19", "2026-11-02"):
             self.assertIn(day, seen)
         self.assertIn("1 sweep left out as partial: 2026-11-09 read 2 of 10 tracked keys.", seen)
+        self.assertIn("the scale stops at 90%", seen)                         # the tallest column is 8 of 9 keys
+        self.assertRegex(markup, r'<text class="tl-axis" x="36" y="14" text-anchor="end">90%</text>')
 
     def test_sweep_table_holds_the_bands_and_the_share(self):
         rows = [text_of(r) for r in re.findall(r'<tr class="sweep">(.*?)</tr>', self.render("#/keywords"), re.S)]

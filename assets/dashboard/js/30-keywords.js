@@ -6,13 +6,23 @@ ASO.partialSweeps = function (payload) {
 };
 
 // One column per full sweep: the share of the keys read that day in each band, best band at the bottom.
+ASO.bandScale = function (sweeps) {
+  var most = 0;
+  sweeps.forEach(function (file) {
+    var f = file.families.ranks.figures, inside = 0;
+    ASO.BANDS.forEach(function (band) { inside += f[band[0]].value; });
+    if (f.keys_read.value) { most = Math.max(most, inside / f.keys_read.value); }
+  });
+  return Math.min(1, Math.max(0.05, Math.ceil(most * 20) / 20));        // the next 5% step above the tallest column
+};
+
 ASO.bandChart = function (sweeps) {
-  var step = 78, width = Math.max(520, 60 + sweeps.length * step), out = "";
+  var step = 78, width = Math.max(520, 60 + sweeps.length * step), out = "", top = ASO.bandScale(sweeps);
   sweeps.forEach(function (file, i) {
     var f = file.families.ranks.figures, read = f.keys_read.value, x = 50 + i * step, y = 150;
     out += '<rect class="col-track" x="' + x + '" y="10" width="44" height="140"/>';
     ASO.BANDS.forEach(function (band) {
-      var height = read ? 140 * f[band[0]].value / read : 0;
+      var height = read ? 140 * f[band[0]].value / read / top : 0;
       if (height > 0) {
         y -= height;
         out += '<rect class="band-' + band[0] + '" x="' + x + '" y="' + y.toFixed(1) + '" width="44" height="' +
@@ -24,7 +34,7 @@ ASO.bandChart = function (sweeps) {
       (f.share_top30.unavailable ? "–" : ASO.esc(ASO.fmt(f.share_top30.value, "ratio"))) + "</text>";
   });
   return '<div class="scroll"><svg class="band-chart" viewBox="0 0 ' + width + ' 188" role="img" aria-label="Share of keys read in each rank band, sweep by sweep">' +
-    '<line class="grid" x1="40" y1="150" x2="' + width + '" y2="150"/><text class="tl-axis" x="36" y="14" text-anchor="end">100%</text>' +
+    '<line class="grid" x1="40" y1="150" x2="' + width + '" y2="150"/><text class="tl-axis" x="36" y="14" text-anchor="end">' + Math.round(top * 100) + "%</text>" +
     '<text class="tl-axis" x="36" y="154" text-anchor="end">0%</text>' + out + "</svg></div>";
 };
 
@@ -106,7 +116,8 @@ ASO.pages["#/keywords"] = function (payload, today) {
   var out = '<h1 class="page">Keyword ranks</h1><p class="meta">Non-brand keys · newest full sweep ' + ASO.esc(newest.period.id) + " " +
     ASO.age(newest.period.id, today) + '</p><div class="blocks wide"><section class="block">\n<h2>Share of keys read in each band</h2><ul class="legend">' +
     ASO.BANDS.map(function (b) { return '<li><svg class="swatch tall" viewBox="0 0 12 12"><rect class="band-' + b[0] + '" width="12" height="12"/></svg>' + ASO.esc(b[1]) + "</li>"; }).join("") +
-    "</ul>" + ASO.bandChart(sweeps) + '<p class="meta">A column is 100% of the keys read that day; the number under it is the share at positions 1 to 30.' +
+    "</ul>" + ASO.bandChart(sweeps) + '<p class="meta">A column is the share of the keys read that day that sit inside the top 200, band by band; ' +
+    "the scale stops at " + Math.round(ASO.bandScale(sweeps) * 100) + "%. The number under a column is the share at positions 1 to 30." +
     (partial.length ? " " + partial.length + " sweep" + (partial.length === 1 ? "" : "s") + " left out as partial: " + partial.map(function (file) {
       var f = file.families.ranks.figures;
       return ASO.esc(file.period.id) + " read " + f.keys_read.value + " of " + f.tracked_keys.value + " tracked keys";
