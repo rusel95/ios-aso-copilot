@@ -1,4 +1,4 @@
-"""The golden test: the invented store must come out byte for byte as recorded: its data files and its page.
+"""The golden test: the invented store must come out byte for byte as recorded: its data files, its STATE.md and its page.
 
 A change that alters a figure, a file or the page fails here. When the output is meant to change:
 
@@ -31,6 +31,7 @@ def produced() -> dict:
         assert site.build(store / "data", out, "Tidepool") == 0
         files = {f"data/{p.relative_to(store / 'data').as_posix()}": p for p in sorted((store / "data").rglob("*.json"))}
         files["public/index.html"] = out / "index.html"
+        files["STATE.md"] = store / "STATE.md"
         return {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
 
 

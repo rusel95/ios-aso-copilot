@@ -9,7 +9,6 @@ ASO.TABS = [["#/", "Overview"], ["#/ledger", "Ledger"], ["#/keywords", "Keywords
 ASO.MISSING = { no_source: "Not stored yet", no_data: "Nothing to measure", not_configured: "Not set up",
                 unreachable: "Could not be fetched" };
 ASO.STALE_AFTER = 14;       // days; a source older than this is marked stale
-ASO.PARTIAL_UNDER = 0.5;    // a sweep that read less than this share of the tracked keys is left out of trends
 
 ASO.esc = function (text) {
   return String(text == null ? "" : text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -77,7 +76,7 @@ ASO.fullSweeps = function (payload) {
     var ranks = file.families.ranks;
     if (!ranks || !ranks.figures) { return false; }
     var read = ranks.figures.keys_read.value, tracked = ranks.figures.tracked_keys.value;
-    return tracked > 0 && read / tracked >= ASO.PARTIAL_UNDER;
+    return tracked > 0 && read / tracked >= payload.catalog.families.ranks.partial_under;
   });
 };
 

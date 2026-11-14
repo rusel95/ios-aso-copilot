@@ -13,6 +13,7 @@ from aso.dashboard.contract import ENTITIES, SCHEMA, canonical, load_catalog, va
 from aso.dashboard.series import ranks_until, unavailable
 from aso.dashboard.export_weeks import (NOTHING_THAT_WEEK, NOT_STORED_YET, ads_family_weeks, funnel_weeks, in_app_weeks,
                                         lifecycle_weeks, money_weeks)
+from aso.dashboard.state import ours, state_md
 from aso.dashboard.export_snapshots import (chart_snapshots, insight_snapshots, rank_snapshots, ratings_snapshots, subscription_snapshots)
 from aso.ledger_state import hypothesis_states, priority
 from aso.ranks import brand_hit, loose_index, movers, resolve_key, series, zero_result_keys
@@ -229,6 +230,14 @@ def write(store: Path, files: dict) -> dict:
         if path not in files:
             (data / path).unlink()
             done["removed"].append(path)
+    state, text = store / "STATE.md", state_md(files, dt.date.fromisoformat(files["events.json"]["as_of"]))
+    if not ours(state):
+        print("KEPT STATE.md: written by hand, archive it first")
+    elif state.is_file() and state.read_text(encoding="utf-8") == text:
+        print("SAME STATE.md")
+    else:
+        state.write_text(text, encoding="utf-8")
+        print("WROTE STATE.md")
     return done
 
 
@@ -237,6 +246,9 @@ def check(store: Path, files: dict) -> list:
     data = store / "data"
     differ = [path for path, obj in files.items()
               if not (data / path).is_file() or (data / path).read_text(encoding="utf-8") != canonical(obj)]
+    state = store / "STATE.md"       # a generated STATE.md is part of what the export owns; a hand-written one is not
+    if state.is_file() and ours(state) and state.read_text(encoding="utf-8") != state_md(files, dt.date.fromisoformat(files["events.json"]["as_of"])):
+        differ.append("STATE.md")
     return sorted(set(differ) | (set(data_files(store)) - set(files)))
 
 

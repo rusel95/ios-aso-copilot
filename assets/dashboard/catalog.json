@@ -319,6 +319,7 @@
    },
    "kind": "snapshot",
    "open": false,
+   "partial_under": 0.5,
    "rows": null,
    "title": "Keyword ranks"
   },
