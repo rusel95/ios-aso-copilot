@@ -139,3 +139,10 @@ circle.s-rest,rect.s-rest{fill:var(--noeffect)}
 tr.is-brand td{color:var(--ink2)}
 .bars li{display:grid;grid-template-columns:28px minmax(60px,1fr) 150px;gap:10px;align-items:center;padding:4px 0}
 .bars .mono{text-align:right}
+
+/* the remaining tabs */
+.next.three li{grid-template-columns:28px auto minmax(0,1fr) 52px}
+.next.range li{grid-template-columns:28px minmax(0,1fr) auto 112px}
+.plain{display:flex;flex-direction:column;gap:6px;font-size:13px;list-style:disc;padding-left:18px}
+.terms dd .mono{font-weight:600}
+main>.block{gap:10px}

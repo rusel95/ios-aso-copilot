@@ -50,6 +50,13 @@ class PageCase(unittest.TestCase):
     def read(self, route: str, today: str = AS_OF) -> str:
         return text_of(self.render(route, today))
 
+    def block(self, route: str, title: str, markup: str = None) -> str:
+        """The markup of the block whose heading is `title`."""
+        found = re.search(r'<section class="block[^"]*">\s*<h2>' + re.escape(title) + r"</h2>(.*?)</section>",
+                          markup if markup is not None else self.render(route), re.S)
+        self.assertIsNotNone(found, f"{route}: no block titled {title!r}")
+        return found.group(1)
+
 
 class Shell(PageCase):
     def test_escape(self):
@@ -158,11 +165,7 @@ class Panel(PageCase):
 
 class Ledger(PageCase):
     def card(self, title):
-        """The markup of the block whose heading is `title`."""
-        found = re.search(r'<section class="block[^"]*">\s*<h2>' + re.escape(title) + r"</h2>(.*?)</section>",
-                          self.render("#/ledger"), re.S)
-        self.assertIsNotNone(found, title)
-        return found.group(1)
+        return self.block("#/ledger", title)
 
     def test_judge_lists_what_is_due_oldest_first(self):
         seen = text_of(self.card("Judge"))
@@ -281,6 +284,69 @@ class Keywords(PageCase):
         markup = self.js("(payload.snapshots = [], payload.keys.keys = [], payload.keys.dates = [], "
                          "ASO.render('#/keywords', payload, '2026-11-14'))")
         self.assertIn("Not stored yet", text_of(markup))
+
+
+class Tabs(PageCase):
+    def test_funnel_shows_closed_weeks_newest_first(self):
+        rows = [text_of(r) for r in re.findall(r'<tr class="period">(.*?)</tr>', self.block("#/funnel", "Closed weeks"), re.S)]
+        self.assertEqual(rows, ["2026-11-02 1,500 160 64 10.7% 40.0% 4.3%", "2026-10-26 1,200 150 45 12.5% 30.0% 3.8%",
+                                "2026-10-19 1,000 100 40 10.0% 40.0% 4.0%"])
+
+    def test_funnel_by_storefront_of_the_newest_week(self):
+        block = self.block("#/funnel", "By storefront")
+        rows = [text_of(r) for r in re.findall(r'<tr class="split-row">(.*?)</tr>', block, re.S)]
+        self.assertEqual(rows, ["us 900 100 40 11.1% 40.0% 4.4%", "ua 600 60 24 10.0% 40.0% 4.0%"])
+        self.assertIn("week of 2026-11-02", text_of(block))
+
+    def test_a_family_nothing_stores_says_why_and_shows_no_figure(self):
+        cases = [("#/funnel", "Install lifecycle", "No command stores install and deletion counts by week yet."),
+                 ("#/money", "Money by closed week", "Proceeds and Apple Ads spend are not stored by week yet."),
+                 ("#/money", "Subscriptions", "No data file holds a reading of it."),
+                 ("#/ads", "Apple Ads by closed week", "Apple Ads results are not stored by week yet."),
+                 ("#/in-app", "In-app", "In-app events are not stored by week yet.")]
+        for route, title, reason in cases:
+            with self.subTest(block=title):
+                block = self.block(route, title)
+                self.assertIn("Not stored yet", text_of(block))
+                self.assertIn(reason, text_of(block))
+                self.assertNotIn('<button class="fig"', block)               # no value, so nothing that looks like one
+
+    def test_apple_insight_rows(self):
+        self.assertIn("us tide tracker #2 31.0%–40.0%", text_of(self.block("#/ads", "Impression share")))
+        demand = text_of(self.block("#/ads", "Apple search popularity"))
+        self.assertIn("us WEATHER tide times 41", demand)
+        self.assertIn("us WEATHER 500 terms listed, lowest score 38", demand)
+        self.assertIn("ua Apple lists nothing here", demand)
+        self.assertIn("measured 2026-10-25 → 2026-10-31", demand)
+
+    def test_subscriptions_show_once_a_read_is_stored(self):
+        markup = self.js("(payload.snapshots.push({ period: { kind: 'snapshot', id: '2026-11-12' }, families: { subscriptions: "
+                         "{ source: 'revenuecat', fetched_at: '2026-11-12', figures: { mrr_usd: { value: 15 }, "
+                         "active_subscriptions: { value: 6 }, active_trials: { unavailable: { code: 'no_data', reason: 'x' } } } } } }), "
+                         "ASO.render('#/money', payload, '2026-11-14'))")
+        seen = text_of(self.block("#/money", "Subscriptions", markup))
+        self.assertIn("MRR $15.00", seen)
+        self.assertIn("Active subscriptions 6", seen)
+        self.assertIn("Active trials Nothing to measure", seen)
+
+    def test_in_app_groups_what_the_store_holds_by_section(self):
+        markup = self.js("(payload.weeks[2].families.in_app = { source: 'bigquery', fetched_at: '2026-11-10', figures: { "
+                         "'funnel.first_open': { value: 40 }, 'funnel.cleanup_reached': { value: 18 }, "
+                         "'compression.video_ok': { value: 12 } } }, ASO.render('#/in-app', payload, '2026-11-14'))")
+        self.assertIn("first open 40", text_of(self.block("#/in-app", "funnel", markup)))
+        self.assertIn("cleanup reached 18", text_of(self.block("#/in-app", "funnel", markup)))
+        self.assertIn("video ok 12", text_of(self.block("#/in-app", "compression", markup)))
+
+    def test_how_names_the_steps_the_rules_and_the_codes(self):
+        seen = self.read("#/how")
+        for word in ("Collect", "Export", "Build", "Not stored yet", "no_source", "Nothing to measure", "no_data",
+                     "Not set up", "not_configured", "Could not be fetched", "unreachable", "Approximation"):
+            self.assertIn(word, seen)
+
+    def test_every_tab_of_the_navigation_renders(self):
+        for route in ("#/", "#/ledger", "#/keywords", "#/funnel", "#/money", "#/ads", "#/in-app", "#/how"):
+            with self.subTest(route=route):
+                self.assertNotIn("No such page", self.read(route))
 
 
 if __name__ == "__main__":
