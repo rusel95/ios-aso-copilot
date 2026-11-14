@@ -40,6 +40,9 @@ A family carries its `source` and `fetched_at` once, then its figures. A figure 
 splits. What a figure means, its unit and how exact it is are static facts and live in
 `assets/dashboard/catalog.json`, not in every file.
 
+Apple's own weekly figures (search popularity, impression share) sit on the last day of the week they measure,
+whenever they were read, so a history pull of fifty weeks is fifty snapshots; `fetched_at` says when each was read.
+
 A week is shown only once it has closed (from the Monday after it). A figure the store cannot give is not a
 zero and not a blank: it is `unavailable` with a code and a sentence.
 
@@ -67,7 +70,7 @@ One self-contained `index.html`: the data, the catalog, the style and the script
 nothing of the network. Tabs: Overview (headline tiles, what is due, sources and their age), Ledger
 (hypotheses by state, each with its basket and reads), Keywords (rank bands sweep by sweep, every key's
 positions over time, movers, the priority order), Store funnel (the funnel and the install lifecycle by
-week and storefront), Money, Apple Ads, In-app, and How data gets here (every figure's definition and
+week and storefront), Money, Apple Ads (with each term's search popularity drawn across the weeks held), In-app, and How data gets here (every figure's definition and
 source). A sweep that read less than half of the tracked keys is left out of trends and headlines, on the
 page and in `STATE.md` alike; the share is `ranks.partial_under` in the catalog.
 

@@ -29,6 +29,12 @@ self-contained page. The same store and day give the same bytes.
   `--jobs 1` runs them one after another. The funnel collector reads its three reports at once, keeps the
   daily reports per app under `~/.cache/ios-aso-copilot/funnel/<app id>` and asks only for new days. A pull
   that App Store Connect rate-limits keeps what it has and the next one goes on from there.
+- **The whole history.** Each stage asks its source for everything since the app was first released that the
+  store lacks: search popularity and impression share for every week Apple still answers for, revenue and
+  Apple Ads results from the release day (Apple Ads in ninety-day pieces, and for a store with no
+  subscription provider too), in-app weeks from the first whole week of event tables, and the funnel also from
+  the app's one-time snapshot request. Apple's weekly figures are dated by the week they measure, and the page
+  draws each term's popularity across the weeks held.
 - **New commands.** `due` lists the rank reads live hypotheses need at the end of their windows. `check`
   looks through `data/` for what must not be published.
 - **Many projects.** One store per project; every command takes `--store` and writes only inside it. A
@@ -47,7 +53,8 @@ self-contained page. The same store and day give the same bytes.
 when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,
 which is all the export shows. No funnel week is written unless both reports were read. The key join between
 a hypothesis's queries and the tracked keys is exact first, then by case, spacing and apostrophe form; two
-tracked keys that differ only that way are never merged. The template no longer carries a `STATE.md`.
+tracked keys that differ only that way are never merged. The template no longer carries a `STATE.md`. The revenue pull no longer starts at a date typed into the code
+(it was one app's release day). A week before the first BigQuery events table is no longer stored as zeros.
 
 ---
 

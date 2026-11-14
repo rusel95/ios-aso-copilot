@@ -91,6 +91,34 @@ without its Sunday. Run the weekly pass on a Wednesday or later and it carries t
 12m`, the funnel stage fails for this pass and keeps what it downloaded, and the next pull continues from
 there. A first pull (about a hundred daily reports) can take two passes.
 
+### The whole history
+
+A pass does not stop at the last few weeks: each stage asks its source for everything since the app was first
+released (the day the public store lookup gives) that the store does not hold yet. What is already held costs
+nothing, so the first pass of an old app is long and every later one is short.
+
+| Source | How far back it gives | How the pass gets it |
+|---|---|---|
+| Keyword ranks | nothing before the first sweep: a position is seen only when it is asked for | sweeps; old snapshot files are ingested with `ledger ingest` |
+| Store funnel, lifecycle | the ongoing request: about a month; the days before it: a one-time snapshot request | the funnel stage reads both; a day both hold comes from the ongoing one |
+| Apple search popularity | about two years of weeks (measured: 62 weeks back yes, 114 no) | the radar asks every missing week, four storefronts at a time |
+| Impression share | the same | four weeks a request, back to the start |
+| Revenue, cashflow | the subscription provider's whole history | asked from the first release day |
+| Apple Ads results | day by day, ninety days a request | asked in pieces from the first release day; stored without a subscription provider too |
+| In-app weeks | from the first daily events table of the BigQuery export | every week the tables hold whole; a week before the first table is not asked and is never a week of zeros |
+| Ratings, chart positions | none: Apple gives the present only | one row a pass, from the first pass on |
+| Releases | the live version's release day only | one row the first time a version is seen live |
+
+The one-time snapshot is an account resource, so asking for it is fenced (`references/commands.md`): with the
+owner's go, once per app, `asc analytics request --app <id> --access-type ONE_TIME_SNAPSHOT --reuse-existing`.
+Apple fills it in a day or two; until then the funnel stage says `holds no daily report yet` and goes on. A
+long history is many downloads and App Store Connect limits them: run `funnel --pull` again after the wait it
+names, and it continues from its cache until it reports no rate limit.
+
+Not collected yet: Sales and Trends reports (downloads and proceeds for a year, the only money source for a
+store with no subscription provider). They need the account's vendor number, which no API lists: set
+`vendor_number` in `~/.asc/config.json` first. See `ROADMAP.md`.
+
 Run the pass in a subagent on a cheaper model when the harness has one: it is long and mechanical, and
 its output is large. Give it the exact command, the store, and the limits (no commit in the app
 repository, no Apple Ads or metadata change); read its stage table and reasons, then judge in the main

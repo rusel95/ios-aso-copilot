@@ -157,7 +157,8 @@ python3 "$SKILL_DIR/scripts/copilot.py" collect --ranks --store "$STORE"    # th
 The stages wait on different services, so they run at once and print in stage order, ending with a
 `STAGE SUMMARY` table; exit `2` means a stage needs a look. The rank sweep is the long one (Apple allows
 about twenty searches a minute, per machine): it runs beside the others, never two at a time. A stage the
-store is not set up for says `not set up`. A rate-limited funnel pull keeps what it downloaded and the next
+store is not set up for says `not set up`. Each stage asks for everything since the app's first release that the
+store lacks, so a first pass is long and later ones are short. A rate-limited funnel pull keeps what it downloaded and the next
 pull goes on from there. Run the pass in a subagent on a cheaper model when one is available, and judge
 here. Single sources: `ios-aso-copilot funnel`, `ios-aso-copilot ga`, `ios-aso-copilot rc`,
 `ios-aso-copilot telemetry`, `ios-aso-copilot reviews`, `ios-aso-copilot charts`. Everything else:
