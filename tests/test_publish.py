@@ -71,7 +71,53 @@ class Publish(unittest.TestCase):
         self.assertIn("would push", out)
         self.assertEqual(git("branch", "--list", "gh-pages", cwd=self.remote), "")
 
+    def shared(self):
+        """A repository that already serves other pages from `main`, as a site of legal documents does."""
+        site = Path(self.tmp.name) / "site.git"
+        git("init", "-q", "--bare", "-b", "main", str(site))
+        work = Path(self.tmp.name) / "seed"
+        work.mkdir()
+        git("init", "-q", "-b", "main", cwd=work)
+        (work / "App").mkdir()
+        (work / "App" / "privacy-policy.html").write_text("<p>policy</p>\n", encoding="utf-8")
+        git("add", "-A", cwd=work)
+        git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "-m", "policy", cwd=work)
+        git("push", "-q", str(site), "main", cwd=work)
+        return site
+
+    def test_into_a_folder_of_a_repository_that_serves_other_pages(self):
+        site = self.shared()
+        code, out, err = self.publish("--remote", str(site), "--branch", "main", "--path", "App/dashboard")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(sorted(git("ls-tree", "-r", "--name-only", "main", cwd=site).splitlines()),
+                         ["App/dashboard/index.html", "App/privacy-policy.html"])
+        self.assertEqual(git("show", "main:App/privacy-policy.html", cwd=site), "<p>policy</p>")     # what was there stays
+        self.assertEqual(git("rev-list", "--count", "main", cwd=site), "2")                         # a commit on top, no rewrite
+        self.assertIn("PUBLISHED App/dashboard", out)
+        code, out, _ = self.publish("--remote", str(site), "--branch", "main", "--path", "App/dashboard")
+        self.assertEqual(code, 0)
+        self.assertIn("SAME", out)                                                                   # nothing new: no commit
+        self.assertEqual(git("rev-list", "--count", "main", cwd=site), "2")
+
+    def test_a_path_that_leaves_the_repository_or_names_nothing_is_refused(self):
+        site = self.shared()
+        for path in ("../outside", "/etc", "App/../../x", "."):
+            code, out, _ = self.publish("--remote", str(site), "--branch", "main", "--path", path)
+            self.assertEqual(code, 1, path)
+        self.assertEqual(git("rev-list", "--count", "main", cwd=site), "1")
+
+    def test_where_to_publish_is_read_from_the_stores_config(self):
+        site = self.shared()
+        with (self.store / "config.md").open("a", encoding="utf-8") as fh:
+            fh.write(f"**Pages repository**: {site}\n**Pages branch**: main\n**Pages path**: App/dashboard\n")
+        code, out, err = self.publish()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn("App/dashboard/index.html", git("ls-tree", "-r", "--name-only", "main", cwd=site))
+        self.assertEqual(git("branch", "--list", "gh-pages", cwd=self.remote), "")                  # not the app's own repository
+
     def test_the_pages_address_of_a_github_remote(self):
+        self.assertEqual(ads_actions.pages_url("https://github.com/owner/site.git", "App/dashboard"),
+                         "https://owner.github.io/site/App/dashboard/")
         self.assertEqual(ads_actions.pages_url("https://github.com/owner/App.git"), "https://owner.github.io/App/")
         self.assertEqual(ads_actions.pages_url("git@github.com:owner/App.git"), "https://owner.github.io/App/")
         self.assertIsNone(ads_actions.pages_url("/srv/git/app.git"))

@@ -102,20 +102,36 @@ def cmd_reviews_respond(args):
     return result.returncode
 
 
-def pages_url(remote: str):
-    """Where GitHub Pages serves a repository's page, or None when the remote is not on github.com."""
+def pages_url(remote: str, path: str = ""):
+    """Where GitHub Pages serves a repository's page (and a folder of it), or None when the remote is not on github.com."""
     found = re.match(r"(?:https://(?:[^@/]+@)?github\.com/|git@github\.com:)([^/]+)/([^/]+?)(?:\.git)?/?$", remote or "")
-    return f"https://{found.group(1)}.github.io/{found.group(2)}/" if found else None
+    return f"https://{found.group(1)}.github.io/{found.group(2)}/{path.strip('/') + '/' if path else ''}" if found else None
+
+
+def pages_target(store: Path, args) -> tuple:
+    """(remote, branch, folder) to publish to: what the command line says, else the `**Pages repository**`,
+    `**Pages branch**` and `**Pages path**` lines of the store's config.md, else the store's own repository and
+    its `gh-pages` branch."""
+    said = {}
+    config = store / "config.md"
+    for line in config.read_text(encoding="utf-8").splitlines() if config.is_file() else []:
+        found = re.match(r"\*\*(Pages repository|Pages branch|Pages path)\*\*:\s*(\S+)", line.strip())
+        if found and not found.group(2).upper().startswith("TODO"):
+            said[found.group(1)] = found.group(2)
+    return (args.remote or said.get("Pages repository"), args.branch or said.get("Pages branch") or "gh-pages",
+            args.path if args.path is not None else said.get("Pages path", ""))
 
 
 def cmd_publish(args):
-    """Push the built page, and only the page, to a branch of the app's repository; GitHub Pages serves it from
-    there. Nothing is pushed unless data/ is what the store exports for its day and the clean check passes. The
-    app's own checkout is not touched: the page is committed in a temporary folder and pushed from it, replacing
-    the branch, so the branch always holds one commit and one page. A published page is public to whoever has
-    its address."""
+    """Push the built page, and only the page, to where GitHub Pages serves it. Nothing is pushed unless data/ is
+    what the store exports for its day and the clean check passes. The app's own checkout is never touched.
+
+    With a folder (`--path`, or `**Pages path**` in config.md) the page goes into that folder of a repository that
+    serves other pages too: the branch is cloned to a temporary folder, the one file is written, and a commit is
+    pushed on top; nothing else there is changed and nothing is ever rewritten. With no folder the page is the
+    whole of its own branch, which is replaced each time. A published page is public to whoever has its address."""
     store = Path(args.store).resolve()
-    data, branch = store / "data", args.branch
+    data = store / "data"
     if not (data / "events.json").is_file():
         print(f"FAIL publish: {data} holds no export; run export first")
         return 1
@@ -133,41 +149,63 @@ def cmd_publish(args):
     def git(*words, cwd=None):
         done = subprocess.run(["git", *words], cwd=cwd, capture_output=True, text=True)
         if done.returncode != 0:
-            raise RuntimeError((done.stderr or done.stdout).strip().splitlines()[-1] if (done.stderr or done.stdout).strip() else "git failed")
+            said = (done.stderr or done.stdout).strip().splitlines()
+            raise RuntimeError(re.sub(r"//[^@/]+@", "//", said[-1]) if said else "git failed")     # never a token
         return done.stdout.strip()
 
+    remote, branch, folder = pages_target(store, args)
+    parts = Path(folder).parts if folder else ()
+    if folder and (Path(folder).is_absolute() or ".." in parts or not [p for p in parts if p != "."]):
+        print(f"FAIL publish: the path {folder!r} must name a folder inside the repository")
+        return 1
     try:
-        remote = args.remote or git("remote", "get-url", "origin", cwd=store)
+        remote = remote or git("remote", "get-url", "origin", cwd=store)
     except RuntimeError as exc:
         print(f"FAIL publish: the store's repository has no origin remote ({exc}); pass --remote")
         return 1
-    shown = re.sub(r"//[^@/]+@", "//", remote)                    # never print a token a remote may carry
+    shown = re.sub(r"//[^@/]+@", "//", remote)
     tokens = read_brand_tokens(store)
+    name = tokens[0].capitalize() if tokens else "App"
+
+    def identity(key, fallback):
+        try:
+            return git("config", key, cwd=store) or fallback
+        except RuntimeError:
+            return fallback
+    author = ["-c", f"user.name={identity('user.name', 'aso-copilot')}",
+              "-c", f"user.email={identity('user.email', 'aso-copilot@users.noreply.github.com')}"]
+
     with tempfile.TemporaryDirectory() as tmp:
-        if site.build(data, Path(tmp), tokens[0].capitalize() if tokens else "App") != 0:
+        built, work = Path(tmp) / "built", Path(tmp) / "work"
+        if site.build(data, built, name) != 0:
             return 1
-        (Path(tmp) / ".nojekyll").write_text("", encoding="utf-8")
-        size = (Path(tmp) / "index.html").stat().st_size
+        size = (built / "index.html").stat().st_size
+        where = f"{folder.strip('/')}/index.html" if folder else "index.html"
         if args.dry_run:
-            print(f"would push index.html ({size} bytes, as of {as_of}) to {branch} of {shown}")
+            print(f"would push {where} ({size} bytes, as of {as_of}) to {branch} of {shown}")
             return 0
         try:
-            def identity(key, fallback):
-                try:
-                    return git("config", key, cwd=store) or fallback
-                except RuntimeError:
-                    return fallback
-            name, mail = identity("user.name", "aso-copilot"), identity("user.email", "aso-copilot@users.noreply.github.com")
-            git("init", "-q", "-b", branch, cwd=tmp)
-            git("add", "-A", cwd=tmp)
-            git("-c", f"user.name={name}", "-c", f"user.email={mail}", "commit", "-q", "-m", f"page as of {as_of}", cwd=tmp)
-            subprocess_push = ["git", "push", "-q", "--force", remote, f"{branch}:{branch}"]
-            done = subprocess.run(subprocess_push, cwd=tmp, capture_output=True, text=True)
-            if done.returncode != 0:
-                raise RuntimeError(re.sub(r"//[^@/]+@", "//", (done.stderr or "git push failed").strip().splitlines()[-1]))
+            if folder:                                   # a folder of a branch that holds other pages: add, never rewrite
+                git("clone", "-q", "--depth", "1", "--branch", branch, remote, str(work))
+                target = work / folder / "index.html"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((built / "index.html").read_bytes())
+                git("add", "--", where, cwd=work)
+                if not git("status", "--porcelain", "--", where, cwd=work):
+                    print(f"SAME {where} on {branch} of {shown}: the page there is already this one")
+                    return 0
+                git(*author, "commit", "-q", "-m", f"ASO dashboard: {name} as of {as_of}", "--", where, cwd=work)
+                git("push", "-q", "origin", f"HEAD:{branch}", cwd=work)
+            else:                                        # a branch of its own: one commit, one page, replaced each time
+                (built / ".nojekyll").write_text("", encoding="utf-8")
+                git("init", "-q", "-b", branch, cwd=built)
+                git("add", "-A", cwd=built)
+                git(*author, "commit", "-q", "-m", f"page as of {as_of}", cwd=built)
+                git("push", "-q", "--force", remote, f"{branch}:{branch}", cwd=built)
         except RuntimeError as exc:
             print(f"FAIL publish: {exc}")
             return 1
-    url = pages_url(remote)
-    print(f"PUBLISHED {branch} of {shown}: index.html, {size} bytes, as of {as_of}" + (f"\n{url}" if url else ""))
+    url = pages_url(remote, folder)
+    print(f"PUBLISHED {folder.strip('/') + ' on ' if folder else ''}{branch} of {shown}: index.html, {size} bytes, as of {as_of}"
+          + (f"\n{url}" if url else ""))
     return 0

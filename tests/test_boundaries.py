@@ -27,9 +27,14 @@ def outside_change(elements):
 
 
 def outside_changes(path: Path):
+    """What a file changes outside the store: by a command line written as a list, or by a `git(...)` helper call."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    return sorted({found for node in ast.walk(tree) if isinstance(node, ast.List)
-                   if (found := outside_change(node.elts))})
+    found = {what for node in ast.walk(tree) if isinstance(node, ast.List) if (what := outside_change(node.elts))}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "git" and \
+                outside_change([ast.Constant("git"), *node.args]):
+            found.add("pushes to a repository")
+    return sorted(found)
 
 
 def imported_modules(path: Path):

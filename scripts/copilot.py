@@ -127,8 +127,10 @@ def build_parser():
                           parents=[common_parent])
     p_publish = subparsers.add_parser("publish", help="Push the built page, and only the page, to a branch of the app's repository (public once served)",
                                       parents=[common_parent])
-    p_publish.add_argument("--branch", default="gh-pages", help="The branch GitHub Pages serves (default: gh-pages)")
-    p_publish.add_argument("--remote", help="The repository to push to (default: the origin of the store's repository)")
+    p_publish.add_argument("--branch", help="The branch GitHub Pages serves (default: `**Pages branch**` in config.md, else gh-pages)")
+    p_publish.add_argument("--remote", help="The repository to push to (default: `**Pages repository**` in config.md, else the store's own)")
+    p_publish.add_argument("--path", help="A folder of that branch to put the page in, beside what is already served there "
+                                          "(default: `**Pages path**` in config.md, else the branch is the page's own)")
     p_publish.add_argument("--dry-run", action="store_true", help="Check and build, and say what would be pushed")
     p_propose = subparsers.add_parser("propose", help="Generate the next rank hypotheses from the store: free storefronts by money at stake (offline)",
                                       parents=[common_parent])
