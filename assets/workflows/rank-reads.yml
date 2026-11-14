@@ -1,0 +1,63 @@
+# The rank reads a live hypothesis needs in the last three days of its window, made on the day they are due.
+# The App Store search it asks needs no account, so this workflow holds no source credential. It reads only
+# the storefronts that are due today and commits only the observations.
+name: ASO rank reads
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aso-rank-reads
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The app repository
+        uses: actions/checkout@v4
+
+      - name: The skill, at the commit that was reviewed
+        uses: actions/checkout@v4
+        with:
+          repository: rusel95/ios-aso-copilot
+          ref: 0000000000000000000000000000000000000000   # a full commit hash, never a branch or a tag
+          path: .aso-copilot
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Which storefronts need a read today
+        id: due
+        run: |
+          python3 .aso-copilot/scripts/copilot.py due --store marketing | tee due.txt
+          # a day already gone by is marked (missed): no sweep can read it any more
+          MARKETS=$(awk '$1 ~ /^[0-9]{4}-/ && $NF != "(missed)" {print $3}' due.txt | sort -u | paste -sd, -)
+          echo "markets=$MARKETS" >> "$GITHUB_OUTPUT"
+
+      - name: Read them
+        if: steps.due.outputs.markets != ''
+        env:
+          MARKETS: ${{ steps.due.outputs.markets }}
+        run: |
+          BUNDLE=$(sed -n 's/^\*\*\(Firebase \)\{0,1\}Bundle ID\*\*:[[:space:]]*\([^[:space:]]*\).*/\2/p' marketing/config.md | head -1)
+          test -n "$BUNDLE" || { echo "marketing/config.md names no Bundle ID"; exit 1; }
+          python3 .aso-copilot/scripts/ledger.py --store marketing refresh --bundle "$BUNDLE" --markets "$MARKETS"
+
+      - name: Keep the observations
+        # what was read is in ranks.csv even when a storefront failed, so this runs after a failed read too
+        if: always() && steps.due.outputs.markets != ''
+        env:
+          MARKETS: ${{ steps.due.outputs.markets }}
+        run: |
+          git config user.name "aso-rank-reads"
+          git config user.email "aso-rank-reads@users.noreply.github.com"
+          git add marketing/metrics/ranks.csv
+          git diff --cached --quiet || git commit -m "data: rank reads for $MARKETS"
+          git push
