@@ -178,7 +178,11 @@ class Overview(PageCase):
 class Panel(PageCase):
     def test_a_ratio_shows_its_two_totals_its_definition_and_its_source(self):
         seen = text_of(self.js("ASO.panel(payload, 'store_funnel.page_cvr', '2026-11-02')"))
-        self.assertIn("Page views that download", seen)
+        # downloads made straight from the search results have no page view: on a real store this passed 100% for a
+        # storefront, so the figure is named as a rate and its panel says it is not a share
+        self.assertIn("Downloads per page view", seen)
+        self.assertIn("can pass 100%", seen)
+        self.assertNotIn("Page views that download", self.render("#/") + self.render("#/funnel"))
         self.assertIn("40.0%", seen)
         self.assertIn("64 of 160 (first-time downloads over product page views)", seen)
         self.assertIn("First-time downloads divided by product page views", seen)

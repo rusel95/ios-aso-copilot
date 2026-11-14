@@ -44,6 +44,9 @@ The owner's direction, 2026-11-14. Collection is already scripts only: `collect`
    by quarter when the page gets slow.
 10. **Chart history needs a config line.** Chart positions are stored only when `config.md` names
     `**Charts storefronts**`; offer the storefronts with live hypotheses as the default.
+11. **Funnel history before the ongoing request.** The collector folds the daily reports of the app's ongoing
+    analytics request, which begin when the request was made. Earlier weeks need a one-time snapshot request.
+    Done when: a store shows funnel weeks from before its first pass.
 
 ## P0 Make observations trustworthy
 

@@ -387,12 +387,12 @@
     },
     "page_cvr": {
      "approximation": null,
-     "definition": "First-time downloads divided by product page views, both of the same week.",
+     "definition": "First-time downloads divided by product page views, both of the same week. Not a share of the page views: a download made straight from the search results has no page view, so this can pass 100%.",
      "ratio": [
       "first_downloads",
       "page_views"
      ],
-     "title": "Page views that download",
+     "title": "Downloads per page view",
      "unit": "ratio"
     },
     "page_views": {

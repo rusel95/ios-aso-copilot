@@ -86,7 +86,7 @@ ASO.pages["#/"] = function (payload, today) {
 
   out += '<section class="block"><h2>Store funnel</h2><dl class="pairs">' +
     [["Impressions", "store_funnel.impressions"], ["Product page views", "store_funnel.page_views"],
-     ["First-time downloads", "store_funnel.first_downloads"], ["Page views that download", "store_funnel.page_cvr"]
+     ["First-time downloads", "store_funnel.first_downloads"], ["Downloads per page view", "store_funnel.page_cvr"]
     ].map(function (pair) {
       return "<dt>" + ASO.esc(pair[0]) + "</dt><dd>" + ASO.figure(payload, pair[1], ASO.last(ASO.series(payload, pair[1]))) + "</dd>";
     }).join("") + '</dl><p><a href="#/funnel">Open the store funnel</a></p></section>';
