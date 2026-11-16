@@ -3,11 +3,13 @@
 import datetime as dt
 import json
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+from aso import queue_gate
 from aso.commands.base import log_debug, log_error, log_info, resolve_app_identity, run_cmd
 from aso.dashboard import clean, export, site
 from aso.store import read_brand_tokens
@@ -93,12 +95,25 @@ def cmd_ads_set_campaign_status(args, account, profile, target_status):
 
 
 def cmd_reviews_respond(args):
-    """Reply to one App Store review. The one review command that changes something outside the store."""
-    resolve_app_identity(Path(args.store).resolve())
+    """Reply to one App Store review. The one review command that changes something outside the store, and
+    public: it runs only against an entry of queue.md whose Command line is exactly this reply."""
+    store = Path(args.store).resolve()
+    resolve_app_identity(store)
     if not args.review_id or not args.response:
         print("Error: --review-id and --response are required for respond action.")
         sys.exit(1)
-    result = subprocess.run(["asc", "reviews", "respond", "--review-id", args.review_id, "--response", args.response])
+    command = ["asc", "reviews", "respond", "--review-id", args.review_id, "--response", args.response]
+    queue_id = getattr(args, "queue_id", None)
+    why = queue_gate.refusal(store, queue_id, command)
+    if why:
+        print(f"REFUSED reviews respond: {why}")
+        return 1
+    if getattr(args, "dry_run", False):
+        print(f"DRY RUN: {queue_id} would run: {shlex.join(command)}")
+        return 0
+    result = subprocess.run(command)
+    if result.returncode == 0:
+        queue_gate.record_execution(store, queue_id, f"replied to review {args.review_id}")
     return result.returncode
 
 

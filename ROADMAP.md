@@ -126,7 +126,7 @@ than daily use. Trial duration, plan price and retention assumptions must be ref
   empty data. Partially closed 2026-09-20 and 2026-09-23 (see CHANGELOG v2.3.0/v2.4.0): `refresh`
   names missing/truncated keywords and enforces its local delay floor; `cycle` validates the configured
   app identity, isolates funnel raw files, and returns a partial/failure status when a stage is
-  incomplete. Still open: automatic bounded retry and a persistent run manifest; retry failures with
+  incomplete. `collect` now writes a run manifest and holds a lock (see CHANGELOG, Unreleased). Still open: automatic bounded retry and resume; retry failures with
   `--failed-only` and retain explicit replay limits.
 - R-43: source or remove the unsourced figures left in `ugc-playbook.md` and `channel-playbooks.md` (muted-viewing share,
   page-CVR norm, CPT and budget ranges). Templates already ship placeholders (v2.5.0).

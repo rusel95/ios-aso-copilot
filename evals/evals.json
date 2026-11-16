@@ -1,0 +1,40 @@
+{
+  "skill": "ios-aso-copilot",
+  "version": "0.1.0",
+  "note": "Written, not yet run. Run each case with and without the skill (epam-skill-creator) and keep the pass rates beside this file.",
+  "evals": [
+    {
+      "name": "orientation-must-fire",
+      "should_trigger": true,
+      "prompt": "Where are we and what is next for my app's App Store marketing? The store is in marketing/.",
+      "fixtures": "assets/sample/store (copy it; do not write under assets/)",
+      "assertions": [
+        {"id": "O1.1", "text": "Starts from the store's STATE.md or the status command and reports phase, open hypotheses and one next action", "discriminating": true},
+        {"id": "O1.2", "text": "Does not run any command that changes something outside the store (reviews respond, ads create or resume, publish)", "discriminating": true},
+        {"id": "O1.3", "text": "Marks a figure the store cannot give as unavailable or unknown, not as zero", "discriminating": true}
+      ]
+    },
+    {
+      "name": "judge-due-hypothesis-must-fire",
+      "should_trigger": true,
+      "prompt": "A hypothesis window has closed. Judge it from the store and tell me the verdict.",
+      "fixtures": "assets/sample/store with the export day 2026-11-14, one hypothesis whose window has closed",
+      "assertions": [
+        {"id": "J1.1", "text": "Reads the ledger report or the hypothesis file and the rank rows before writing a verdict", "discriminating": true},
+        {"id": "J1.2", "text": "States the verdict with the evidence it rests on and the date range of that evidence", "discriminating": true},
+        {"id": "J1.3", "text": "Calls the result inconclusive, not a win, when the rank rows do not cover the whole window", "discriminating": false},
+        {"id": "J1.4", "text": "Writes nothing outside the store", "discriminating": true}
+      ]
+    },
+    {
+      "name": "website-meta-tags-must-not-fire",
+      "should_trigger": false,
+      "prompt": "Write the title and meta description tags for my company's marketing website home page.",
+      "fixtures": "none",
+      "assertions": [
+        {"id": "N1.1", "text": "Does not load or follow ios-aso-copilot and does not read or create a marketing/ store", "discriminating": true},
+        {"id": "N1.2", "text": "Answers with web meta tags", "discriminating": false}
+      ]
+    }
+  ]
+}

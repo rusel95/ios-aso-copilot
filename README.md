@@ -61,18 +61,13 @@ npx skills add rusel95/ios-aso-copilot
 npx skills add rusel95/ios-aso-copilot -g
 ```
 
-### Via npm package installer or symlink
+### Via symlink
 
 ```bash
-# Symlinks into ~/.claude/skills/
-npx ios-aso-copilot install
-
-# For Kiro
-npx ios-aso-copilot install --kiro
-
-# Manual
 ln -s ~/path/to/ios-aso-copilot ~/.claude/skills/ios-aso-copilot
 ```
+
+The command line is `bin/ios-aso-copilot`, a Python entry to `scripts/copilot.py`.
 
 ## Usage
 
@@ -141,7 +136,7 @@ ios-aso-copilot/
 ├── ROADMAP.md        ← what has not
 ├── FINDINGS.md       ← empirical observations from real runs
 ├── bin/
-│   └── cli.js        ← npx installer
+│   └── ios-aso-copilot     ← the command line, a Python entry to scripts/copilot.py
 ├── scripts/
 │   ├── rank_audit.py       ← keyword rank + opportunity scoring (25 markets)
 │   ├── harvest_keywords.py ← Apple autocomplete hints + competitor discovery

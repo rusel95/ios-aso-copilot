@@ -106,6 +106,59 @@ class ThePlan(unittest.TestCase):
             self.assertIn("Bundle ID", said.getvalue())
 
 
+class RunRecord(unittest.TestCase):
+    """A pass leaves a manifest and holds a lock: a surprising diff can be traced, and two writers do not overlap."""
+
+    def collect(self, store, stages):
+        args = argparse.Namespace(store=str(store), jobs=2)
+        with mock.patch.object(cycle, "stage_plan", return_value=(stages, [])), \
+                contextlib.redirect_stdout(io.StringIO()) as said:
+            return cycle.cmd_cycle(args), said.getvalue()
+
+    def test_a_manifest_names_the_stages_and_the_rows_they_added(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            target = store / "metrics" / "markets.csv"
+            before = target.read_text(encoding="utf-8").count("\n")
+
+            def adds_rows():
+                with target.open("a", encoding="utf-8") as fh:
+                    fh.write("x\ny\n")
+                return True
+            self.collect(store, [("Adds", adds_rows), ("Fails", lambda: False)])
+            manifests = list((store / "runs").glob("*.json"))
+            self.assertEqual(len(manifests), 1)
+            run = json.loads(manifests[0].read_text(encoding="utf-8"))
+            self.assertEqual([(s["stage"], s["status"]) for s in run["stages"]], [("Adds", "clean"), ("Fails", "needs a look")])
+            self.assertEqual(run["rows_added"], {"metrics/markets.csv": 2})
+            self.assertIn("metrics/markets.csv", run["files_touched"])
+            self.assertEqual(run["ended"], "finished")
+            self.assertGreater(before, 0)
+            self.assertFalse((store / ".lock").exists())          # released at the end
+
+    def test_a_second_pass_is_refused_while_the_lock_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / ".lock").write_text("pid 1 since 2026-11-16T00:00:00Z", encoding="utf-8")
+            ran = []
+            code, said = self.collect(store, [("Never", lambda: ran.append(1) or True)])
+            self.assertEqual(code, 1)
+            self.assertIn("REFUSED collect", said)
+            self.assertEqual(ran, [])
+            self.assertTrue((store / ".lock").exists())           # not ours to remove
+            self.assertFalse((store / "runs").exists())
+
+    def test_a_stage_that_raises_still_releases_the_lock(self):
+        def boom():
+            raise RuntimeError("down")
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            self.collect(store, [("Boom", boom)])
+            self.assertFalse((store / ".lock").exists())
+            self.assertIn('"failed"', next((store / "runs").glob("*.json")).read_text(encoding="utf-8"))
+
+
 class FunnelCache(unittest.TestCase):
     """The daily reports are immutable once published: the skill's collector keeps them per app and asks only for
     the days it does not hold, so a pass after the first takes minutes."""

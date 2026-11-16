@@ -1,9 +1,7 @@
 # The state store
 
-**This file is the runtime authority.** `specs/013-marketing-ops-skill/data-model.md` is the design
-record the plan was built from; if the two ever disagree, this file wins, because it is what you
-actually read at run time. Schema changes are made here first and back-ported there — never the
-reverse.
+**This file is the runtime authority.** It is what you read at run time, and the schemas the code
+writes are changed here together with the code.
 
 ## Location — read this before touching any path
 
@@ -22,7 +20,7 @@ marketing/
 ├── config.md            this repo's App Store Connect app id + version · static, never rewritten
 ├── STATE.md            written by the export from data/ · read first · holds no authority of its own
 ├── decisions.md         append-only
-├── queue.md             pending approvals · entries removed when executed or abandoned
+├── queue.md             pending approvals · entries stay when executed (`reviews respond` appends "Qnnn approved, executed" to `decisions.md`) and are removed when abandoned
 ├── hypotheses/
 │   ├── TEMPLATE.md
 │   └── H001-<slug>.md   one file per hypothesis
@@ -272,7 +270,7 @@ the new position had always been held.
 
 ## Queued action — `queue.md`
 
-Entries removed when executed or abandoned, so this file stays short by construction.
+`reviews respond --queue-id Qnnn` runs only when entry Qnnn holds exactly that command, and only once: it then appends "Qnnn approved, executed" to `decisions.md` and leaves the entry. Remove an entry when it is abandoned or has been recorded.
 
 ```markdown
 ### Q003 · queued 2026-09-10 · fence: publishes
@@ -285,6 +283,15 @@ Every entry: the **exact** runnable command with no placeholders left to fill in
 plain-language sentence naming what changes and who sees it, and its preconditions. Re-verify
 preconditions immediately before executing an approved entry — an approval given weeks ago was given
 against a world that has since moved; a stale entry is re-planned, not executed on trust.
+
+## The run record — `runs/` and `.lock`
+
+`collect` creates `marketing/.lock` before it reads anything and removes it at the end, also when a stage fails or
+the pass crashes with an exception; a second `collect` on the same store is refused while the file exists. A lock
+left by a killed process is removed by hand after checking what the pass wrote. At the end `collect` writes
+`marketing/runs/<utc time>.json`: the stages in listed order with `status` (`clean`, `needs a look`, `failed`) and
+`seconds`, `files_touched`, and `rows_added` per series file. Stages run side by side, so files and rows belong to
+the pass, not to one stage. The folder is a log: keep it out of the published page, and out of git if the store is.
 
 ## The data layer — `data/`
 

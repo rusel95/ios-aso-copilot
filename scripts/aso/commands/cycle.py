@@ -12,6 +12,7 @@ from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identit
 from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.commands.parallel import run_stages
+from aso.run_record import Run, StoreLocked
 from aso.pull_revenuecat_series import ADS_COLS
 from aso.store import append_changed, read_ranks
 from aso.store_state import first_release_day, store_charts, store_ratings, store_release
@@ -195,14 +196,19 @@ def collect_extras(store: Path, app: dict) -> bool:
 
 def cmd_cycle(args):
     """Run the cycle, then print the funnel digest, cashflow digest, and a stage → status → reason table LAST."""
-    tee = _Tee(sys.stdout)
-    sys.stdout = tee
-    try:
-        code = _cycle_run(args)
-    finally:
-        sys.stdout = tee.real
-    rows = cycle_stage_table("".join(tee.parts))
     store = Path(args.store).resolve()
+    tee = _Tee(sys.stdout)
+    try:
+        with Run(store, "collect") as record:
+            sys.stdout = tee
+            try:
+                code = _cycle_run(args, record)
+            finally:
+                sys.stdout = tee.real
+    except StoreLocked as busy:
+        print(f"REFUSED collect: {busy}")
+        return 1
+    rows = cycle_stage_table("".join(tee.parts))
     funnel_digest(store)
     cashflow_digest(store)
     print("\nSTAGE SUMMARY (a footer above is not a completeness certificate)")
@@ -514,7 +520,7 @@ def stage_plan(args, store: Path, app: dict) -> tuple:
     return together, [("Generating Hypothesis & Keyword Ledger Report", lambda: stage_ledger(store))]
 
 
-def _cycle_run(args):
+def _cycle_run(args, record=None):
     """Run the consolidated live-read and local snapshot pass."""
     store = Path(args.store).resolve()
     app = resolve_app_identity(store)
@@ -526,6 +532,8 @@ def _cycle_run(args):
 
     together, after = stage_plan(args, store, app)
     total = len(together) + len(after)
+    if record:
+        together, after = record.stages_of(together), record.stages_of(after)
     clean = run_stages(together, getattr(args, "jobs", None) or DEFAULT_JOBS, total=total)
     clean += run_stages(after, 1, first=len(together) + 1, total=total)
 

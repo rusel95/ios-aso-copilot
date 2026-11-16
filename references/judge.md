@@ -118,11 +118,13 @@ clothes, and it is the one part that must be argued.
   - Counting `#1` on the app's own title/subtitle or claiming "we are Top 3 in 20 countries" based on own-metadata phrases is a vanity metric and false signal. Only genuine generic search queries (generic category terms, color noises, symptom queries) count.
 - **Form Top Target Query Baskets via Search Popularity & Reachability (Not Guessed Phrases):**
   Target queries per storefront must NOT be invented arbitrary phrases. They must be constructed and validated through proven search demand:
-  1. **Demand Validation:** Every target query must have verified search volume via **Apple Autocomplete (`MZSearchHints`)** or **Apple Ads Search Popularity (score 20–60)**. If Apple does not suggest the term in autocomplete or its search popularity is negligible (<15), real users do not type it — reject it.
-  2. **Tri-Tier Target Portfolio per Focus Market (20 queries total):**
-     - **Tier 1 — High-Intent Reachable Long-Tail (10 keys, Popularity 20–45):** Specific color noises, sleep fans, rain variations (e.g. `brown noise for sleep`, `rain sounds for focus`). Competitor review counts are moderate, which makes a Top 1–5 rank realistic.
-     - **Tier 2 — Symptom & Persona Niches (5 keys, Popularity 25–50):** Acute user problems with high intent-to-install (e.g. a symptom or a user group, such as `<symptom term>` or `<persona term>`).
-     - **Tier 3 — Broad Category Head Terms (5 keys, Popularity 50–80):** High-volume category terms (e.g. `white noise`, or a broad category name in each market's language) to monitor general visibility, but never as the sole criterion for a hypothesis win.
+  1. **Demand evidence:** Every target query needs evidence that people type it: Apple Autocomplete (`MZSearchHints`)
+     suggesting it, or an Apple Ads popularity score. Apple lists only the head of its index per storefront, so an unlisted term
+     is **below the cut**, never zero (`references/apple-ads.md` §3c); it is unknown demand, not rejected demand. Do not
+     reject a query for a low or missing popularity score; reject it when no source shows demand and the store holds no rank history for it.
+  2. **Mix the basket:** reachable long-tail queries, symptom and persona niches, and a few broad category head terms to
+     watch general visibility. Head terms are never the sole criterion for a hypothesis win. The sizes and the example
+     terms of the mix belong to the app's own `HANDBOOK.md`, not to this reference.
 - Apple Ads query reports describe paid traffic; ASC Search can include ads. Organic installs per
   exact keyword are not directly observed in ASC. Browse is context, not a randomized control.
 - Product claims must match shipped behavior. Reject keywords implying unsupported features. Use

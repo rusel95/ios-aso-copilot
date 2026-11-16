@@ -94,5 +94,29 @@ class Template(unittest.TestCase):
         self.assertFalse((ROOT / "assets" / "store-template" / "STATE.md").exists())
 
 
+class ReferencePaths(unittest.TestCase):
+    """What a fresh agent reads literally: a repository path in backticks must exist."""
+
+    PATH = re.compile(r"((?:references|scripts|specs|assets|tests|bin|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_])")
+
+    def test_every_repository_path_a_reference_names_exists(self):
+        missing = []
+        for doc in sorted((ROOT / "references").glob("*.md")):
+            for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+                for token in re.findall(r"`([^`\s]+)`", line):
+                    found = self.PATH.match(token)
+                    if found and "*" not in token and not (ROOT / found.group(1)).exists():
+                        missing.append(f"{doc.name}:{number} {found.group(1)}")
+        self.assertEqual(missing, [])
+
+
+class Evals(unittest.TestCase):
+    def test_the_cases_are_there_and_one_must_not_fire(self):
+        cases = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))["evals"]
+        self.assertGreaterEqual(len(cases), 3)
+        self.assertTrue(all(c["prompt"] and c["assertions"] for c in cases))
+        self.assertTrue(any(c["should_trigger"] is False for c in cases))
+
+
 if __name__ == "__main__":
     unittest.main()
