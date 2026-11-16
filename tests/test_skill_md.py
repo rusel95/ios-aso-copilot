@@ -110,5 +110,13 @@ class ReferencePaths(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+class Evals(unittest.TestCase):
+    def test_the_cases_are_there_and_one_must_not_fire(self):
+        cases = json.loads((ROOT / "evals" / "evals.json").read_text(encoding="utf-8"))["evals"]
+        self.assertGreaterEqual(len(cases), 3)
+        self.assertTrue(all(c["prompt"] and c["assertions"] for c in cases))
+        self.assertTrue(any(c["should_trigger"] is False for c in cases))
+
+
 if __name__ == "__main__":
     unittest.main()
