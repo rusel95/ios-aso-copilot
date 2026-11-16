@@ -167,8 +167,8 @@ kept only the ones with an observed tap. Added `immich` as an EXACT campaign-lev
 PL campaign. Raised bids only on keywords with at least one observed tap in the search-terms report.
 
 ### Roadmap item this drove
-Added §3b "Discovery Batch Size" to `references/apple-ads.md` and a one-sentence cap in `SKILL.md`
-step 2b: cap a single Discovery-campaign expansion at 5–10 new BROAD seeds, and pull search-terms
+Added §3b "Discovery Batch Size" to `references/apple-ads.md` (since reworded there as an operator heuristic, not a cap):
+cap a single Discovery-campaign expansion at 5–10 new BROAD seeds, and pull search-terms
 within 48 hours of any batch (not at window close) specifically to catch off-topic auto-discovery
 while spend is still near $0.
 

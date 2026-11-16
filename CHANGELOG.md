@@ -9,6 +9,7 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ## Unreleased
 
+- A test scans every file in `references/` for backticked repository paths and fails on one that does not exist. The references no longer lean on a `specs/` folder that is not in the repository, `README.md` no longer describes the removed npx installer, `references/judge.md` states one demand rule (an unlisted term is below the cut, never zero) in place of a fixed popularity band, and `references/actions.md` has no orphan step numbers.
 - `reviews respond` needs `--queue-id Qnnn`: it refuses unless `queue.md` holds that entry with exactly this command, runs it once, and appends "Qnnn approved, executed" to `decisions.md`. `--dry-run` checks without posting. The other fenced commands still rest on the list in `references/commands.md`.
 
 ---

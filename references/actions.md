@@ -25,7 +25,7 @@ proceed, name the specific missing condition.
 
 ## Apple Ads: read, propose, then change
 
-2b. Audit Apple Search Ads only when configured and relevant: use read commands to inspect delivery and
+- Audit Apple Search Ads only when configured and relevant: use read commands to inspect delivery and
    harvest search terms (see `references/apple-ads.md`). Keep paid-query observations separate from organic
    rank. Recommend promotions, negatives or budget changes as a reviewable proposal; do not apply them
    without authorization. CVR cutoffs, CPT bids, budgets, seed batch sizes and harvest timing in the Ads
@@ -43,16 +43,16 @@ proceed, name the specific missing condition.
 
 ## Preparing and completing a change
 
-7. Prepare the next justified change. Read the exact live fields, specify which fields change, check
+- Prepare the next justified change. Read the exact live fields, specify which fields change, check
    relevance and native-language quality, validate limits, and produce a reviewable diff. Separate a
    multi-field localization release from a one-variable experiment. Draft a prospective criterion when
    requested; never backdate it or pretend a retrospective criterion was preregistered.
-8. Complete already-authorized actions. A public review reply is one only through its queue entry: write the entry with the exact `asc reviews respond` command, then run `reviews respond --queue-id Qnnn`. Queue only actions requiring new authorization or unavailable
+- Complete already-authorized actions. A public review reply is one only through its queue entry: write the entry with the exact `asc reviews respond` command, then run `reviews respond --queue-id Qnnn`. Queue only actions requiring new authorization or unavailable
    prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
-9. Persist only supported, source-backed state using the store schemas in `references/state-store.md`.
+- Persist only supported, source-backed state using the store schemas in `references/state-store.md`.
    Preserve the original prediction and add dated amendments. After interruption, inspect which sources
    and rows actually committed, then rerun only the failed stage; do not assume `cycle` has a run ID,
    transactional rollback or crash-safe resume. Do not overlap writers to the same store. Finish with
    done, partial/unavailable inputs and next action.
-10. Schedule a verification task only when an existing explicit authorization and configured integration
+- Schedule a verification task only when an existing explicit authorization and configured integration
     cover the external write. Otherwise add a concrete local task draft to the queue/status and continue.

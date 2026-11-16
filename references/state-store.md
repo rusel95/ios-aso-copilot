@@ -1,9 +1,7 @@
 # The state store
 
-**This file is the runtime authority.** `specs/013-marketing-ops-skill/data-model.md` is the design
-record the plan was built from; if the two ever disagree, this file wins, because it is what you
-actually read at run time. Schema changes are made here first and back-ported there — never the
-reverse.
+**This file is the runtime authority.** It is what you read at run time, and the schemas the code
+writes are changed here together with the code.
 
 ## Location — read this before touching any path
 

@@ -94,5 +94,21 @@ class Template(unittest.TestCase):
         self.assertFalse((ROOT / "assets" / "store-template" / "STATE.md").exists())
 
 
+class References(unittest.TestCase):
+    """What a fresh agent reads literally: a repository path in backticks must exist."""
+
+    PATH = re.compile(r"((?:references|scripts|specs|assets|tests|bin|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_])")
+
+    def test_every_repository_path_a_reference_names_exists(self):
+        missing = []
+        for doc in sorted((ROOT / "references").glob("*.md")):
+            for number, line in enumerate(doc.read_text(encoding="utf-8").splitlines(), 1):
+                for token in re.findall(r"`([^`\s]+)`", line):
+                    found = self.PATH.match(token)
+                    if found and "*" not in token and not (ROOT / found.group(1)).exists():
+                        missing.append(f"{doc.name}:{number} {found.group(1)}")
+        self.assertEqual(missing, [])
+
+
 if __name__ == "__main__":
     unittest.main()
