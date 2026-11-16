@@ -7,6 +7,12 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## Unreleased
+
+- `reviews respond` needs `--queue-id Qnnn`: it refuses unless `queue.md` holds that entry with exactly this command, runs it once, and appends "Qnnn approved, executed" to `decisions.md`. `--dry-run` checks without posting. The other fenced commands still rest on the list in `references/commands.md`.
+
+---
+
 ## 3.0.0 — collect, export, page
 
 The skill now has three boundaries. `collect` reads the sources and appends to the store. `export` turns

@@ -1,5 +1,6 @@
 usage: copilot.py reviews [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
                           [--limit LIMIT] [--review-id REVIEW_ID] [--response RESPONSE]
+                          [--queue-id QUEUE_ID] [--dry-run]
                           [{ratings,unreplied,list,respond}]
 
 positional arguments:
@@ -16,3 +17,5 @@ options:
   --review-id REVIEW_ID
                         Review ID for response
   --response RESPONSE   Response text
+  --queue-id QUEUE_ID   respond only: the Qnnn entry of queue.md whose Command is this reply
+  --dry-run             respond only: check the queue entry and say what would run

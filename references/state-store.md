@@ -22,7 +22,7 @@ marketing/
 ├── config.md            this repo's App Store Connect app id + version · static, never rewritten
 ├── STATE.md            written by the export from data/ · read first · holds no authority of its own
 ├── decisions.md         append-only
-├── queue.md             pending approvals · entries removed when executed or abandoned
+├── queue.md             pending approvals · entries stay when executed (`reviews respond` appends "Qnnn approved, executed" to `decisions.md`) and are removed when abandoned
 ├── hypotheses/
 │   ├── TEMPLATE.md
 │   └── H001-<slug>.md   one file per hypothesis
@@ -272,7 +272,7 @@ the new position had always been held.
 
 ## Queued action — `queue.md`
 
-Entries removed when executed or abandoned, so this file stays short by construction.
+`reviews respond --queue-id Qnnn` runs only when entry Qnnn holds exactly that command, and only once: it then appends "Qnnn approved, executed" to `decisions.md` and leaves the entry. Remove an entry when it is abandoned or has been recorded.
 
 ```markdown
 ### Q003 · queued 2026-09-10 · fence: publishes

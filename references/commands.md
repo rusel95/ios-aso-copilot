@@ -17,6 +17,8 @@ Apply the user's existing authorization across turns. Unlisted read-only or reve
 
 **Version note.** This list was transcribed against `asc` 3.1.1 (`specs/013-marketing-ops-skill/contracts/approval-fence.md`, 2026-08-19). The audit host reported `asc` 5.1.0 on 2026-09-23; help was checked for the read/local commands used in that audit, but the external-write fence below has not been revalidated against 5.1.0. Before any external write, inspect that exact command's current `--help` and confirm it remains fenced. A renamed write missing from this list is not implicitly allowed.
 
+Code enforces the first of these: `reviews respond` refuses to run without `--queue-id Qnnn` naming an entry of `marketing/queue.md` whose `**Command**` line is exactly the reply (`--dry-run` checks it without posting). Write the entry when the user approves the reply, not before. The other fenced commands still rest on this list.
+
 In `auto` mode, hitting a fenced command does **not** abort the cycle (FR-021): write it to
 `marketing/queue.md` with its exact command, its plain-language effect, and its preconditions, and
 continue.

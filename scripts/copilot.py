@@ -163,6 +163,8 @@ def build_parser():
     p_rev.add_argument("--limit", type=int, default=10, help="Limit for list")
     p_rev.add_argument("--review-id", help="Review ID for response")
     p_rev.add_argument("--response", help="Response text")
+    p_rev.add_argument("--queue-id", help="respond only: the Qnnn entry of queue.md whose Command is this reply")
+    p_rev.add_argument("--dry-run", action="store_true", help="respond only: check the queue entry and say what would run")
 
     # funnel
     p_fun = subparsers.add_parser("funnel", help="Inspect or pull ASC funnel", parents=[common_parent])

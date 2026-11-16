@@ -2,6 +2,7 @@
 import ast
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -103,6 +104,78 @@ class SelfCheckIsOffline(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()) as said:
             self_check()
         self.assertIn("OK:", said.getvalue())
+
+
+class ReviewReplyNeedsApproval(unittest.TestCase):
+    """`reviews respond` posts publicly: it runs only against a queue entry whose Command is exactly this reply."""
+
+    REPLY = ["asc", "reviews", "respond", "--review-id", "R1", "--response", "Thank you, it is fixed in 1.0.1"]
+
+    def setUp(self):
+        import os
+        import tempfile
+        import stat
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        from tests.helpers import copy_store
+        self.store = copy_store(self.tmp.name)
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        self.calls = Path(self.tmp.name) / "calls.txt"
+        fake = bin_dir / "asc"
+        fake.write_text(f'#!/bin/sh\necho "$@" >> "{self.calls}"\n', encoding="utf-8")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+        patch = mock.patch.dict(os.environ, {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"})
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def queue(self, command):
+        with (self.store / "queue.md").open("a", encoding="utf-8") as fh:
+            fh.write(f"\n### Q003 · queued 2026-11-16 · fence: publishes\n**Effect in plain language**: replies publicly.\n"
+                     f"**Command**: {command}\n**Preconditions**: review still unanswered.\n")
+
+    def respond(self, queue_id=None, dry_run=False):
+        import argparse
+        import contextlib
+        import io
+        from aso.commands.ads_actions import cmd_reviews_respond
+        args = argparse.Namespace(store=str(self.store), review_id="R1", response=self.REPLY[-1],
+                                  queue_id=queue_id, dry_run=dry_run)
+        with contextlib.redirect_stdout(io.StringIO()) as said:
+            code = cmd_reviews_respond(args)
+        return code, said.getvalue()
+
+    def calls_made(self):
+        return self.calls.read_text(encoding="utf-8").splitlines() if self.calls.exists() else []
+
+    def test_no_queue_id_is_refused_and_asc_is_not_called(self):
+        code, said = self.respond()
+        self.assertEqual(code, 1)
+        self.assertIn("REFUSED", said)
+        self.assertEqual(self.calls_made(), [])
+
+    def test_an_id_that_is_not_in_the_queue_is_refused(self):
+        self.assertEqual(self.respond("Q099")[0], 1)
+        self.assertEqual(self.calls_made(), [])
+
+    def test_an_entry_for_a_different_command_is_refused(self):
+        self.queue('asc reviews respond --review-id R2 --response "Another reply"')
+        code, said = self.respond("Q003")
+        self.assertEqual(code, 1)
+        self.assertIn("different command", said)
+        self.assertEqual(self.calls_made(), [])
+
+    def test_a_matching_entry_runs_once_and_is_recorded(self):
+        import shlex
+        self.queue(shlex.join(self.REPLY))
+        self.assertEqual(self.respond("Q003", dry_run=True)[0], 0)
+        self.assertEqual(self.calls_made(), [])                                  # a dry run calls nothing
+        self.assertEqual(self.respond("Q003")[0], 0)
+        self.assertEqual(len(self.calls_made()), 1)
+        self.assertIn("Q003 approved, executed", (self.store / "decisions.md").read_text(encoding="utf-8"))
+        self.assertIn("### Q003", (self.store / "queue.md").read_text(encoding="utf-8"))   # the entry stays
+        self.assertEqual(self.respond("Q003")[0], 1)                             # the same entry does not run twice
+        self.assertEqual(len(self.calls_made()), 1)
 
 
 class Sizes(unittest.TestCase):
