@@ -94,7 +94,7 @@ class Template(unittest.TestCase):
         self.assertFalse((ROOT / "assets" / "store-template" / "STATE.md").exists())
 
 
-class References(unittest.TestCase):
+class ReferencePaths(unittest.TestCase):
     """What a fresh agent reads literally: a repository path in backticks must exist."""
 
     PATH = re.compile(r"((?:references|scripts|specs|assets|tests|bin|docs)/[A-Za-z0-9_./-]*[A-Za-z0-9_])")
