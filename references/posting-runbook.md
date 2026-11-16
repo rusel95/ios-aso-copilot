@@ -58,7 +58,7 @@ A post that is not in the list is **not posted**, whatever the toast said.
 
 On the post page `find` "reply text field" → click → `type` → `screenshot` → click the round send button at
 the right end of the reply box → wait ~10 s. Verify with JS: the first words appear exactly once, "No replies
-yet" is gone, no "Posting…". The first reply cannot be scheduled.
+yet" is gone, no "Posting…". The first reply cannot be scheduled. After sending, the reply can be missing from the list for a few seconds while the counter already reads "Replied 1": reload the post page and check again before reporting.
 
 ## 6. Record
 
