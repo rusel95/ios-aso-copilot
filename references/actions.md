@@ -51,8 +51,9 @@ proceed, name the specific missing condition.
    prerequisites, with a concrete artifact and explanation. Do not let one blocker halt independent work.
 - Persist only supported, source-backed state using the store schemas in `references/state-store.md`.
    Preserve the original prediction and add dated amendments. After interruption, inspect which sources
-   and rows actually committed, then rerun only the failed stage; do not assume `cycle` has a run ID,
-   transactional rollback or crash-safe resume. Do not overlap writers to the same store. Finish with
+   and rows actually committed, then rerun only the failed stage; do not assume `cycle` has
+   transactional rollback or crash-safe resume; it does leave `runs/<time>.json` and holds `marketing/.lock`, which
+   refuses a second pass (`references/state-store.md`). Do not overlap other writers to the same store. Finish with
    done, partial/unavailable inputs and next action.
 - Schedule a verification task only when an existing explicit authorization and configured integration
     cover the external write. Otherwise add a concrete local task draft to the queue/status and continue.

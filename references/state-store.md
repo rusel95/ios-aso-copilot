@@ -284,6 +284,15 @@ plain-language sentence naming what changes and who sees it, and its preconditio
 preconditions immediately before executing an approved entry — an approval given weeks ago was given
 against a world that has since moved; a stale entry is re-planned, not executed on trust.
 
+## The run record — `runs/` and `.lock`
+
+`collect` creates `marketing/.lock` before it reads anything and removes it at the end, also when a stage fails or
+the pass crashes with an exception; a second `collect` on the same store is refused while the file exists. A lock
+left by a killed process is removed by hand after checking what the pass wrote. At the end `collect` writes
+`marketing/runs/<utc time>.json`: the stages in listed order with `status` (`clean`, `needs a look`, `failed`) and
+`seconds`, `files_touched`, and `rows_added` per series file. Stages run side by side, so files and rows belong to
+the pass, not to one stage. The folder is a log: keep it out of the published page, and out of git if the store is.
+
 ## The data layer — `data/`
 
 `export` derives it from the store, offline and without reading the clock: the same store and `--as-of` day
