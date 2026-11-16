@@ -90,9 +90,18 @@ triggers:
   - ревенюкет
   - дохід
   - окупність
+  - posting mode
+  - post to threads
+  - post to x
+  - social posting
+  - запости
+  - постинг
+  - наступний пост
+  - розклад постів
+  - придумай креатив
 argument-hint: "[info | status | keywords | ads | rc | cashflow | cycle | funnel | reviews | ga | telemetry | ledger | radar | google | charts] [flags]"
 metadata:
-  version: 2.11.0
+  version: 2.12.0
 ---
 
 # iOS ASO Copilot
@@ -290,6 +299,12 @@ python3 "$COPILOT" status --store "$STORE"
 # Full CLI collection pass, only when the request needs it:
 python3 "$COPILOT" cycle --store "$STORE"
 ```
+
+### Posting mode
+
+A request to plan, draft, publish, review or scan social posts (Threads now, X next) is **posting mode**: read
+`references/posting.md`, then the app repo's `marketing/social/README.md`. It runs a `C<NNN>` channel hypothesis through
+the owner's signed-in browser and publishes only after the owner approves that exact content. It never touches credentials.
 
 ### Full-cycle invocation
 
@@ -560,6 +575,7 @@ unjoined totals. Do not diagnose a bottleneck from a generic benchmark.
 | Paid acquisition, auction dynamics, cold-start rules, harvesting | `references/apple-ads.md` |
 | PPO, CPP, reviews and content | `references/playbooks.md` |
 | Off-store channels | `references/channel-playbooks.md` |
+| Plan, draft, publish and verify social posts (posting mode) | `references/posting.md`, `posting-runbook.md`, `posting-formats.md`, `posting-x.md` |
 | Short video scripts and briefs | `references/ugc-playbook.md` |
 | Storefront expansion, .xcstrings, CLDR plurals, screenshot cards | `references/localization-playbook.md` |
 | Google search intelligence (SEO to ASO bridge, Trends, Autocomplete matrix) | `references/google-search-intelligence.md` |
