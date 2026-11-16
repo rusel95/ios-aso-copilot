@@ -9,6 +9,7 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ## Unreleased
 
+- Removed `scripts/measure_velocity.py` (named nowhere; `scripts/global_velocity_audit.py` does the job) and the tracked `.claude/launch.json` that pointed at a temporary folder; `.claude/` is ignored.
 - `evals/evals.json`: three agent-level cases (orientation, judging a closed window, and a near miss that must not fire). Written, not run yet.
 - `collect` holds `marketing/.lock` and refuses a second pass on the same store, and writes `marketing/runs/<utc time>.json`: per stage its status and seconds, and for the pass the files touched and the rows each series gained. Closes roadmap item R-12 in part: there is still no resume.
 - A test scans every file in `references/` for backticked repository paths and fails on one that does not exist. The references no longer lean on a `specs/` folder that is not in the repository, `README.md` no longer describes the removed npx installer, `references/judge.md` states one demand rule (an unlisted term is below the cut, never zero) in place of a fixed popularity band, and `references/actions.md` has no orphan step numbers.
