@@ -10,6 +10,7 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 ## Unreleased — de-identified for the public repo
 
 - Added **posting mode** (`references/posting.md`, `posting-runbook.md`, `posting-formats.md`, `posting-x.md`): runs a `C<NNN>` channel hypothesis through the owner's signed-in browser (plan, draft, publish after the owner's approval of the exact content, first reply, verify on the profile, record). `commands.md` keeps social publishing fenced and names this as its one sanctioned path; credentials stay out of reach. App specifics live in the app repo's `marketing/social/`. X is documented as a plan, not validated. SKILL.md 2.12.0.
+- Posting mode link and hook policy: no link to the app in the post body by default (a wanted link goes in the first reply; an owner may forbid links entirely), the scoreboard format carries a card, the hook is a tested variable, and `scan` has an optional listening use with a drafted reply the owner approves. Eval 4 is now `link-policy`.
 - Removed the author's own app data: app and bundle IDs, the two-app showcase in the README, Apple Ads account and campaign IDs, hypothesis IDs, one-app worked examples and personal paths. Each example is now a placeholder or a pattern.
 - Removed the single-app launch plan (`references/directory-launch-strategy.md`). The channel playbook keeps its structure with placeholders.
 - Country defaults moved from Ukraine (`UA`) to the United States (`US`) in `copilot.py` (`google`, and the commands that read `--country`). Pass `--country` explicitly.

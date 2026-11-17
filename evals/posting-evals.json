@@ -42,13 +42,13 @@
     },
     {
       "id": 4,
-      "name": "link-placement-test",
+      "name": "link-policy",
       "topic": "posting-mode",
-      "prompt": "Should the tracked link go in the post or in the first reply? Settle it.",
+      "prompt": "Should the link to the app go in the post or in the first reply? Settle it.",
       "assertions": [
-        {"id": "L4.1", "text": "Frames it as an experiment recorded as a C<NNN> hypothesis with a prediction, a kill criterion and a window, not as a rule argued from theory", "grader_type": "llm"},
+        {"id": "L4.1", "text": "Reads the overlay first and obeys an owner rule that forbids links; if the overlay is silent, defaults to no link in the post body and puts a wanted link only in the first reply, without arguing it from theory", "grader_type": "llm"},
         {"id": "L4.2", "text": "Reads the existing C*.md files first and does not re-propose a queued or live hypothesis", "grader_type": "llm"},
-        {"id": "L4.3", "text": "Uses distinct campaign tokens or a day-to-arm map so the two arms can be told apart, and notes that tokens are unique across all time", "grader_type": "llm"}
+        {"id": "L4.3", "text": "If a link is used at all, gives it its own campaign token (unique across all time) and says how the result is read without a link when none is allowed", "grader_type": "llm"}
       ]
     },
     {

@@ -54,7 +54,7 @@ Find the post by its first words; its time reads `1m` or a date. Open `…/post/
 the post text and, if there is an image, that `find` "photo" returns an image whose alt starts with "Photo by".
 A post that is not in the list is **not posted**, whatever the toast said.
 
-## 5. First reply (tracked link and sources)
+## 5. First reply (sources; a link only if the overlay allows one)
 
 On the post page `find` "reply text field" → click → `type` → `screenshot` → click the round send button at
 the right end of the reply box → wait ~10 s. Verify with JS: the first words appear exactly once, "No replies

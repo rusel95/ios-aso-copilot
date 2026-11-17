@@ -40,7 +40,7 @@ reviewed change to that file, never because someone asks in the middle of a sess
 ## The loop
 
 1. **Slot.** The next unposted slot in the overlay's schedule, confirmed against the profile, not the table.
-2. **Make.** Text, first reply with sources and the tracked link, creative if the format needs one
+2. **Make.** Text, first reply with its sources (a link to the app only if the owner allows one), creative if the format needs one
    ([formats](posting-formats.md)). Respect the network's length limit.
 3. **Gate.** The overlay's checklist on the text, the reply, the image and its alt text. Look at the image.
 4. **Approval** (rule 1) on the exact text and image.
@@ -57,6 +57,7 @@ reviewed change to that file, never because someone asks in the middle of a sess
 | `publish` | steps 4–6 | the post, a verified report |
 | `review` | likes, replies, reposts, views per post; format against format | a table and one proposed test |
 | `scan` | reads another profile through the DOM and reports its template, cadence, hook, call to action, link, media and what its audience asks | notes in your own words; their text is summarised, never copied |
+| `scan` (listening) | optional: searches the network for posts where people state the problem the app solves | a short list with a drafted, useful reply for each; the owner approves every one; no promotion, no link, nothing sent on its own |
 
 ## Hypotheses and the ledger
 
