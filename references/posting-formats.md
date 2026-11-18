@@ -65,6 +65,9 @@ at phone width, tape the crops on one sheet, badge each with its position, mark 
   the text and never screenshot a search list as proof of the numbers.
 - A private seller's name is hidden on every crop. On evidence images keep only the city and country of the trader address;
   mask street, postcode, phone digits and the mail local part in the page itself, before the screenshot.
+- The first comment says why each label is true and who is behind the app, at company level: the address Apple publishes (city,
+  country), the phone code, the mail domain, a company by its name, an individual seller only as "an individual, name withheld", and
+  what else the same company publishes. Not the search method: that goes in the card footer. Never a person's name or nationality.
 - A simulator cannot open store pages (the OS hands the link to the App Store app, which it lacks). Render the page at phone
   width in a desktop browser and say so when asked.
 
