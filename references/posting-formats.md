@@ -53,6 +53,21 @@ The first sentence should catch a person, not label a series ("you have 100,500 
 Treat the hook as a variable: alternate the two openings, read views at 24 hours, record it as a `C<NNN>` hypothesis. A pain
 opening must stay true: it names the reader's problem, never a claim about the owner that he has not told you.
 
+## Cards made of real pages
+
+A scoreboard post is stronger when its image is made of what the store really shows: crop the product page of each tracked app
+at phone width, tape the crops on one sheet, badge each with its position, mark the claim by hand. Rules learned the hard way:
+
+- Name each app with the title the reader sees in the storefront of the post (the localized title on its page), not the search
+  API's default name. Read the live page: a name the reader cannot find is a mismatch they will catch.
+- Check the app is what the board says it is (category, subtitle). A speaker cleaner is not a storage cleaner; leave it out.
+- Positions come from the search API. The store's own search (web or app) can list other apps in another order, so say "API" in
+  the text and never screenshot a search list as proof of the numbers.
+- A private seller's name is hidden on every crop. On evidence images keep only the city and country of the trader address;
+  mask street, postcode, phone digits and the mail local part in the page itself, before the screenshot.
+- A simulator cannot open store pages (the OS hands the link to the App Store app, which it lacks). Render the page at phone
+  width in a desktop browser and say so when asked.
+
 ## Cadence
 
 One post a day at a fixed time, A mostly, B weekly, C twice a week. A reserve of finished posts fills gaps and
