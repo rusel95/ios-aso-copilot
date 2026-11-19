@@ -70,3 +70,9 @@ out (link), what did not, what was not checked.
 Use it to read: scanning, checking what the owner sees, verifying. It cannot attach a file. If it is the only
 signed-in browser, type the text, open the attach picker, ask the owner to choose the file, and press Post only
 after the owner's approval.
+
+## The reply field sends on Enter
+
+The inline reply field of the Threads web composer submits on Enter, so a multi-line first comment goes out as its first line alone and
+the rest is lost. Type the comment as one paragraph (or use Shift+Enter), and after posting read the thread, not only the post. A
+comment already sent in part is completed by a second reply; deleting it is the owner's call.
