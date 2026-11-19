@@ -49,8 +49,10 @@ continue.
 
 Also fenced, beyond `asc`: publishing to any social platform, posting to Reddit or Product Hunt,
 sending email, buying a subscription (Astro, aso.dev, an Apple Ads budget), entering payment
-details. Several of these — payment details, account credentials — the skill must never do at all,
-approval or not; it drafts and the developer executes.
+details. Publishing to a social platform has one sanctioned path, posting mode (`references/posting.md`):
+the owner approves the exact content in the current conversation and the skill uses only a browser
+session the owner already signed in to. Payment details and account credentials the skill must never
+enter, read or copy at all (cookies, tokens and saved passwords included), approval or not; it drafts and the developer executes.
 
 ### Allowed unattended — reads and local-only work
 

@@ -756,7 +756,7 @@ def cmd_info(args):
     info_data = {
         "skill": {
             "name": "ios-aso-copilot",
-            "version": "2.11.0",
+            "version": "2.12.0",
             "path": str(SKILL_DIR),
         },
         "app": {

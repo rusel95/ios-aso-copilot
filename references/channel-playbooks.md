@@ -190,6 +190,8 @@ Every campaign action must have:
 6. **Measurable Prediction**: (e.g. 25 clicks, 5 downloads within 7 days).
 7. **Kill Criterion**: (e.g. < 3 clicks in 7 days or post removed).
 
+A staged hypothesis is executed through posting mode (`posting.md`); `went_live` is set only after the post is verified on the profile.
+
 ---
 
 ## 6. Anti-Collision & Deduplication Protocol (Memory Guard)
@@ -232,7 +234,7 @@ To differentiate which users came from which marketing channels (Organic vs. App
   ```
 * **Mechanism**: When a user installs the app from an Apple Search Ad, RevenueCat collects the cryptographic attribution token on launch, calls Apple's attribution server, and attaches the metadata directly to the customer profile:
   - `attribution_source`: "Apple Search Ads"
-  - `attribution_campaign`: Campaign name (e.g. "Compresso UA - Flight 2")
+  - `attribution_campaign`: Campaign name (e.g. "<App> <Country> - Flight 2")
   - `attribution_keyword`: The exact search term (e.g. "video compress")
 * **Verification**:
   ```bash
