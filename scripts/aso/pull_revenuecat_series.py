@@ -13,36 +13,42 @@ REVENUE_COLS = ["captured", "active_subscriptions", "active_trials", "mrr_usd", 
 CASHFLOW_COLS = ["week_start", "country", "transactions", "new_trials", "gross_revenue_usd", "proceeds_usd", "ad_spend_usd",
                  "source", "captured"]
 ADS_COLS = ["week_start", "campaign_id", "market", "spend_usd", "impressions", "taps", "installs", "source", "captured"]
+ADS_KEEP = ("installs",)      # a later report that gives no install count does not erase the one already stored
 OVERVIEW = {"active_subscriptions": "active_subscriptions", "active_trials": "active_trials", "mrr_usd": "mrr",
             "revenue_28d_usd": "revenue", "new_customers_28d": "new_customers", "active_users_28d": "active_users"}
 
 
-def week_of(day: str, as_of: dt.date):
-    """The Monday of a day's week as text, or None when that week has not closed (or the day is not a date)."""
+def week_of(day: str, as_of: dt.date, whole_from: dt.date | None = None):
+    """The Monday of a day's week as text, or None when that week has not closed (or the day is not a date), or began
+    before `whole_from`: a pull that starts mid-week holds only the end of that week, and a part of a week stored as a
+    week would be read as a slow one."""
     try:
         week = monday(dt.date.fromisoformat(day[:10]))
     except ValueError:
         return None
-    return week.isoformat() if closed(week, as_of) else None
+    return week.isoformat() if closed(week, as_of) and (whole_from is None or week >= whole_from) else None
 
 
 def revenue_row(data: dict) -> dict:
-    """One read of the subscription provider's overview, dated by the day the read covers. A figure the read
-    lacks is a blank cell, which the export shows as nothing to measure."""
+    """One read of the subscription provider's overview. The overview is what the provider says on the day of the
+    read, whatever span the pull asked for, so it is dated by that day; a figure the read lacks is a blank cell,
+    which the export shows as nothing to measure."""
     overview = data.get("overview") or {}
-    row = {"captured": data["period"]["end"], "source": "revenuecat"}
+    row = {"captured": (data.get("captured_at") or "")[:10] or data["period"]["end"], "source": "revenuecat"}
     for column, theirs in OVERVIEW.items():
         found = overview.get(theirs)
         row[column] = found.get("value", "") if isinstance(found, dict) and found.get("value") is not None else ""
     return row
 
 
-def cashflow_weeks(by_country_daily: dict, trials_by_country: dict, daily_spend: dict, as_of: dt.date, captured: str) -> list:
-    """Daily revenue, trials and ad spend folded into closed Monday weeks per storefront."""
+def cashflow_weeks(by_country_daily: dict, trials_by_country: dict, daily_spend: dict, as_of: dt.date, captured: str,
+                   whole_from: dt.date | None = None) -> list:
+    """Daily revenue, trials and ad spend folded into closed Monday weeks per storefront. `whole_from` is the first
+    Monday whose week the pull holds from its first day: earlier weeks are partial and are not written."""
     weeks = {}
 
     def cell(day, country):
-        week = week_of(day, as_of)
+        week = week_of(day, as_of, whole_from)
         if week is None or not country:
             return None
         return weeks.setdefault((week, country.upper()), {"tx": 0, "trials": 0, "gross": 0.0, "proceeds": 0.0, "spend": 0.0})
@@ -67,12 +73,12 @@ def cashflow_weeks(by_country_daily: dict, trials_by_country: dict, daily_spend:
             for (week, country), v in sorted(weeks.items())]
 
 
-def ads_weeks(daily_spend: dict, as_of: dt.date, captured: str) -> list:
+def ads_weeks(daily_spend: dict, as_of: dt.date, captured: str, whole_from: dt.date | None = None) -> list:
     """Daily Apple Ads results folded into closed Monday weeks per campaign. When the report gave no install count
-    for any day of the week, the cell is blank: unknown, not zero."""
+    for any day of the week, the cell is blank: unknown, not zero. `whole_from` as in `cashflow_weeks`."""
     weeks = {}
     for (day, campaign, country), values in daily_spend.items():
-        week = week_of(day, as_of)
+        week = week_of(day, as_of, whole_from)
         if week is None:
             continue
         found = weeks.setdefault((week, str(campaign)), {"market": (country or "").lower(), "spend": 0.0, "impressions": 0,
@@ -94,4 +100,5 @@ def store_series(store, data: dict) -> dict:
     return {"revenue.csv": append_changed(metrics / "revenue.csv", REVENUE_COLS, [revenue_row(data)], ("captured",)),
             "cashflow_weekly.csv": append_changed(metrics / "cashflow_weekly.csv", CASHFLOW_COLS,
                                                   data.get("weekly_cashflow") or [], ("week_start", "country")),
-            "ads.csv": append_changed(metrics / "ads.csv", ADS_COLS, data.get("weekly_ads") or [], ("week_start", "campaign_id"))}
+            "ads.csv": append_changed(metrics / "ads.csv", ADS_COLS, data.get("weekly_ads") or [], ("week_start", "campaign_id"),
+                                      keep=ADS_KEEP)}

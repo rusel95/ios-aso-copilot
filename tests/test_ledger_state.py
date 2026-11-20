@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import AS_OF, SAMPLE  # noqa: E402
+from tests.helpers import AS_OF, SAMPLE, run  # noqa: E402
 
 from aso.ledger_state import hypothesis_states, priority  # noqa: E402
 from aso.ranks import series, zero_result_keys  # noqa: E402
@@ -33,6 +33,32 @@ class States(unittest.TestCase):
     def test_age_is_counted_against_as_of(self):
         self.assertEqual((states()["H005"]["age_days"], states("2026-10-25")["H005"]["age_days"]), (25, 5))
         self.assertEqual(states("2026-10-25")["H005"]["state"], "open")
+
+    def test_a_change_that_goes_live_after_the_day_replayed_was_not_live_on_it(self):
+        before = states("2026-10-05")["H005"]               # H005 went live on 2026-10-20
+        self.assertEqual((before["state"], before["age_days"]), ("not-shipped", None))
+        self.assertEqual(states("2026-10-20")["H005"]["state"], "open")       # the day it goes live it is live, aged 0
+        self.assertEqual(states("2026-10-20")["H005"]["age_days"], 0)
+
+    def test_the_report_replays_the_ranks_of_its_day(self):
+        code, out, _ = run("ledger.py", "--store", str(SAMPLE), "report", "--as-of", "2026-10-05")
+        self.assertEqual(code, 0)
+        counts = next(line for line in out.splitlines() if "observations on" in line)
+        self.assertIn("on 1 dates (2026-10-05, 2026-10-05)", counts)          # the later sweeps are not yet taken
+        self.assertEqual(len(read_ranks(SAMPLE, dt.date(2026, 10, 5))), int(counts.split(" observations")[0].split()[-1]))
+        self.assertGreater(len(read_ranks(SAMPLE)), len(read_ranks(SAMPLE, dt.date(2026, 10, 5))))
+
+    def test_section_b_prints_a_key_once_between_the_limit_and_twice_the_limit(self):
+        import contextlib
+        import io
+        from aso.ledger_report import section_b
+        obs = lambda day, pos: {"date": day, "position": pos, "provider": "p", "legacy": False, "depth": "200", "status": "ok"}
+        pairs = {("us", f"key {n:02d}"): [obs("2026-01-01", 80 + n), obs("2026-02-01", 40)] for n in range(30)}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            section_b(pairs, {}, 25, [])
+        rows = [line for line in out.getvalue().splitlines() if line.startswith("| us |")]
+        self.assertEqual((len(rows), len(set(rows))), (30, 30))
 
     def test_default_reader_takes_only_h_files(self):
         self.assertEqual(sorted(states()), ["H001", "H002", "H003", "H004", "H005", "H006", "H007"])

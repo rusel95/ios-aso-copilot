@@ -3,7 +3,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import exported_store, run  # noqa: E402
@@ -86,11 +85,51 @@ class Clean(unittest.TestCase):
         export.write(self.store, files)
         self.assertEqual(clean.check(self.data, self.store), [])
 
+    def decide(self, line):
+        """The store's config.md with its `**Never publish**:` line replaced by `line`, or removed when it is None."""
+        path = self.store / "config.md"
+        kept = [l for l in path.read_text(encoding="utf-8").splitlines() if not l.startswith("**Never publish**")]
+        path.write_text("\n".join(kept + ([line] if line is not None else [])) + "\n", encoding="utf-8")
+
     def test_what_the_owner_lists_is_flagged(self):
-        with mock.patch.object(clean, "NEVER_PUBLISH", [r'"proceeds_usd"']):
+        self.decide('**Never publish**: "proceeds_usd"; "ad_spend_usd"')
+        problems = clean.check(self.data, self.store)
+        self.assertTrue(problems and all("Never publish" in p for p in problems), problems)
+        self.assertTrue(any("week/2026-11-02.json" in p and '"proceeds_usd"' in p for p in problems))
+        self.assertTrue(any('"ad_spend_usd"' in p for p in problems))
+
+    def test_nothing_is_published_until_the_owner_has_decided(self):
+        """A gate that passes while nobody has said what is private publishes the revenue and the keyword basket."""
+        for line in (None, "**Never publish**:", "**Never publish**: TODO — decide before publish"):
+            self.decide(line)
             problems = clean.check(self.data, self.store)
-        self.assertTrue(problems and all("NEVER_PUBLISH" in p for p in problems), problems)
-        self.assertTrue(any("week/2026-11-02.json" in p for p in problems))
+            self.assertEqual(len(problems), 1, (line, problems))
+            self.assertIn("**Never publish**", problems[0])
+            self.assertIn("none", problems[0])                                   # and how to say that nothing is held back
+            code, out, _ = run("copilot.py", "check", "--store", str(self.store))
+            self.assertEqual(code, 1, line)
+
+    def test_none_is_a_decision(self):
+        self.decide("**Never publish**: none")
+        self.assertEqual(clean.check(self.data, self.store), [])
+        self.decide("**Never publish**: NONE")
+        self.assertEqual(clean.check(self.data, self.store), [])
+
+    def test_a_pattern_that_is_not_one_is_named_and_does_not_crash_the_check(self):
+        self.decide('**Never publish**: "proceeds_usd"; (unclosed')
+        problems = clean.check(self.data, self.store)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("(unclosed", problems[0])
+        self.assertIn("regular expression", problems[0])
+
+    def test_publish_refuses_while_the_owner_has_not_decided(self):
+        import subprocess
+        self.decide(None)
+        subprocess.run(["git", "init", "-q", "--bare", str(Path(self.tmp.name) / "r.git")], check=True)
+        code, out, _ = run("copilot.py", "publish", "--store", str(self.store), "--remote", str(Path(self.tmp.name) / "r.git"))
+        self.assertEqual(code, 1)
+        self.assertIn("Never publish", out)
+        self.assertIn("FAIL publish", out)
 
     def test_the_command(self):
         code, out, err = run("copilot.py", "check", "--store", str(self.store))

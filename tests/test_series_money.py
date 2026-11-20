@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import copy_store  # noqa: E402
 
 from aso.dashboard import contract, export  # noqa: E402
-from aso.pull_revenuecat_series import (ADS_COLS, CASHFLOW_COLS, REVENUE_COLS, ads_weeks, append_changed,  # noqa: E402
+from aso.pull_revenuecat_series import (ADS_COLS, ADS_KEEP, CASHFLOW_COLS, REVENUE_COLS, ads_weeks, append_changed,  # noqa: E402
                                         cashflow_weeks, revenue_row)
 from aso.store import read_csv  # noqa: E402
 
@@ -50,6 +50,15 @@ class Folding(unittest.TestCase):
         self.assertNotIn("2026-11-09", weeks)
         self.assertIn("2026-11-09", {r["week_start"] for r in cashflow_weeks(REVENUE, TRIALS, SPEND, dt.date(2026, 11, 16), "x")})
 
+    def test_a_week_that_began_before_the_pull_is_not_written(self):
+        # a pull that began on Wed 2026-10-28 holds only the end of the week of Mon 2026-10-26
+        whole_from = dt.date(2026, 11, 2)
+        rows = cashflow_weeks(REVENUE, TRIALS, SPEND, AS_OF, "2026-11-14", whole_from)
+        self.assertEqual({r["week_start"] for r in rows}, {"2026-11-02"})
+        spend = {("2026-10-28", 9001, "US"): {"spend": 1.0, "impressions": 1, "taps": 1, "installs": 1}, **SPEND}
+        self.assertEqual({r["week_start"] for r in ads_weeks(spend, AS_OF, "2026-11-14", whole_from)}, {"2026-11-02"})
+        self.assertIn("2026-10-26", {r["week_start"] for r in ads_weeks(spend, AS_OF, "2026-11-14")})     # no bound: every closed week
+
     def test_ads_are_folded_per_closed_week_and_campaign(self):
         rows = ads_weeks(SPEND, AS_OF, "2026-11-14")
         self.assertEqual([(r["week_start"], r["campaign_id"], r["market"]) for r in rows],
@@ -69,6 +78,11 @@ class Folding(unittest.TestCase):
         self.assertEqual(set(row), set(REVENUE_COLS))
         self.assertEqual((row["captured"], row["active_subscriptions"], row["mrr_usd"], row["active_users_28d"], row["source"]),
                          ("2026-11-10", 4, 16.0, "", "revenuecat"))
+
+    def test_the_overview_is_dated_by_the_day_it_was_read_not_by_the_span_asked_for(self):
+        data = {"captured_at": "2026-11-14T08:00:00Z", "period": {"start": "2025-09-27", "end": "2026-09-30"},
+                "overview": {"mrr": {"value": 16.0}}}
+        self.assertEqual(revenue_row(data)["captured"], "2026-11-14")
 
 
 class DailyReport(unittest.TestCase):
@@ -111,7 +125,42 @@ class Appending(unittest.TestCase):
             self.assertEqual(append_changed(path, ADS_COLS, same_again, ("week_start", "campaign_id")), 0)
 
 
+    def test_a_blank_install_count_never_replaces_a_known_one(self):
+        key = ("week_start", "campaign_id")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ads.csv"
+            rows = ads_weeks(SPEND, AS_OF, "2026-11-14")                              # 9001 holds 10 installs, 9002 holds 0
+            append_changed(path, ADS_COLS, rows, key, keep=ADS_KEEP)
+            blank = [dict(r, installs="", captured="2026-11-20") for r in rows]       # a later report gave no count at all
+            self.assertEqual(append_changed(path, ADS_COLS, blank, key, keep=ADS_KEEP), 0)
+            restated = [dict(rows[0], spend_usd="6.40", installs="", captured="2026-11-20")]
+            self.assertEqual(append_changed(path, ADS_COLS, restated, key, keep=ADS_KEEP), 1)
+            self.assertEqual([(r["spend_usd"], r["installs"]) for r in read_csv(path)][-1], ("6.40", "10"))    # the count carried over
+            new_campaign = [dict(rows[0], campaign_id="9999", installs="")]
+            self.assertEqual(append_changed(path, ADS_COLS, new_campaign, key, keep=ADS_KEEP), 1)
+            self.assertEqual(read_csv(path)[-1]["installs"], "")                      # nothing known yet: stays unknown, not zero
+
+
 class Collector(unittest.TestCase):
+    def test_a_second_pass_that_gets_no_install_count_leaves_the_ads_series_and_the_page_as_they_were(self):
+        import contextlib
+        import io
+
+        import pull_revenuecat
+        data = {"period": {"start": "2026-09-01", "end": "2026-11-14"}, "overview": {"mrr": {"value": 16.0}}, "country_cashflow": [],
+                "weekly_cashflow": cashflow_weeks(REVENUE, TRIALS, SPEND, AS_OF, "2026-11-14"),
+                "weekly_ads": ads_weeks(SPEND, AS_OF, "2026-11-14")}
+        again = dict(data, weekly_ads=[dict(r, installs="", captured="2026-11-20") for r in data["weekly_ads"]])
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / "metrics" / "ads.csv").unlink()
+            for pass_ in (data, again):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    pull_revenuecat.export_snapshots(store, pass_)
+            self.assertEqual(len(read_csv(store / "metrics" / "ads.csv")), 2)
+            ads = export.build_all(store, AS_OF)[0]["week/2026-11-02.json"]["families"]["ads"]["figures"]
+            self.assertEqual(ads["cpi_usd"]["value"], 0.8)                              # not "nothing to measure"
+
     def test_export_snapshots_appends_the_series_and_keeps_the_old_files(self):
         import contextlib
         import io

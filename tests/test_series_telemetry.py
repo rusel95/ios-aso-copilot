@@ -175,6 +175,22 @@ class Family(unittest.TestCase):
             for name, obj in export.build_all(store, dt.date(2026, 11, 14))[0].items():
                 self.assertEqual(contract.validate(name, contract.canonical(obj), catalog), [])
 
+    def test_more_completed_than_started_is_no_share(self):
+        odd = dict(DATA, compression=[{"media_type": "image", "initiated": "100", "completed": "1481", "failed": "0",
+                                       "total_gb_saved": "2"}])                 # an older app version sent no `initiated`
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            path = store / "metrics" / "telemetry.csv"
+            path.unlink(missing_ok=True)
+            telemetry.append_week(path, telemetry.telemetry_rows(odd, WEEK, "2026-11-10"))
+            figures = self.in_app(store)["figures"]
+            self.assertEqual(figures["compression.image_completed_share"]["unavailable"]["code"], "no_data")
+            self.assertEqual((figures["compression.image_initiated"], figures["compression.image_completed"]),
+                             ({"value": 100}, {"value": 1481}))                  # the counts stay; only the 1481% goes
+            catalog = contract.load_catalog()
+            for name, obj in export.build_all(store, dt.date(2026, 11, 14))[0].items():
+                self.assertEqual(contract.validate(name, contract.canonical(obj), catalog), [])
+
     def in_app(self, store, week="2026-11-02"):
         return export.build_all(store, dt.date(2026, 11, 14))[0][f"week/{week}.json"]["families"]["in_app"]
 

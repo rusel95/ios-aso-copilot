@@ -74,7 +74,7 @@ def hypotheses(store: Path, as_of: dt.date) -> dict:
         end = s["live"] + dt.timedelta(days=s["window"]) if s["live"] else None
         queries = [q.strip() for q in (h.get("queries") or "").split(";") if q.strip()]
         basket = basket_of(queries, s["markets"], rows) if s["basket"] is not None else []
-        ranked = s["basket"] is not None and s["live"] is not None
+        ranked = s["basket"] is not None and s["age_days"] is not None       # live on the day exported, and measured by rank
         out.append({
             "id": s["id"],
             "kind": "C" if channel else "H",

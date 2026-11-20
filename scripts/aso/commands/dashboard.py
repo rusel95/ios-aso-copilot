@@ -33,7 +33,7 @@ def cmd_due(args):
     """The rank reads the live hypotheses need at the end of their windows: one line a storefront and day."""
     as_of = dt.date.fromisoformat(args.as_of) if args.as_of else dt.date.today()
     store = Path(getattr(args, "store", DEFAULT_STORE)).resolve()
-    due = sorted(reads_due(read_hypotheses(store), read_ranks(store), as_of), key=lambda d: (d["day"], d["id"], d["market"]))
+    due = sorted(reads_due(read_hypotheses(store), read_ranks(store, as_of), as_of), key=lambda d: (d["day"], d["id"], d["market"]))
     for d in due:
         print(f"{d['day']}  {d['id']}  {d['market']}  {'; '.join(d['queries'])}" + ("  (missed)" if d["day"] < as_of.isoformat() else ""))
     if not due:
@@ -55,7 +55,7 @@ def cmd_propose(args):
     as_of = dt.date.fromisoformat(args.as_of) if args.as_of else dt.date.today()
     print(f"as of {as_of}")
     store = Path(getattr(args, "store", DEFAULT_STORE)).resolve()
-    rows = [r for r in read_ranks(store) if (r.get("date") or "") <= as_of.isoformat()]
+    rows = read_ranks(store, as_of)
     pairs, hyps, brand = series(rows), read_hypotheses(store, kinds=("H", "C")), read_brand_tokens(store)
     states = hypothesis_states(hyps, pairs, zero_result_keys(rows), as_of)
     due = [h["id"] for h in states if h["state"] == "due"]

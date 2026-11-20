@@ -15,6 +15,8 @@ rewrites this file. Bump `**Version**:` by hand when a new version starts (same 
 **Apple Ads genres**: TODO — optional, Apple's spelling of the app's categories, e.g. PHOTO_VIDEO, PRODUCTIVITY_UTILITIES; `radar pull` needs it
 **Apple Ads topic words**: TODO — optional substrings; `radar pull` also stores head terms that contain one
 
+**Never publish**: TODO — decide before `publish` or the Pages workflow: regular expressions separated by `;` for what must not leave the repository (e.g. `"proceeds_usd"; "ad_spend_usd"; "keyword"`), or `none`; `check` refuses until this line says one or the other
+
 App ID or Version still reading `TODO` → the skill refuses to guess and names this file as the fix.
 If GA4 is configured, its property must be explicit here or passed as a one-off `--property-id`; no
 cross-app mapping, environment property, or saved-state fallback is used.

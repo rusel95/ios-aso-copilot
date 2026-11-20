@@ -147,6 +147,23 @@ class Snapshots(unittest.TestCase):
             self.assertNotIn("snapshot/2026-10-17.json", before)
             self.assertEqual(before["snapshot/2026-10-31.json"]["families"]["demand"]["rows"][0]["popularity_100"], 41)
 
+    def test_a_row_with_more_cells_than_the_header_is_named_and_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            with (store / "metrics" / "popularity.csv").open("a", encoding="utf-8") as fh:
+                fh.write("2026-10-11,2026-11-14,us,WEATHER,tide times,150,33,2,basket,asc-ads-insights,a stray cell\n")
+            files, notes = export.build_all(store, dt.date(2026, 11, 14))                  # does not raise
+            self.assertTrue([n for n in notes if "popularity.csv" in n and "more cells" in n], notes)
+            self.assertNotIn("snapshot/2026-10-17.json", files)                            # the row made no snapshot
+
+    def test_a_week_read_again_with_a_blank_replaces_the_earlier_row_and_does_not_sit_beside_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            with (store / "metrics" / "impression_share.csv").open("a", encoding="utf-8") as fh:
+                fh.write("2026-10-25,2026-11-14,us,tide tracker,,,0.31,0.4,asc-ads-insights\n")     # the rank is blank this time
+            rows = export.build_all(store, dt.date(2026, 11, 14))[0]["snapshot/2026-10-31.json"]["families"]["impression_share"]["rows"]
+            self.assertEqual(rows, [{"market": "us", "term": "tide tracker", "rank": None, "share_low": 0.31, "share_high": 0.4}])
+
     def test_subscriptions_from_the_latest_read_when_the_store_has_one(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = copy_store(tmp)

@@ -185,6 +185,9 @@ def in_app_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
                 figures[key] = {"value": r["numerator"]}
             elif share(r["numerator"], r["denominator"]) is None:
                 figures[key] = unavailable("no_data", "Nothing to divide by: the week's total is zero.")
+            elif r["numerator"] > r["denominator"]:        # events counted without the event they follow (an older app version)
+                figures[key] = unavailable("no_data", "More were counted than the total they are a share of, so it is no share. "
+                                                      "The counts themselves are in the figures beside it.")
             else:
                 figures[key] = {"value": share(r["numerator"], r["denominator"]), "numerator": r["numerator"],
                                 "denominator": r["denominator"]}

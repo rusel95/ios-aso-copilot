@@ -190,3 +190,61 @@ class TheLatestObservation(unittest.TestCase):
         self.assertEqual(groups[("us", "moon phase")], "asa-observed")
         self.assertEqual(refresh_basket(rows, {"ua"}, failed_only=False)[0], {})
         self.assertEqual(refresh_basket(rows, None, failed_only=False)[0], {"us": ["tide times", "moon phase"]})
+
+
+class TheFunnelDigest(unittest.TestCase):
+    """A history pull records every week it holds on one day. The digest shows one week, the newest."""
+
+    def test_it_shows_the_newest_week_and_not_all_of_them(self):
+        header = "week_start,segment,impressions,product_page_views,downloads,trial_starts,recorded\n"
+        weeks = "".join(f"{week},all,{n},{n // 4},{n // 8},,2026-11-14\n"
+                        for n, week in ((250, "2026-09-07"), (500, "2026-10-26"), (900, "2026-11-09")))
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp)
+            (store / "metrics").mkdir()
+            (store / "metrics" / "weekly.csv").write_text(header + weeks, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                cycle.funnel_digest(store, today=cycle.dt.date(2026, 11, 15))
+        out = said.getvalue()
+        self.assertIn("week of 2026-11-09", out)
+        self.assertIn("900", out)
+        self.assertNotIn("2026-09-07", out)
+        self.assertNotIn("250", out)
+
+
+class TheGaFailure(unittest.TestCase):
+    def test_a_traceback_is_one_line_with_the_error_that_ended_it(self):
+        trace = ("Traceback (most recent call last):\n  File \"pull_ga.py\", line 9, in <module>\n    main()\n"
+                 "google.api_core.exceptions.ServiceUnavailable: DNS query cancelled\n")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cycle, "run_cmd", return_value=(1, "", trace)):
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                cycle.stage_ga(Path(tmp), {"ga4_property_id": "1"}, False)
+        out = said.getvalue()
+        self.assertIn("GA4 pull failed: google.api_core.exceptions.ServiceUnavailable: DNS query cancelled", out)
+        self.assertNotIn("Traceback", out)
+        self.assertEqual(out.count("\n"), 1)
+
+
+class TheCashflowDigest(unittest.TestCase):
+    """A digest that cannot be shown says so: one that stops half way and is silent reads as a complete one."""
+
+    def digest(self, snapshot):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / "metrics" / "revenuecat_latest.json").write_text(snapshot, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                cycle.cashflow_digest(store)
+            return said.getvalue()
+
+    def test_a_flight_without_its_fields_is_said(self):
+        out = self.digest('{"captured_at": "2026-11-14T08:00:00Z", "overview": {"mrr": {"value": 16}}, '
+                          '"windows": {}, "flight_evaluations": [{"name": "one"}]}')
+        self.assertIn("CASHFLOW DIGEST", out)                      # what could be shown was shown
+        self.assertIn("⚠️ cashflow digest", out)
+        self.assertIn("KeyError", out)
+
+    def test_a_file_that_is_not_json_is_said(self):
+        self.assertIn("⚠️ cashflow digest", self.digest("{not json"))
+
+    def test_a_whole_snapshot_prints_without_a_warning(self):
+        self.assertNotIn("⚠️", self.digest('{"captured_at": "2026-11-14T08:00:00Z", "overview": {}, "windows": {}}'))

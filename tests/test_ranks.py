@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import SAMPLE  # noqa: E402
 
-from aso.ranks import key_of, movers, series, sweep_bands  # noqa: E402
+from aso.ranks import CoverageTally, band_counts, coverage, key_of, movement, movers, series, sweep_bands, zero_result_keys  # noqa: E402
 from aso.store import read_ranks  # noqa: E402
 
 BRAND = ["tidepool"]
@@ -67,6 +67,61 @@ class KeyOf(unittest.TestCase):
 
     def test_composed_and_decomposed_letters_are_one_key(self):
         self.assertEqual(key_of("fr", "vidéo"), key_of("fr", "vidéo"))
+
+
+def coverage_as_first_written(rows):
+    """What `coverage` computed before it was a running tally: the definition the tally has to keep."""
+    pairs, attempted = series(rows), {(r["market"], r["keyword"]) for r in rows}
+    return {"tracked": len(attempted),
+            "paired": sum(movement(obs[0], obs[-1])[1] is not None for obs in pairs.values()),
+            "unobserved": len(attempted) - len(pairs),
+            "failed": sum(r["status"] == "error" for r in rows),
+            "unmeasurable": len(zero_result_keys(rows)),
+            "observations": len(rows)}
+
+
+class TheRunningTally(unittest.TestCase):
+    """One pass over the days gives the coverage and the bands of every day, the same as asking each day on its own."""
+
+    def messy_rows(self):
+        import random
+        rng = random.Random(11)
+        rows = []
+        for _ in range(900):                       # out of date order, retries on the same day, every status
+            status = rng.choice(["ok", "ok", "ok", "beyond-depth", "beyond-depth", "error", "no-results"])
+            rows.append({"date": f"2026-10-{rng.randint(1, 14):02d}", "market": rng.choice("abc"),
+                         "keyword": f"key {rng.randint(1, 9)}", "status": status, "provider": rng.choice(["p", "p", "q"]),
+                         "depth": "200", "legacy": False, "position": rng.randint(1, 200) if status == "ok" else None})
+        return rows
+
+    def test_the_tally_is_the_coverage_of_every_prefix_of_the_days(self):
+        rows = self.messy_rows()
+        by_day = {}
+        for r in sorted(rows, key=lambda r: r["date"]):
+            by_day.setdefault(r["date"], []).append(r)
+        tally = CoverageTally()
+        for day in sorted(by_day):
+            tally.add(by_day[day])
+            upto = [r for r in rows if r["date"] <= day]
+            self.assertEqual(tally.figures(), coverage_as_first_written(upto), day)
+            self.assertEqual(coverage(upto), coverage_as_first_written(upto), day)
+
+    def test_the_bands_of_a_day_from_a_running_set_are_the_bands_of_that_day(self):
+        rows = self.messy_rows()
+        brand_free = [r for r in rows if r["keyword"] != "key 1"]
+        tracked, by_day = {}, {}
+        for r in sorted(brand_free, key=lambda r: r["date"]):
+            by_day.setdefault(r["date"], []).append(r)
+        for day in sorted(by_day):
+            latest = {}
+            for r in by_day[day]:
+                tracked.setdefault(r["market"], set()).add(r["keyword"])
+                latest[(r["market"], r["keyword"])] = r
+            self.assertEqual(band_counts(tracked, latest), sweep_bands(rows, ["key 1"], day), day)
+
+    def test_a_day_of_nothing_asked_is_zero(self):
+        self.assertEqual(CoverageTally().figures(), coverage([]))
+        self.assertEqual(coverage([])["tracked"], 0)
 
 
 if __name__ == "__main__":

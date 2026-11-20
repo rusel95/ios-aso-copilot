@@ -78,6 +78,7 @@ page and in `STATE.md` alike; the share is `ranks.partial_under` in the catalog.
 
 `check` reads `data/` and reports, by file and kind and never by value: the store's own account
 identifiers from `config.md`, e-mail addresses, anything shaped like a key or a token, and whatever
-`NEVER_PUBLISH` in `scripts/aso/dashboard/clean.py` lists. That list is the owner's: it starts empty.
+the `**Never publish**:` line of the store's `config.md` lists. That line is the owner's: with no line, or a
+`TODO`, the check refuses; `none` says nothing more is held back.
 Hypothesis prose is exported as written, so an identifier typed into a confound will be found there.
 Publishing itself is in `references/publish.md`.

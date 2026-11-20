@@ -153,7 +153,7 @@ def build_parser():
     # rc / cashflow
     p_rc = subparsers.add_parser("rc", aliases=["cashflow"], help="Pull RevenueCat metrics, 3-tier revenue (Gross/NetTax/Proceeds) & Apple Ads Cashflow", parents=[common_parent])
     p_rc.add_argument("--project-id", help="RevenueCat Project ID (defaults to config.md)")
-    p_rc.add_argument("--start", default="2026-09-01", help="Start date YYYY-MM-DD (default: 2026-09-01)")
+    p_rc.add_argument("--start", help="Start date YYYY-MM-DD (default: the day the app was first released)")
     p_rc.add_argument("--end", help="End date YYYY-MM-DD (default: today)")
     p_rc.add_argument("--export", action="store_true", default=True, help="Export snapshots to metrics/revenuecat_latest.json and metrics/cashflow.csv")
 

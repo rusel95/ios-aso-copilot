@@ -12,7 +12,7 @@ from aso.commands.base import SKILL_DIR, compact_asc_output, resolve_app_identit
 from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.commands.parallel import run_stages
-from aso.pull_revenuecat_series import ADS_COLS
+from aso.pull_revenuecat_series import ADS_COLS, ADS_KEEP
 from aso.store import append_changed, read_ranks
 from aso.store_state import first_release_day, store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
@@ -64,8 +64,8 @@ def cycle_stage_table(text):
 def funnel_digest(store, today=None):
     """The store funnel and install lifecycle the cycle already holds, as a table with its conversions.
 
-    Reads metrics/weekly.csv and metrics/lifecycle.csv (the newest `recorded` block of each) so the numbers a
-    reader needs are on screen without opening a file. A block older than 3 days is called STALE: this store's
+    Reads metrics/weekly.csv and metrics/lifecycle.csv (the newest week of each, as last recorded) so the numbers a
+    reader needs are on screen without opening a file. A read older than 3 days is called STALE: this store's
     weekly.csv once sat 11 days behind its source and nobody could tell from the output.
     """
     import csv
@@ -75,9 +75,13 @@ def funnel_digest(store, today=None):
         path = store / "metrics" / name
         if not path.is_file():
             return None, []
-        rows = list(csv.DictReader(path.open(encoding="utf-8")))
+        with path.open(encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh))
         if not rows:
             return None, []
+        # one week: a history pull records every week it holds on one day, and a table of all of them is not a digest
+        week = max(r.get("week_start", "") for r in rows)
+        rows = [r for r in rows if r.get("week_start", "") == week]
         rec = max(r.get("recorded", "") for r in rows)
         return rec, [r for r in rows if r.get("recorded") == rec]
 
@@ -94,12 +98,12 @@ def funnel_digest(store, today=None):
             return ""
         return f" — STALE: {days} days old" if days > 3 else ""
 
-    print("\nFUNNEL DIGEST (store → install; cumulative since the week_start of each block)")
+    print("\nFUNNEL DIGEST (store → install; the newest week each file holds)")
     rec, rows = newest("weekly.csv")
     if not rows:
         print("  store funnel: no metrics/weekly.csv rows — run `copilot.py funnel --pull`")
     else:
-        print(f"  App Store funnel, {rows[0].get('week_start')} → {rec}{age(rec)}  [store:metrics/weekly.csv]")
+        print(f"  App Store funnel, week of {rows[0].get('week_start')}, recorded {rec}{age(rec)}  [store:metrics/weekly.csv]")
         print(f"  {'segment':<8}{'impr':>8}{'page views':>11}{'1st dl':>8}{'PV/impr':>9}{'dl/impr':>9}{'dl/PV':>8}{'trials':>8}")
         for r in rows:
             print(f"  {r.get('segment', ''):<8}{r.get('impressions', ''):>8}{r.get('product_page_views', ''):>11}"
@@ -111,7 +115,7 @@ def funnel_digest(store, today=None):
     if not rows:
         print("  lifecycle: no metrics/lifecycle.csv rows")
     else:
-        print(f"  Opt-in install lifecycle, {rows[0].get('week_start')} → {rec}{age(rec)}  [store:metrics/lifecycle.csv]")
+        print(f"  Opt-in install lifecycle, week of {rows[0].get('week_start')}, recorded {rec}{age(rec)}  [store:metrics/lifecycle.csv]")
         print(f"  {'segment':<8}{'installs':>9}{'deleted':>9}{'deleted %':>10}{'≤1 day':>8}")
         for r in rows:
             print(f"  {r.get('segment', ''):<8}{r.get('first_installs_optin', ''):>9}{r.get('deletions_optin', ''):>9}"
@@ -150,8 +154,8 @@ def cashflow_digest(store: Path):
                 roas = f"{f['net_roas_pct']:.0f}%" if f.get("net_roas_pct") is not None else "—"
                 print(f"  Flight [{f['country']}] {f['name'][:28]} ({f['status']}): Spend ${f['ad_spend']:.2f} → "
                       f"Gross ${f['gross_revenue']:.2f} / Proceeds ${f['proceeds']:.2f} → Cashflow {cf_s} (ROAS {roas})")
-        except Exception:
-            pass
+        except Exception as exc:          # a digest that stops half way and says nothing reads as a complete one
+            print(f"  ⚠️ cashflow digest: metrics/revenuecat_latest.json could not be shown ({type(exc).__name__}: {exc})")
     elif rc_project_id:
         print(f"\nCASHFLOW DIGEST: no metrics/revenuecat_latest.json — run `copilot.py rc --export`")
 
@@ -423,7 +427,9 @@ def stage_ga(store: Path, app: dict, skip: bool) -> bool:
         why = next((l.strip(" ⚠️") for l in reversed(lines) if "⚠️" in l), "see the GA4 output above")
         print(f"  ⚠️ GA4 pull partial (exit 2): {why[:160]}")
     else:
-        print(f"  ⚠️ GA4 pull failed: {err.strip() or f'exit {rc}'}")
+        # a traceback is fifty lines; its last line names the error, and that is the line a reader needs
+        why = next((l.strip() for l in reversed(err.splitlines()) if l.strip()), f"exit {rc}")
+        print(f"  ⚠️ GA4 pull failed: {why[:200]}")
     return False
 
 
@@ -457,7 +463,7 @@ def stage_revenue(store: Path, app: dict, skip: bool) -> bool:
         if err or rows is None:
             print(f"  ⚠️ Apple Ads results could not be read: {err or 'nothing came back'}")
             return False
-        gained = append_changed(store / "metrics" / "ads.csv", ADS_COLS, rows, ("week_start", "campaign_id"))
+        gained = append_changed(store / "metrics" / "ads.csv", ADS_COLS, rows, ("week_start", "campaign_id"), keep=ADS_KEEP)
         print(f"  stored: ads.csv +{gained} (Apple Ads results by closed week, {len(rows)} read)")
         return True
     data, err = pull_revenuecat.collect_revenuecat_and_cashflow(store, project_id_override=app["rc_project_id"])

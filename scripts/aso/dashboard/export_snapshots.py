@@ -7,18 +7,37 @@ from pathlib import Path
 
 from aso.dashboard.contract import is_number
 from aso.dashboard.series import latest_rows, ranks_until, share, split, unavailable
-from aso.ranks import coverage, sweep_bands
+from aso.ranks import CoverageTally, band_counts, brand_hit
 from aso.store import parse_date, problem, read_brand_tokens, read_csv
 
 
 def rank_snapshots(store: Path, as_of: dt.date) -> dict:
     """sweep date -> the ranks and coverage families of that day."""
     rows, brand, out = ranks_until(store, as_of), read_brand_tokens(store), {}
-    for day in sorted({r["date"] for r in rows}):
+    # One pass over the days in order, each row visited once. What a day needs from the days before it (the keys asked
+    # about by then, the coverage so far) is kept as it goes, so a year of sweeps costs a pass and not a pass a day;
+    # `coverage` is the same tally, taken to the end. The store's line order within a day stands, which a retry on
+    # the same day relies on.
+    days = {}
+    for r in rows:
+        days.setdefault(r["date"], []).append(r)
+    brand_of, tracked, tally = {}, {}, CoverageTally()
+
+    def is_brand(keyword):
+        if keyword not in brand_of:                       # a keyword is tested against the brand words once, not once a row
+            brand_of[keyword] = any(brand_hit(token, keyword) for token in brand)
+        return brand_of[keyword]
+    for day in sorted(days):
+        today, latest = days[day], {}
+        tally.add(today)
+        for r in today:
+            if not is_brand(r["keyword"]):
+                tracked.setdefault(r["market"], set()).add(r["keyword"])
+                latest[(r["market"], r["keyword"])] = r
         if parse_date(day) is None:
             problem("metrics/ranks.csv", f"date {day!r} is not a date; its rows are in no snapshot")
             continue
-        bands = sweep_bands(rows, brand, day)
+        bands = band_counts(tracked, latest)
         split = bands["by_market"]
         figures = {name: {"value": bands[name], "by_market": {m: counts[name] for m, counts in split.items()}}
                    for name in ("tracked_keys", "keys_read", "top10", "top30", "top100", "top200", "beyond",
@@ -31,8 +50,8 @@ def rank_snapshots(store: Path, as_of: dt.date) -> dict:
                 figures[name] = {"value": share(inside, bands["keys_read"]), "numerator": inside,
                                  "denominator": bands["keys_read"],
                                  "by_market": {m: share(sum(c[b] for b in bands_in), c["keys_read"]) for m, c in split.items()}}
-        seen = coverage([r for r in rows if r["date"] <= day])
-        providers = [r["provider"] for r in rows if r["date"] == day and r["provider"]]
+        seen = tally.figures()
+        providers = [r["provider"] for r in today if r["provider"]]
         source = max(sorted(set(providers)), key=providers.count) if providers else "unknown"
         out[day] = {
             "ranks": {"source": source, "fetched_at": day, "figures": figures},
@@ -56,6 +75,9 @@ def measured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: 
             continue
         if day > as_of:
             continue
+        if None in r:                    # more cells than the header names: which column each belongs to is unknown
+            notes.append(f"metrics/{name}:{n}: the row holds more cells than the header names; the row is skipped")
+            continue
         row = {"_week": week, "_captured": day}
         try:
             for column in r:
@@ -69,16 +91,17 @@ def measured_rows(store: Path, name: str, as_of: dt.date, numbers: dict, notes: 
 
 
 def insight_family(lists: dict) -> dict:
-    """One family from the rows of one measured week. `lists` maps a list name to (source rows, columns). Among rows
-    for one key the later capture stands, then the later line: a week read again is a correction."""
-    rows = [r for group, _ in lists.values() for r in group]
+    """One family from the rows of one measured week. `lists` maps a list name to (source rows, columns, key): the
+    key is the columns that say which row it is. Among rows for one key the later capture stands, then the later
+    line: a week read again is a correction, whatever number or blank it now holds."""
+    rows = [r for group, _, _ in lists.values() for r in group]
     weeks = [r["_week"] for r in rows]
     family = {"source": "asc-ads-insights", "fetched_at": max(r["_captured"] for r in rows).isoformat(),
               "measured": {"start": min(weeks).isoformat(), "end": (max(weeks) + dt.timedelta(days=6)).isoformat()}}
-    for name, (group, columns) in lists.items():
+    for name, (group, columns, key) in lists.items():
         latest = {}
         for r in sorted(group, key=lambda r: r["_captured"]):          # stable: the later line of one day stands
-            latest[tuple(r[c] for c in columns[:-1] if not isinstance(r[c], (int, float)))] = {c: r[c] for c in columns}
+            latest[tuple(r[c] for c in key)] = {c: r[c] for c in columns}
         family[name] = [latest[k] for k in sorted(latest, key=lambda k: tuple(str(x) for x in k))]
     return family
 
@@ -92,11 +115,11 @@ def insight_snapshots(store: Path, as_of: dt.date, notes: list) -> dict:
     out = {}
     for day in sorted(set(popularity) | set(cuts)):
         out.setdefault(day, {})["demand"] = insight_family({
-            "rows": (popularity.get(day, []), ["market", "genre", "term", "popularity_100"]),
-            "cuts": (cuts.get(day, []), ["market", "genre", "listed", "min_popularity_100"])})
+            "rows": (popularity.get(day, []), ["market", "genre", "term", "popularity_100"], ["market", "genre", "term"]),
+            "cuts": (cuts.get(day, []), ["market", "genre", "listed", "min_popularity_100"], ["market", "genre"])})
     for day in sorted(shares):
         out.setdefault(day, {})["impression_share"] = insight_family({
-            "rows": (shares[day], ["market", "term", "rank", "share_low", "share_high"])})
+            "rows": (shares[day], ["market", "term", "rank", "share_low", "share_high"], ["market", "term"])})
     return out
 
 

@@ -111,8 +111,11 @@ ASO.pages["#/ads"] = function (payload, today) {
   var share = ASO.listOf(payload, "impression_share", "rows");
   out += '<div class="blocks"><section class="block">\n<h2>Impression share</h2>' + (share ? ASO.measured(share.family) + '<ul class="next range">' +
     share.rows.map(function (r) {
-      return '<li><span class="id">' + ASO.esc(r.market) + "</span> <span>" + ASO.esc(r.term) + '</span> <span class="mono">#' + r.rank +
-        '</span> <span class="mono strong">' + ASO.fmt(r.share_low, "ratio") + (r.share_high !== r.share_low ? "–" + ASO.fmt(r.share_high, "ratio") : "") + "</span></li>";
+      // a blank cell is null, and null is not a zero: it is drawn as a dash, never as #null or 0.0%
+      var share = function (value) { return typeof value === "number" ? ASO.fmt(value, "ratio") : "–"; };
+      return '<li><span class="id">' + ASO.esc(r.market) + "</span> <span>" + ASO.esc(r.term) + '</span> <span class="mono">' +
+        (typeof r.rank === "number" ? "#" + r.rank : "–") + '</span> <span class="mono strong">' + share(r.share_low) +
+        (r.share_high !== r.share_low ? "–" + share(r.share_high) : "") + "</span></li>";
     }).join("") + "</ul>" : ASO.gapNote({ code: "no_source", reason: "No data file holds a reading of it." })) + "</section>";
 
   var heads = ASO.listOf(payload, "demand", "rows"), cuts = ASO.listOf(payload, "demand", "cuts");

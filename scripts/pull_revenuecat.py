@@ -24,11 +24,13 @@ import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
+from aso.funnel_lifecycle import monday_on_or_after  # noqa: E402
 from aso.pull_revenuecat_series import ads_weeks, cashflow_weeks, store_series  # noqa: E402
 from aso.store_state import first_release_day  # noqa: E402,F401
 from aso.pull_revenuecat_fetch import (  # noqa: E402,F401
     CODE_TO_COUNTRY_NAME,
     COUNTRY_NAME_TO_CODE,
+    UNATTRIBUTED,
     fetch_apple_ads_spend,
     fetch_rc_overview,
     fetch_rc_revenue_series,
@@ -125,9 +127,18 @@ def history_start(lookup, today: dt.date) -> str:
     return first_release_day(lookup) or (today - dt.timedelta(days=365)).isoformat()
 
 
-def default_start(cfg: dict, today: dt.date) -> str:
+def pull_window(cfg: dict, today: dt.date, start_date: str = None) -> tuple:
+    """(the day a pull begins, the first Monday whose week it holds from its first day, or None for every week).
+    A pull from the app's first release holds every week whole, because nothing existed before it. A pull from any
+    other day begins mid-week unless that day is a Monday, and the part of a week it holds is not a week."""
     from aso.commands.collect import fetch_lookup
-    return history_start(fetch_lookup(cfg["app_id"]) if cfg.get("app_id") else None, today)
+    if start_date:
+        return start_date, monday_on_or_after(dt.date.fromisoformat(start_date))
+    lookup = fetch_lookup(cfg["app_id"]) if cfg.get("app_id") else None
+    if first_release_day(lookup):
+        return history_start(lookup, today), None
+    start = history_start(lookup, today)
+    return start, monday_on_or_after(dt.date.fromisoformat(start))
 
 
 def collect_ads(store: Path, start_date: str = None, end_date: str = None):
@@ -137,10 +148,11 @@ def collect_ads(store: Path, start_date: str = None, end_date: str = None):
         return None, f"Missing **Apple Ads account**: in {store / 'config.md'}"
     today = dt.date.today()
     end_str = end_date or today.isoformat()
+    start_date, whole_from = pull_window(cfg, today, start_date)
     _, _, daily_spend = fetch_apple_ads_spend(find_bin("asc"), cfg.get("ads_account"), cfg.get("ads_profile"),
-                                              start_date or default_start(cfg, today), end_str, app_id=cfg.get("app_id"))
+                                              start_date, end_str, app_id=cfg.get("app_id"))
     # an app that never ran an ad has no rows: nothing to store, and not a failure
-    return ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str), None
+    return ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str, whole_from), None
 
 
 def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None, start_date: str = None, end_date: str = None):
@@ -153,7 +165,7 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
     asc_bin = find_bin("asc")
     today = dt.date.today()
     end_str = end_date or today.isoformat()
-    start_date = start_date or default_start(cfg, today)
+    start_date, whole_from = pull_window(cfg, today, start_date)
 
     overview, err = fetch_rc_overview(rc_bin, project_id)
     if err:
@@ -200,6 +212,8 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
     for r in all_campaign_rows:
         if r["spend"] > 0 or not r["deleted"]:
             all_countries.add(r["country"])
+    if any(country == UNATTRIBUTED for _, _, country in daily_spend):
+        all_countries.add(UNATTRIBUTED)          # spend of campaigns that ran in several storefronts keeps its own row
 
     country_cashflow = []
     for code in sorted(all_countries):
@@ -287,8 +301,9 @@ def collect_revenuecat_and_cashflow(store: Path, project_id_override: str = None
         "windows": windows,
         "country_cashflow": country_cashflow,
         # closed Monday weeks, as rows: what the store keeps as history (export_snapshots appends them)
-        "weekly_cashflow": cashflow_weeks(by_country_daily, trials_by_country, daily_spend, dt.date.fromisoformat(end_str), end_str),
-        "weekly_ads": ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str),
+        "weekly_cashflow": cashflow_weeks(by_country_daily, trials_by_country, daily_spend, dt.date.fromisoformat(end_str), end_str,
+                                          whole_from),
+        "weekly_ads": ads_weeks(daily_spend, dt.date.fromisoformat(end_str), end_str, whole_from),
     }
     return result, ""
 

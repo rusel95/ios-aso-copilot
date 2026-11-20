@@ -223,7 +223,9 @@ def daily_rows(report, country_by_cid: dict, campaigns_meta: dict) -> dict:
         return rows
     for r in (report.get("result") or {}).get("rows") or []:
         cid = int((r.get("metadata") or {}).get("id") or 0)
-        country = country_by_cid.get(cid) or campaigns_meta.get(cid, {}).get("country", "??")
+        meta = campaigns_meta.get(cid, {})
+        # without an all-time row the campaign's own targeting says where it ran, when it names exactly one storefront
+        country = country_by_cid.get(cid) or (meta["country"] if len(meta.get("countries") or []) == 1 else UNATTRIBUTED)
         for g in r.get("granularMetrics") or []:
             day = g.get("date")
             if not day:
@@ -248,6 +250,7 @@ def day_chunks(start: str, end: str, days: int) -> list:
 
 
 DAILY_REPORT_DAYS = 90        # Apple Ads gives day-by-day results for at most this many days a request
+UNATTRIBUTED = "??"           # the storefront of spend that cannot be tied to one: unknown, not a guess
 
 
 def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: str, end_date: str, app_id: str = None):
@@ -319,7 +322,12 @@ def fetch_apple_ads_spend(asc_bin: str, account: str, profile: str, start_date: 
 
     # 3. Daily granular spend for non-deleted campaigns (and overall daily spend). The install count is asked for
     # too; a CLI or an account that refuses that field is asked again without it, so spend is never lost to it.
-    country_by_cid = {r["campaign_id"]: r["country"] for r in all_campaign_rows}
+    countries_of = {}
+    for r in all_campaign_rows:
+        countries_of.setdefault(r["campaign_id"], set()).add(r["country"])
+    # a campaign that spent in several storefronts has no one country: its daily report is not split by storefront, so
+    # its days go to "??" (unattributed) and not to whichever storefront the all-time report happened to list last
+    country_by_cid = {cid: next(iter(found)) if len(found) == 1 else UNATTRIBUTED for cid, found in countries_of.items()}
     daily_spend = {}
     for piece_start, piece_end in day_chunks(start_date, end_date, DAILY_REPORT_DAYS):
         for fields in (["impressions", "taps", "tapInstalls", "localSpend"], ["impressions", "taps", "localSpend"]):

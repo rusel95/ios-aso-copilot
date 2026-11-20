@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import ROOT  # noqa: E402
+from tests.helpers import ROOT, SAMPLE, run  # noqa: E402
 
 import copilot  # noqa: E402
 import pull_bigquery_telemetry  # noqa: E402
@@ -54,6 +54,12 @@ class Router(unittest.TestCase):
         self.assertEqual(version, "3.0.0")
         self.assertIn(f"version: {version}", SKILL)
         self.assertIn(f"## {version}", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+
+    def test_the_install_reports_the_version_a_release_says(self):
+        code, out, _ = run("copilot.py", "info", "--json", "--store", str(SAMPLE))
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["skill"]["version"],
+                         json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"])
 
 
 class References(unittest.TestCase):

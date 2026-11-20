@@ -450,7 +450,9 @@ def main():
         """The first Monday whose week an ongoing request holds whole: the week after its first daily report."""
         return week_start(date.fromisoformat(found[3])) + timedelta(days=7) if found and found[3] else None
 
-    funnel_from = min((f for f in (floor(discovery), floor(downloads)) if f), default=None)
+    # a funnel week needs both reports whole, so the floor is the later of their two: from the earlier one's Monday the
+    # other report holds only part of the week, and a week is written once
+    funnel_from = max((f for f in (floor(discovery), floor(downloads)) if f), default=None)
     lifecycle_from = floor(lifecycle)
     discovery_rows, download_rows = (discovery[0] if discovery else []), (downloads[0] if downloads else [])
     lifecycle_rows = lifecycle[0] if lifecycle else []
@@ -471,8 +473,9 @@ def main():
         folder.mkdir(parents=True, exist_ok=True)
         old = read_all(snapshot[0], snapshot[1], folder, load_manifest(folder, snapshot[0], app_id=app_id), "snapshot ")
         partial = partial or any(found is None for found in old)
-        if old[0] and old[1] and discovery_rows and download_rows and (old[0][0] or old[1][0]):
-            earliest = min(row["Date"] for row in old[0][0] + old[1][0])
+        if old[0] and old[1] and discovery_rows and download_rows and old[0][0] and old[1][0]:
+            # the snapshot's weeks are whole from the later of the two reports' first days, for the same reason
+            earliest = max(min(row["Date"] for row in old[0][0]), min(row["Date"] for row in old[1][0]))
             funnel_from = min(f for f in (funnel_from, monday_on_or_after(date.fromisoformat(earliest))) if f)
             discovery_rows, download_rows = merge_days(discovery_rows, old[0][0]), merge_days(download_rows, old[1][0])
             summaries.append(f"snapshot: {old[0][2]} + {old[1][2]} daily instances")

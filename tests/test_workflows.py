@@ -83,11 +83,18 @@ class RankReads(unittest.TestCase):
         self.assertEqual(re.findall(r"git add (.+)", text), ["marketing/metrics/ranks.csv"])
         self.assertNotRegex(text, r"git add (-A|\.|--all)|git commit -a")
 
+    def test_a_push_that_lost_a_race_is_rebased_and_tried_again_and_never_dropped(self):
+        # the day's read cannot be made again and the runner is discarded: a rejected push would lose it for good
+        text = runs(read("rank-reads.yml"))
+        self.assertRegex(text, r"for attempt in 1 2 3; do\s+git pull --rebase .*&& git push .*&& exit 0")
+        self.assertRegex(text, r"exit 1\s*$")                        # and when every try fails the run says so
+        self.assertIn("ranks.csv merge=union", text)                 # two runs that each appended rows are both kept
+
 
 class PublishReference(unittest.TestCase):
     def test_it_says_what_is_decided_first_and_how_to_install(self):
         text = (ROOT / "references" / "publish.md").read_text(encoding="utf-8")
-        for needed in ("public", "private", "NEVER_PUBLISH", "assets/workflows/aso-dashboard.yml", "assets/workflows/rank-reads.yml",
+        for needed in ("public", "private", "**Never publish**", "assets/workflows/aso-dashboard.yml", "assets/workflows/rank-reads.yml",
                        ".github/workflows/", "full commit hash", "no source credential"):
             self.assertIn(needed, text)
 

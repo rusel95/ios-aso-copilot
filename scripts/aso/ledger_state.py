@@ -57,10 +57,11 @@ def hypothesis_states(hyps: list, pairs: dict, empty, as_of) -> list:
         live, verdict = parse_date(h.get("went_live")), (h.get("verdict") or "").strip()
         markets = hyp_markets(h)
         window = window_days(h)
-        age = (as_of - live).days if live else None
+        started = live is not None and live <= as_of      # a change that goes live after the day replayed was not live on it
+        age = (as_of - live).days if started else None
         if verdict:
             state = "judged"
-        elif not live:
+        elif not started:
             state = "not-shipped"
         else:
             state = "due" if age >= window else "open"

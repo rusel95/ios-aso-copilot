@@ -47,6 +47,14 @@ def log_error(msg):
         print(f"[ERROR] 🛑 {msg}", file=sys.stderr)
 
 
+def skill_version() -> str:
+    """The version of this install, read from package.json: the one place a release says it."""
+    try:
+        return json.loads((SKILL_DIR / "package.json").read_text(encoding="utf-8"))["version"]
+    except (OSError, ValueError, KeyError):
+        return "unknown"
+
+
 def resolve_app_identity(store: Path):
     """Read App ID, version, brand tokens, and Apple Ads settings from config.md."""
     config_file = store / "config.md"

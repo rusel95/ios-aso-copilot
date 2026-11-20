@@ -122,6 +122,19 @@ def pages_target(store: Path, args) -> tuple:
             args.path if args.path is not None else said.get("Pages path", ""))
 
 
+PAGE_FILES = {"index.html", ".nojekyll"}
+
+
+def foreign_files(git, remote: str, branch: str, probe: Path) -> list:
+    """What `branch` of `remote` holds besides the page itself: [] when the branch is not there yet or holds only
+    the page. A branch of its own is replaced whole with a force push, so it must hold nothing else: `main` of an
+    app's repository would lose its source and its history."""
+    if not git("ls-remote", "--heads", remote, f"refs/heads/{branch}"):
+        return []
+    git("clone", "-q", "--depth", "1", "--branch", branch, remote, str(probe))
+    return [path for path in git("ls-tree", "-r", "--name-only", "HEAD", cwd=probe).splitlines() if path not in PAGE_FILES]
+
+
 def cmd_publish(args):
     """Push the built page, and only the page, to where GitHub Pages serves it. Nothing is pushed unless data/ is
     what the store exports for its day and the clean check passes. The app's own checkout is never touched.
@@ -129,7 +142,8 @@ def cmd_publish(args):
     With a folder (`--path`, or `**Pages path**` in config.md) the page goes into that folder of a repository that
     serves other pages too: the branch is cloned to a temporary folder, the one file is written, and a commit is
     pushed on top; nothing else there is changed and nothing is ever rewritten. With no folder the page is the
-    whole of its own branch, which is replaced each time. A published page is public to whoever has its address."""
+    whole of its own branch, which is replaced each time, and which is refused when it holds anything but the page.
+    A published page is public to whoever has its address."""
     store = Path(args.store).resolve()
     data = store / "data"
     if not (data / "events.json").is_file():
@@ -181,6 +195,17 @@ def cmd_publish(args):
             return 1
         size = (built / "index.html").stat().st_size
         where = f"{folder.strip('/')}/index.html" if folder else "index.html"
+        if not folder:                                   # checked in a dry run too: it is what the real push would destroy
+            try:
+                other = foreign_files(git, remote, branch, Path(tmp) / "probe")
+            except RuntimeError as exc:
+                print(f"FAIL publish: {exc}")
+                return 1
+            if other:
+                print(f"FAIL publish: {branch} of {shown} holds {len(other)} file(s) that are not the page "
+                      f"({', '.join(other[:5])}{', …' if len(other) > 5 else ''}). A branch of its own is replaced whole "
+                      "each time: publish into a folder of it with --path, or name a branch that holds only the page.")
+                return 1
         if args.dry_run:
             print(f"would push {where} ({size} bytes, as of {as_of}) to {branch} of {shown}")
             return 0

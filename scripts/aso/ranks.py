@@ -180,6 +180,12 @@ def sweep_bands(rows: list, brand: list, date: str) -> dict:
             tracked.setdefault(r["market"], set()).add(r["keyword"])
         if r["date"] == date:
             latest[(r["market"], r["keyword"])] = r
+    return band_counts(tracked, latest)
+
+
+def band_counts(tracked: dict, latest: dict) -> dict:
+    """The bands of one sweep date, from the keys tracked by then (market -> keywords) and the newest row each key got
+    that day. `sweep_bands` finds both in a store's rows; a caller that walks the dates in order keeps them itself."""
     total = dict.fromkeys(COUNTS, 0)
     by_market = {m: {"tracked_keys": len(keys), **dict.fromkeys(COUNTS, 0)} for m, keys in sorted(tracked.items())}
     for (market, _), r in latest.items():
@@ -214,12 +220,42 @@ def movers(pairs: dict, brand: list) -> list:
     return numeric + censored
 
 
+class CoverageTally:
+    """`coverage` kept up to date as rows arrive in date order (a day's rows in the order the store holds them), so
+    the coverage of every day of a store is one pass and not one pass a day. It holds what `series` and
+    `zero_result_keys` decide from: which keys were asked, the first and last row of each that observed something, and
+    the status of the last read that did not fail."""
+
+    def __init__(self):
+        self.attempted, self.observations, self.failed = set(), 0, 0
+        self.first, self.last, self.last_read = {}, {}, {}
+
+    def add(self, rows) -> None:
+        for r in rows:
+            key = (r["market"], r["keyword"])
+            self.attempted.add(key)
+            self.observations += 1
+            if r["status"] == "error":
+                self.failed += 1                              # a failed request is a record of what was attempted, no more
+                continue
+            self.last_read[key] = r["status"]
+            if r["status"] != "no-results":
+                self.first.setdefault(key, r)
+                self.last[key] = r
+
+    def figures(self) -> dict:
+        empty = {key for key, status in self.last_read.items() if status == "no-results"}
+        pairs = [key for key in self.first if key not in empty]          # what `series` keeps
+        return {"tracked": len(self.attempted),
+                "paired": sum(movement(self.first[key], self.last[key])[1] is not None for key in pairs),
+                "unobserved": len(self.attempted) - len(pairs),
+                "failed": self.failed,
+                "unmeasurable": len(empty),
+                "observations": self.observations}
+
+
 def coverage(rows: list) -> dict:
     """How much of the ledger can be compared at all. A thin report is thin because of these numbers."""
-    pairs, attempted = series(rows), {(r["market"], r["keyword"]) for r in rows}
-    return {"tracked": len(attempted),
-            "paired": sum(movement(obs[0], obs[-1])[1] is not None for obs in pairs.values()),
-            "unobserved": len(attempted) - len(pairs),
-            "failed": sum(r["status"] == "error" for r in rows),
-            "unmeasurable": len(zero_result_keys(rows)),
-            "observations": len(rows)}
+    tally = CoverageTally()
+    tally.add(sorted(rows, key=lambda r: r["date"]))              # stable: the store's line order within a day stands
+    return tally.figures()

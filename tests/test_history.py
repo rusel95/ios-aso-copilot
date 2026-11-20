@@ -31,8 +31,20 @@ class WhereHistoryStarts(unittest.TestCase):
         self.assertEqual(pull_revenuecat.history_start(None, today), "2025-11-14")
 
     def test_no_date_is_typed_into_the_collector(self):
-        source = Path(pull_revenuecat.__file__).read_text(encoding="utf-8")
-        self.assertNotRegex(source, r'(start_date|default)\s*(:\s*str\s*)?=\s*"20\d\d-\d\d-\d\d"')
+        # the command line too: a typed default there overrides the collector's own, and no pass reaches the first release
+        for path in (Path(pull_revenuecat.__file__), Path(pull_revenuecat.__file__).with_name("copilot.py")):
+            self.assertNotRegex(path.read_text(encoding="utf-8"), r'(start_date|default)\s*(:\s*str\s*)?=\s*"20\d\d-\d\d-\d\d"', path.name)
+
+    def test_a_pull_holds_whole_weeks_only_from_its_first_monday(self):
+        today = dt.date(2026, 11, 14)
+        released = {"results": [{"releaseDate": "2025-09-27T07:00:00Z"}]}               # a Saturday: nothing existed before it
+        with mock.patch("aso.commands.collect.fetch_lookup", return_value=released):
+            self.assertEqual(pull_revenuecat.pull_window({"app_id": "1"}, today), ("2025-09-27", None))
+            # a start the caller names begins mid-week: the week it begins in is partial and is not written
+            self.assertEqual(pull_revenuecat.pull_window({"app_id": "1"}, today, "2026-09-01"), ("2026-09-01", dt.date(2026, 9, 7)))
+            self.assertEqual(pull_revenuecat.pull_window({"app_id": "1"}, today, "2026-09-07"), ("2026-09-07", dt.date(2026, 9, 7)))
+        with mock.patch("aso.commands.collect.fetch_lookup", return_value=None):     # silent lookup: a year back is not a release
+            self.assertEqual(pull_revenuecat.pull_window({"app_id": "1"}, today), ("2025-11-14", dt.date(2025, 11, 17)))
 
 
 class LongRanges(unittest.TestCase):
@@ -65,6 +77,22 @@ class LongRanges(unittest.TestCase):
         self.assertEqual(asked, fetch.day_chunks("2026-05-01", "2026-11-14", 90))
         self.assertEqual(len(asked), 3)
         self.assertEqual(sorted(day for day, _, _ in daily), [start for start, _ in asked])       # one row a piece, all kept
+
+    def test_spend_of_a_campaign_in_several_storefronts_is_not_given_to_one_of_them(self):
+        def answer(cmd, input_text=None):
+            payload = json.loads(input_text or "{}")
+            if "campaigns" in cmd and "find" in cmd:
+                return {"result": [{"id": 7, "name": "both", "targeting": {"countryOrRegion": {"include": ["US", "CA"]}}},
+                                   {"id": 8, "name": "one", "targeting": {"countryOrRegion": {"include": ["UA"]}}}]}, None
+            if payload.get("timeRange", {}).get("granularity") != "DAILY":
+                return {"result": {"rows": [{"metadata": {"id": 7, "countryOrRegion": country}, "totalMetrics": {}} for country in ("US", "CA")]
+                                   + [{"metadata": {"id": 8, "countryOrRegion": "UA"}, "totalMetrics": {}}]}}, None
+            day = {"date": "2026-11-02", "impressions": 10, "taps": 1, "localSpend": {"amount": "1.00"}}
+            return {"result": {"rows": [{"metadata": {"id": 7}, "granularMetrics": [day]},
+                                        {"metadata": {"id": 8}, "granularMetrics": [day]}]}}, None
+        with mock.patch.object(fetch, "run_json_cmd", side_effect=answer):
+            _, _, daily = fetch.fetch_apple_ads_spend("asc", "123", "", "2026-11-01", "2026-11-14")
+        self.assertEqual(sorted(daily), [("2026-11-02", 7, "??"), ("2026-11-02", 8, "UA")])
 
 
 class DemandForEveryWeek(unittest.TestCase):

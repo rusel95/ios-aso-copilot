@@ -57,6 +57,22 @@ self-contained page. The same store and day give the same bytes.
   or clock in the export, no socket in a self-check).
 - `SKILL.md` is a router of a quarter of its size; its detail moved to `references/collect.md`,
   `export-and-page.md`, `judge.md`, `actions.md` and `commands.md`.
+- **What the review of this release found, fixed before it shipped.** `publish` without a folder replaces its
+  branch whole, so it now refuses a branch that holds anything but the page. The clean check refuses until the
+  owner has said what must not be published (`**Never publish**:` in `config.md`, or `none`). `rc` starts from the
+  app's first release, and a pull never stores the part of a week it began in as a week; the subscription
+  overview is dated by the day it was read; spend of a campaign that ran in several storefronts is
+  unattributed, not given to one. `--as-of` replays the ranks and demand of its day in the ledger report, and a
+  change that goes live after that day is not yet live. A funnel week is written only from the later of its
+  two reports' first whole Monday. The export names a row with stray cells, and a re-read week with a blank
+  replaces its earlier row. `info` reports the version of `package.json`. The scheduled rank reads rebase and
+  retry a push that lost a race.
+- **What a run on a real store found, fixed before it shipped.** A second `collect` that got no Apple Ads install
+  count appended every ads row again with a blank, and the export took the blank: installs and CPI read "nothing to
+  measure" for every week. A blank install count now never replaces a known one (`append_changed(..., keep=)`), and
+  a row that differs in nothing else is not appended. An In-app share above a whole (more `completed` than
+  `initiated`, from app versions that sent no start event) is unavailable, not 1481%. The funnel digest shows the
+  newest week, not every week a history pull recorded. A GA4 failure prints the error that ended it, one line.
 
 **Changed behaviour to know about.** The pass pulls the funnel with the skill's own `pull_funnel.py` even
 when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,

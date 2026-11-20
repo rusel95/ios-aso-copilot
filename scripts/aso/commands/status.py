@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from aso.commands.base import SKILL_DIR, compact_asc_output, log_info, resolve_app_identity, run_cmd
+from aso.commands.base import SKILL_DIR, compact_asc_output, log_info, resolve_app_identity, run_cmd, skill_version
 from aso.commands.charts import fetch_category_chart, find_app_in_chart
 from aso.commands.cycle import cashflow_digest, funnel_digest
 
@@ -107,7 +107,7 @@ def cmd_info(args):
     info_data = {
         "skill": {
             "name": "ios-aso-copilot",
-            "version": "2.11.0",
+            "version": skill_version(),
             "path": str(SKILL_DIR),
         },
         "app": {

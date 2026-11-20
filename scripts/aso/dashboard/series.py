@@ -11,7 +11,7 @@ from aso.store import parse_date, read_csv, read_ranks
 
 def ranks_until(store: Path, as_of: dt.date) -> list:
     """Rank observations dated on or before `as_of`, in the order the store holds them."""
-    return [r for r in read_ranks(store) if (r.get("date") or "") <= as_of.isoformat()]
+    return read_ranks(store, as_of)
 
 
 def unavailable(code: str, reason: str) -> dict:

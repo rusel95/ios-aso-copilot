@@ -193,15 +193,17 @@ class TheHistoryBeforeTheOngoingRequest(unittest.TestCase):
                          newer + [{"Date": "2026-10-28", "Counts": "9"}])
         self.assertEqual(pull_funnel.merge_days([], older), older)
 
-    def pull(self, out, snapshot_fails=None):
+    def pull(self, out, snapshot_fails=None, first_of=None, snapshot_empty=()):
         recent = [f"2026-11-{n:02d}" for n in range(2, 11)]                    # the ongoing request: 11-02 .. 11-10
         early = [f"2026-10-{n:02d}" for n in range(19, 32)] + ["2026-11-01", "2026-11-02", "2026-11-03"]
 
         def fetch(request_id, report, raw_dir, prefix, **_):
             if request_id == "snap" and prefix == snapshot_fails:
                 raise RuntimeError("rate limited")
+            if request_id == "snap" and prefix in snapshot_empty:
+                return [], 0, 1, "2026-11-13"                                   # the report is there and holds no day
             # the ongoing request's first daily report was processed on 10-26: the week of 11-02 is its first whole one
-            days, count, first = (recent, 5, "2026-10-26") if request_id == "req" else (early, 9, "2026-11-13")
+            days, count, first = (recent, 5, (first_of or {}).get(prefix, "2026-10-26")) if request_id == "req" else (early, 9, "2026-11-13")
             if prefix == "lifecycle":
                 return [event(d, "Install", "US", count) for d in days], 1, 1, first
             discovery, downloads = self.rows(days, count)
@@ -227,6 +229,21 @@ class TheHistoryBeforeTheOngoingRequest(unittest.TestCase):
             self.assertEqual(weekly[("2026-11-02", "all")]["impressions"], "35")
             self.assertEqual(sorted({r["week_start"] for r in read_csv(Path(tmp) / "lifecycle.csv")}),
                              ["2026-10-19", "2026-10-26", "2026-11-02"])
+
+    def test_a_week_is_whole_only_from_the_later_of_the_two_reports(self):
+        # discovery began on 10-26 (whole from the week of 11-02) but downloads began on 11-02 (whole from 11-09): with
+        # no snapshot behind them the week of 11-02 holds discovery whole and downloads in part, and is not written
+        empty = {name: {"instances": []} for name in self.filled}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(type(self), "filled", empty):
+            code, weekly, said = self.pull(Path(tmp), first_of={"r3": "2026-11-02"})
+            self.assertEqual((code, weekly), (2, {}), said)
+            self.assertIn("no complete weekly observations", said)
+
+    def test_a_snapshot_with_one_funnel_report_empty_adds_no_week_written_by_half(self):
+        for empty in ("r14", "r3"):
+            with tempfile.TemporaryDirectory() as tmp:
+                code, weekly, said = self.pull(Path(tmp), snapshot_empty=(empty,))
+                self.assertEqual(sorted({week for week, _ in weekly}), ["2026-11-02"], empty)
 
     def test_a_snapshot_read_by_half_adds_no_earlier_week(self):
         with tempfile.TemporaryDirectory() as tmp:

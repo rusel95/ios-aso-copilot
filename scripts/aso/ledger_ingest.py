@@ -91,7 +91,7 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
     left blank on purpose; a generated mechanism is a guess wearing a hypothesis's clothes.
     """
     as_of = as_of or dt.date.today()
-    pairs, markets, hyps = series(read_ranks(store)), read_markets(store), read_hypotheses(store)
+    pairs, markets, hyps = series(read_ranks(store, as_of)), read_markets(store), read_hypotheses(store)
     market = market.lower()
     queries = [q.strip().lower() for q in queries if q.strip()]
     if not queries:

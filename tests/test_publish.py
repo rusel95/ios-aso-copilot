@@ -99,6 +99,15 @@ class Publish(unittest.TestCase):
         self.assertIn("SAME", out)                                                                   # nothing new: no commit
         self.assertEqual(git("rev-list", "--count", "main", cwd=site), "2")
 
+    def test_a_branch_that_holds_anything_but_the_page_is_never_replaced(self):
+        site = self.shared()                       # main holds App/privacy-policy.html: not a branch of its own
+        for more in ((), ("--dry-run",)):
+            code, out, _ = self.publish("--remote", str(site), "--branch", "main", *more)
+            self.assertEqual(code, 1, more)
+            self.assertIn("privacy-policy.html", out)
+        self.assertEqual(git("rev-list", "--count", "main", cwd=site), "1")                          # history untouched
+        self.assertEqual(git("ls-tree", "-r", "--name-only", "main", cwd=site), "App/privacy-policy.html")
+
     def test_a_path_that_leaves_the_repository_or_names_nothing_is_refused(self):
         site = self.shared()
         for path in ("../outside", "/etc", "App/../../x", "."):

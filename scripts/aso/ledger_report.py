@@ -56,7 +56,8 @@ def section_b(pairs, markets, limit, brand=()):
     else:
         print("| Market | Key | First | Pos | Latest | Pos | Δ | |")
         print("|---|---|---|---:|---|---:|---:|---|")
-        for r in numeric[:limit] + ([] if len(numeric) <= limit else numeric[-limit:]):
+        # the largest gains and the largest losses; between `limit` and twice it the two ends meet, and no row is printed twice
+        for r in numeric[:limit] + numeric[max(limit, len(numeric) - limit):]:
             print(f"| {r[0]} | {r[1]} | {r[2]} | {r[3]} | {r[4]} | {r[5]} | "
                   f"{r[6]:+d} | {r[7]} |")
     entered = [r for r in censored if r[7].startswith("ENTERED")]
@@ -115,7 +116,7 @@ def section_c(pairs, markets, hyps, limit, brand, demand=None):
 def report(store: Path, limit: int, as_of=None):
     as_of = as_of or dt.date.today()
     PROBLEMS.clear()
-    rows = read_ranks(store)
+    rows = read_ranks(store, as_of)           # what the store held on that day: B, C and the coverage line replay too
     markets, hyps = read_markets(store), read_hypotheses(store)
     pairs = series(rows)
     seen = coverage(rows)
@@ -143,7 +144,7 @@ def report(store: Path, limit: int, as_of=None):
     brand = read_brand_tokens(store)
     section_a(hyps, pairs, markets, empty, as_of)
     section_b(pairs, markets, limit, brand)
-    section_c(pairs, markets, hyps, limit, brand, demand_lookup(store))
+    section_c(pairs, markets, hyps, limit, brand, demand_lookup(store, as_of))
 
 
 def bands(store: Path):

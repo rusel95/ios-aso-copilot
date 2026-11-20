@@ -13,9 +13,12 @@ the account has access-controlled Pages). So the first decision is the owner's: 
   control. Do not copy `aso-dashboard.yml`.
 - **Public.** Then say what must never leave the repository. `ios-aso-copilot check` always refuses the
   store's own account identifiers from `config.md`, e-mail addresses and anything shaped like a key. What
-  else stays in (revenue, the keyword basket, hypothesis prose) is `NEVER_PUBLISH` in
-  `scripts/aso/dashboard/clean.py`: a list of patterns, empty until the owner fills it. The page shows
-  everything in `data/`, so what `check` lets through is what the world sees.
+  else stays in (revenue, the keyword basket, hypothesis prose) is the `**Never publish**:` line of the
+  store's `config.md`: regular expressions separated by `;` (for example `"proceeds_usd"; "keyword"`), tried
+  against every file in `data/`, or `none` once the owner has looked at the page and holds nothing back. Until
+  that line says one or the other, `check` and `publish` refuse, and so does the Pages workflow: a gate that
+  passes before anyone has decided publishes whatever the store holds. The page shows everything in `data/`,
+  so what `check` lets through is what the world sees.
 
 ## The short way: `publish`
 
@@ -28,7 +31,9 @@ python3 "$COPILOT" publish --store "$STORE"               # pushes index.html to
 pushes nothing unless `data/` is what the store exports for its day and the clean check passes. The page is
 committed in a temporary folder and pushed from it, replacing the branch: the app's own checkout, its `main`
 and its uncommitted work are not touched, and the branch always holds one commit with `index.html` and
-`.nojekyll`. Run it after every `export` and the page follows the data.
+`.nojekyll`. A branch that already holds anything else is refused, with `--dry-run` too (it would be replaced
+whole, source and history included): name a branch of its own, or publish into a folder of it with `--path`.
+Run it after every `export` and the page follows the data.
 
 Once per repository, tell GitHub to serve that branch (Settings → Pages → Deploy from a branch → `gh-pages`,
 or `gh api -X POST repos/<owner>/<repo>/pages -f 'source[branch]=gh-pages' -f 'source[path]=/'`). The page

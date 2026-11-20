@@ -85,24 +85,32 @@ def append_csv(path: Path, cols: list, rows: list) -> None:
         writer.writerows(rows)
 
 
-def append_changed(path, cols: list, rows: list, key: tuple) -> int:
+def append_changed(path, cols: list, rows: list, key: tuple, keep: tuple = ()) -> int:
     """Append the rows that say something the file does not: a new key, or values that differ from the latest row
-    stored for that key. `captured` and `source` are not values. Returns how many were appended."""
+    stored for that key. `captured` and `source` are not values. `keep` names columns where a blank is no answer: the
+    source gave nothing this time, so the value already stored stands, and a row that differs in nothing else is not
+    appended (a blank that replaced a known count would read as "nothing to measure"). Returns how many were appended."""
     values = [c for c in cols if c not in key and c not in ("captured", "source")]
     latest = {}
     for stored in read_csv(path):
-        latest[tuple(stored[k] for k in key)] = tuple(stored[v] for v in values)
+        latest[tuple(stored[k] for k in key)] = {v: stored[v] for v in values}
     new = []
     for row in rows:
-        found, said = tuple(str(row[k]) for k in key), tuple(str(row[v]) for v in values)
-        if latest.get(found) != said:
+        found, said = tuple(str(row[k]) for k in key), {v: str(row[v]) for v in values}
+        known = latest.get(found)
+        for column in keep:
+            if known and said[column] == "" and known[column] != "":
+                said[column], row = known[column], {**row, column: known[column]}
+        if known != said:
             latest[found] = said
             new.append(row)
     append_csv(path, cols, new)
     return len(new)
 
 
-def read_ranks(store: Path):
+def read_ranks(store: Path, as_of=None):
+    """Every rank observation of the store; with `as_of`, only those dated on or before that day, so a replay of an
+    earlier day sees what that day could have seen."""
     path = store / "metrics" / "ranks.csv"
     if not path.exists():
         return []
@@ -138,7 +146,7 @@ def read_ranks(store: Path):
         # provider; the rest of the string is a note, and matching it exactly would make every
         # pair incomparable for the sole reason that each observation described itself.
         r["provider"] = re.split(r"[@\s]", (r.get("source") or "").strip(), maxsplit=1)[0]
-    return rows
+    return rows if as_of is None else [r for r in rows if (r.get("date") or "") <= as_of.isoformat()]
 
 
 def read_markets(store: Path):

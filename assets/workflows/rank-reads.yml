@@ -58,6 +58,14 @@ jobs:
         run: |
           git config user.name "aso-rank-reads"
           git config user.email "aso-rank-reads@users.noreply.github.com"
+          # ranks.csv only ever gains lines, so when two runs each added some, both are right: a union merge keeps both
+          echo "marketing/metrics/ranks.csv merge=union" >> .git/info/attributes
           git add marketing/metrics/ranks.csv
           git diff --cached --quiet || git commit -m "data: rank reads for $MARKETS"
-          git push
+          # a read cannot be made again for its day, and this runner is thrown away: a push that lost a race is rebased and retried
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash -q && git push -q && exit 0
+            sleep 5
+          done
+          echo "could not push the rank reads after three tries"
+          exit 1
