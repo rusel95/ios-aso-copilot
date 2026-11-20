@@ -15,3 +15,6 @@ skills-lock.json
 *.swp
 *~
 
+
+# Local preview settings (they name a scratch folder on one machine)
+.claude/launch.json

@@ -77,6 +77,19 @@ def append_csv(path: Path, cols: list, rows: list) -> None:
     if not rows:
         return
     new = not path.is_file()
+    if not new:
+        with path.open(encoding="utf-8", newline="") as fh:
+            held = next(csv.reader(fh), [])
+        if held != cols:
+            # A file written by an older version has fewer columns: rows appended under its header would land in the
+            # wrong columns. Its rows are kept and gain the new columns blank; a header that is not a subset is not ours.
+            if not set(held) <= set(cols):
+                raise ValueError(f"{path.name}: its header {held} is not a part of {cols}; migrate the file by hand first")
+            old = read_csv(path)
+            with path.open("w", encoding="utf-8", newline="") as fh:
+                writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
+                writer.writeheader()
+                writer.writerows(old)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
@@ -93,7 +106,7 @@ def append_changed(path, cols: list, rows: list, key: tuple, keep: tuple = ()) -
     values = [c for c in cols if c not in key and c not in ("captured", "source")]
     latest = {}
     for stored in read_csv(path):
-        latest[tuple(stored[k] for k in key)] = {v: stored[v] for v in values}
+        latest[tuple(stored.get(k, "") for k in key)] = {v: stored.get(v, "") for v in values}     # a file of an older version lacks some
     new = []
     for row in rows:
         found, said = tuple(str(row[k]) for k in key), {v: str(row[v]) for v in values}

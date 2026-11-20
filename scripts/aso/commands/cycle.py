@@ -160,26 +160,48 @@ def cashflow_digest(store: Path):
         print(f"\nCASHFLOW DIGEST: no metrics/revenuecat_latest.json — run `copilot.py rc --export`")
 
 
+TELEMETRY_WEEKS_PER_PASS = 8
+
+
+def chart_storefronts(store: Path, config: dict) -> list:
+    """The storefronts to read the category charts in: the ones config.md names, else every storefront the store
+    tracks a key in, the one with most keys first (the feeds are public, so nothing is needed to ask)."""
+    named = [c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
+    if named:
+        return named
+    keys = {}
+    for r in read_ranks(store):
+        if r.get("market"):
+            keys.setdefault(r["market"], set()).add(r["keyword"])
+    return sorted(keys, key=lambda market: (-len(keys[market]), market))
+
+
 def collect_extras(store: Path, app: dict) -> bool:
     """Store the two series nothing else in the pass writes: the app's own telemetry by closed week, and where the
     app stands in the category charts. A store not set up for one says so and reads nothing; a step that fails
     says why and the next still runs. Returns False when a step failed."""
     config, clean, today = parse_config(store), True, dt.date.today()
 
-    project = config.get("Firebase Project ID") or config.get("BigQuery Project ID")
-    dataset = config.get("BigQuery Dataset") or (f"analytics_{config['GA4 Property ID']}" if config.get("GA4 Property ID") else None)
+    def named(*labels):
+        """The first of these config.md lines that holds a value; a `TODO` placeholder is not one."""
+        return next((v for v in ((config.get(label) or "").strip() for label in labels) if v and not v.upper().startswith("TODO")), None)
+
+    project = named("Firebase Project ID", "BigQuery Project ID")
+    prop = named("GA4 Property ID", "Firebase Property ID") or app.get("ga4_property_id")
+    dataset = named("BigQuery Dataset") or (f"analytics_{prop.split()[0]}" if prop else None)
     if not project or not dataset:
         print("  in-app weeks: not set up (config.md names no Firebase Project ID with a GA4 Property ID)")
     else:
         try:
-            print(f"  in-app weeks: {len(store_weeks(store, project, dataset, today))} stored")
+            # a first pass over a store with a long history is many BigQuery queries; each pass takes the newest few
+            stored = store_weeks(store, project, dataset, today, limit=TELEMETRY_WEEKS_PER_PASS)
+            print(f"  in-app weeks: {len(stored)} stored"
+                  + (" (older weeks, if any, are read on the next pass)" if len(stored) == TELEMETRY_WEEKS_PER_PASS else ""))
         except Exception as exc:          # one source down must not cost the pass its other steps
             print(f"  ⚠️ in-app weeks: failed ({str(exc).splitlines()[0] if str(exc) else type(exc).__name__})")
             clean = False
 
-    # the storefronts config.md names, else every storefront the store tracks a key in: the feeds are public
-    storefronts = ([c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
-                   or sorted({r["market"] for r in read_ranks(store) if r.get("market")}))
+    storefronts = chart_storefronts(store, config)
     if not storefronts:
         print("  chart positions: not set up (the store tracks no key yet, and config.md names no Charts storefronts)")
     else:

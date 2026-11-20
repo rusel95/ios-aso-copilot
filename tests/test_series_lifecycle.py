@@ -296,6 +296,24 @@ class EveryWriter(unittest.TestCase):
         self.assertIn("in-app weeks: not set up", said)
         self.assertIn("chart positions: not set up", said)
 
+    def test_a_todo_placeholder_is_no_property_and_the_firebase_spelling_is_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            (store / "metrics" / "ranks.csv").write_text("date,market,keyword,group,position,popularity,difficulty,source,depth,status\n",
+                                                         encoding="utf-8")
+            config = store / "config.md"
+            config.write_text("**App ID**: 1000000001\n**Version**: 1.0\n**Firebase Project ID**: proj\n"
+                              "**GA4 Property ID**: TODO — set me\n", encoding="utf-8")
+            said = self.run_extras(store, store_weeks=mock.Mock(side_effect=AssertionError("a placeholder is not a dataset")))
+            self.assertIn("in-app weeks: not set up", said)
+            config.write_text("**App ID**: 1000000001\n**Version**: 1.0\n**Firebase Project ID**: proj\n"
+                              "**Firebase Property ID**: 123456\n", encoding="utf-8")
+            weeks = mock.Mock(return_value=["2026-11-02"] * 8)
+            said = self.run_extras(store, store_weeks=weeks)
+            self.assertEqual(weeks.call_args.args[1:3], ("proj", "analytics_123456"))
+            self.assertEqual(weeks.call_args.kwargs["limit"], cycle.TELEMETRY_WEEKS_PER_PASS)         # a first pass is not the whole history
+            self.assertIn("older weeks, if any, are read on the next pass", said)
+
     def test_a_store_set_up_for_them_gets_both(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = copy_store(tmp)

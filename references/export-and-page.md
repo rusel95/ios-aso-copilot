@@ -15,6 +15,9 @@ Without `--as-of` the day is today and the command prints `as of <day>`, so the 
 the same export twice and the second says `0 written`; build twice and the two pages are byte for byte the
 same. That is the test of the whole chain, and `export --check` is how a scheduled job proves it.
 
+An export for a day before the one `data/` already holds would delete every file of the days after it, so it is
+refused (`FAIL export: data/ is as of …`) unless `--rewind` is given. `--check` writes nothing and needs no flag.
+
 ## Several projects
 
 A project's output lives in its own store: `<app repo>/marketing/data/` and `<app repo>/marketing/public/`.

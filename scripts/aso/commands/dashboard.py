@@ -18,7 +18,7 @@ def cmd_export(args):
     if not store.is_dir():
         print(f"Store not found: {store}")
         return 2
-    return export.run(store, as_of, check_only=args.check)
+    return export.run(store, as_of, check_only=args.check, rewind=args.rewind)
 
 
 def cmd_build(args):

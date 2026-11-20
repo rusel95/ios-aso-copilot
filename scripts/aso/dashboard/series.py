@@ -32,11 +32,12 @@ def number(cell: str):
     return int(value) if value.is_integer() and "." not in cell else value
 
 
-def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.date, notes: list) -> tuple:
+def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.date, notes: list, keep: tuple = ()) -> tuple:
     """(rows, stored): the latest row per key of one series file, as known on `as_of`, numbers parsed.
 
     Rows captured after `as_of` are not known yet. Among rows for one key the later `captured` wins, then the later
-    line. A row with an unreadable cell is named and skipped. `stored` says whether the file holds any row at all,
+    line; in the columns of `keep` a later blank does not erase an earlier count. A row with an unreadable cell is
+    named and skipped. `stored` says whether the file holds any row at all,
     which is the difference between "nothing stores this" and "nothing that week"."""
     found, stored = {}, False
     for n, r in enumerate(read_csv(store / "metrics" / name), 2):
@@ -56,6 +57,9 @@ def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.da
             continue
         at = tuple(r.get(k, "") for k in key)
         if at not in found or captured >= found[at]["captured"]:
+            for column in keep:                    # a later blank is no answer: the count the source gave before stands
+                if row[column] is None and at in found:
+                    row[column] = found[at][column]
             found[at] = row
     return list(found.values()), stored
 

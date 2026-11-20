@@ -117,6 +117,8 @@ def build_parser():
                                      parents=[common_parent])
     p_export.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the export is made for (default: today)")
     p_export.add_argument("--check", action="store_true", help="Compare with the data folder instead of writing it")
+    p_export.add_argument("--rewind", action="store_true",
+                          help="Allow a day before the one data/ holds (it removes the files of the days after it)")
     p_build = subparsers.add_parser("build", help="Build the dashboard page from the data files (offline)",
                                     parents=[common_parent])
     p_build.add_argument("--out", help="Folder index.html is written into (default: <store>/public)")

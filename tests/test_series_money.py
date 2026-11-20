@@ -141,6 +141,22 @@ class Appending(unittest.TestCase):
             self.assertEqual(read_csv(path)[-1]["installs"], "")                      # nothing known yet: stays unknown, not zero
 
 
+    def test_a_file_of_an_older_version_keeps_its_rows_and_gains_the_new_column(self):
+        key = ("week_start", "campaign_id")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ads.csv"
+            older = [c for c in ADS_COLS if c != "installs"]
+            path.write_text(",".join(older) + "\n2026-10-26,9001,us,6.00,300,30,apple-ads,2026-11-01\n", encoding="utf-8")
+            rows = ads_weeks(SPEND, AS_OF, "2026-11-14")
+            self.assertEqual(append_changed(path, ADS_COLS, rows, key, keep=ADS_KEEP), 2)            # no KeyError, no shifted cells
+            stored = read_csv(path)
+            self.assertEqual(list(stored[0]), ADS_COLS)
+            self.assertEqual((stored[0]["spend_usd"], stored[0]["installs"], stored[1]["installs"]), ("6.00", "", "10"))
+            path.write_text("week_start,campaign_id,mystery\n2026-10-26,9001,x\n", encoding="utf-8")
+            with self.assertRaises(ValueError):                                                      # not ours: never guessed at
+                append_changed(path, ADS_COLS, rows, key)
+
+
 class Collector(unittest.TestCase):
     def test_a_second_pass_that_gets_no_install_count_leaves_the_ads_series_and_the_page_as_they_were(self):
         import contextlib
@@ -221,6 +237,14 @@ class Families(unittest.TestCase):
         self.assertEqual((ads["ttr"]["value"], ads["ttr"]["numerator"], ads["ttr"]["denominator"]), (0.095, 38, 400))
         self.assertEqual((ads["cpi_usd"]["value"], ads["cpi_usd"]["numerator"], ads["cpi_usd"]["denominator"]), (0.8, 8.0, 10))
         self.assertEqual(ads["cpi_usd"]["by_campaign"], {"9001": 0.6, "9002": None})          # no install: nothing to divide by
+
+    def test_a_blank_install_row_already_in_the_store_does_not_erase_the_count(self):
+        self.store_rows()
+        blank = [dict(r, installs="", captured="2026-11-20") for r in ads_weeks(SPEND, AS_OF, "2026-11-10")]
+        append_changed(self.store / "metrics" / "ads.csv", ADS_COLS, blank, ("week_start", "campaign_id"))   # as an older version wrote it
+        ads = self.families(as_of=dt.date(2026, 11, 21))["ads"]["figures"]
+        self.assertEqual(ads["cpi_usd"]["value"], 0.8)
+        self.assertEqual(ads["installs"]["value"], 10)
 
     def test_a_week_only_money_knows_still_gets_a_file(self):
         self.store_rows()

@@ -1,6 +1,7 @@
 """SKILL.md is a router: short, with the sections a run starts from, naming only commands and files that exist."""
 import json
 import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -21,6 +22,19 @@ SECTIONS = ["Start here", "Rules for every step", "Collect", "Export and page", 
 def section(title: str) -> str:
     found = re.search(rf"^## {re.escape(title)}\n(.*?)(?=^## |\Z)", SKILL, re.M | re.S)
     return found.group(1) if found else ""
+
+
+class NoLocalPaths(unittest.TestCase):
+    def test_no_tracked_file_names_a_folder_of_one_machine(self):
+        """A committed preview setting once named the scratch folder of one laptop, in a repository made public."""
+        try:
+            tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split("\n")
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest("not a git checkout")
+        needles = ("/Users" + "/", "/private" + "/tmp", "/home" + "/")
+        found = [(name, needle) for name in tracked if name and (ROOT / name).is_file()
+                 for needle in needles if needle in (ROOT / name).read_text(encoding="utf-8", errors="ignore")]
+        self.assertEqual(found, [])
 
 
 class Router(unittest.TestCase):
