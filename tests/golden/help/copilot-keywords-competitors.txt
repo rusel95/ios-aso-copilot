@@ -1,0 +1,14 @@
+usage: copilot.py keywords competitors [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                       --seeds SEEDS [--country COUNTRY] [--limit LIMIT]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --seeds, -s SEEDS     Comma-separated seed terms
+  --country, -c COUNTRY
+                        Country code (e.g. us, pl)
+  --limit LIMIT         Limit of competitors

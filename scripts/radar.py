@@ -25,11 +25,15 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from aso.ranks import demand_label  # noqa: F401 — kept importable from here for the scripts that always did
+from aso.store import LABELS, append_csv, demand_lookup, norm, read_config, read_csv  # noqa: F401
 
 PAGE = 5000
 SOURCE = "asc-ads-insights"
@@ -39,50 +43,9 @@ POP_COLS = ["week", "captured", "market", "genre", "term", "rank_in_genre", "pop
 CUT_COLS = ["week", "captured", "market", "genre", "listed", "min_popularity_100", "source"]
 SHARE_COLS = ["week", "captured", "market", "term", "rank", "popularity_5", "share_low", "share_high",
               "source"]
-LABELS = {"**App ID**:": "app_id", "**Apple Ads profile**:": "profile", "**Apple Ads account**:": "account",
-          "**Apple Ads genres**:": "genres", "**Apple Ads topic words**:": "topics"}
 
 
 # ---------------------------------------------------------------- config, store, week
-def read_config(store: Path) -> dict:
-    cfg = {}
-    path = store / "config.md"
-    if path.is_file():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            for label, key in LABELS.items():
-                value = line[len(label):].strip() if line.startswith(label) else ""
-                if value and not value.upper().startswith("TODO"):
-                    cfg[key] = value
-    cfg["app_id"] = (cfg.get("app_id") or "").split(maxsplit=1)[0] if cfg.get("app_id") else ""
-    cfg["genres"] = [g.strip().upper() for g in cfg.get("genres", "").split(",") if g.strip()]
-    cfg["topics"] = [t.strip().casefold() for t in cfg.get("topics", "").split(",") if t.strip()]
-    return cfg
-
-
-def norm(text) -> str:
-    return " ".join((text or "").casefold().split())
-
-
-def read_csv(path: Path) -> list:
-    if not path.is_file():
-        return []
-    with path.open(encoding="utf-8") as fh:
-        return list(csv.DictReader(fh))
-
-
-def append_csv(path: Path, cols: list, rows: list) -> None:
-    if not rows:
-        return
-    new = not path.is_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
-        if new:
-            writer.writeheader()
-        writer.writerows(rows)
-
-
 def read_basket(store: Path):
     """Every (market, term) ever tracked in ranks.csv, the set the ledger counts and `ledger.py refresh` re-queries;
     NOT each market's latest date, which a partial refresh shrinks to a handful. The position comes from that
@@ -151,6 +114,9 @@ def listed(run, cfg, resource, filters, size=1000) -> list:
 
 
 # ---------------------------------------------------------------- pull
+ASK_AT_ONCE = 4
+
+
 def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
     """Append the week's popularity for each market. -> (stored_week or None, markets stored, failures)."""
     metrics = store / "metrics"
@@ -163,16 +129,25 @@ def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
             return week.isoformat(), [], failures
         end = week + dt.timedelta(days=6)
         results, failures = {}, []
-        for market in todo:
+
+        def ask(market):
             payload = {"timeRange": {"start": week.isoformat(), "end": end.isoformat(), "timeZone": "UTC",
                                      "granularity": "WEEKLY_SUN_SAT"},
                        "filters": [{"field": "countryOrRegion", "operator": "EQUALS", "value": market.upper()},
                                    {"field": "genre", "operator": "IN", "value": cfg["genres"]}],
                        "sorting": [{"field": "rankInGenre", "sortOrder": "ASC"}]}
             try:
-                results[market] = paged_rows(run, cfg, ["insights", "search-term-popularity", "find"], payload)
+                return market, paged_rows(run, cfg, ["insights", "search-term-popularity", "find"], payload), None
             except (RuntimeError, KeyError, TypeError) as exc:
-                failures.append((market, str(exc)))
+                return market, None, str(exc)
+
+        # one request a storefront, each a few seconds of waiting: asked a few at a time, a week takes seconds
+        with ThreadPoolExecutor(max_workers=ASK_AT_ONCE) as pool:
+            for market, rows, why in pool.map(ask, todo):
+                if why is None:
+                    results[market] = rows
+                else:
+                    failures.append((market, why))
         if not any(results.values()):
             continue  # nothing anywhere: Apple has not published this week yet
         pop_rows, cut_rows = [], []
@@ -258,49 +233,37 @@ def cmd_pull(args, run=asc_ads, today=None):
     for market, why in failures:
         print(f"  ⚠️ {market}: {why}")
         partial = True
-    try:
-        fetched, fresh = pull_share(store, cfg, week_start, captured, run)
-        print(f"Impression share: {fresh} new of {fetched} term rows for the 4 weeks to {week_start + dt.timedelta(days=6)}"
-              f"{' (the app ran no ads there)' if not fetched else ''} [live:asc ads insights impression-share find@{captured}].")
-    except (RuntimeError, KeyError, TypeError) as exc:
-        print(f"  ⚠️ impression share: {exc}")
-        partial = True
+    # The history: Apple answers for past weeks too. Every week from the start that the store does not hold is asked
+    # for, newest first; a week already held costs nothing, so a pass after the first asks only for what is new.
+    since = dt.date.fromisoformat(args.since) if getattr(args, "since", None) else None
+    older = week_start - dt.timedelta(days=7)
+    first_week = since - dt.timedelta(days=(since.weekday() + 1) % 7) if since else week_start     # the Sunday on or before
+    filled = failed = 0
+    while since and older >= first_week:
+        _, stored, failures = pull_popularity(store, cfg, markets, older, captured, run)
+        filled += bool(stored)
+        failed += len(failures)
+        older -= dt.timedelta(days=7)
+    if since:
+        print(f"Popularity history since {first_week}: {filled} earlier weeks stored"
+              + (f"; {failed} storefront requests failed and will be asked again" if failed else "") + ".")
+        partial = partial or bool(failed)
+    span = week_start
+    while True:
+        try:
+            fetched, fresh = pull_share(store, cfg, span, captured, run)
+            print(f"Impression share: {fresh} new of {fetched} term rows for the 4 weeks to {span + dt.timedelta(days=6)}"
+                  f"{' (the app ran no ads there)' if not fetched else ''} [live:asc ads insights impression-share find@{captured}].")
+        except (RuntimeError, KeyError, TypeError) as exc:
+            print(f"  ⚠️ impression share: {exc}")
+            partial = True
+        span -= dt.timedelta(days=28)
+        if not since or span < first_week:
+            break
     return 2 if partial else 0
 
 
 # ---------------------------------------------------------------- read side (report, ledger)
-def demand_lookup(store: Path):
-    """(heads, cuts) from the latest stored week per market.
-    heads[(market, term)] = (popularity_100, week) for any stored head row; cuts[market] = (lowest listed score or None, week);
-    a None score means Apple listed nothing for that storefront."""
-    cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
-    latest = {}
-    for r in cut_rows:
-        latest[r["market"]] = max(latest.get(r["market"], ""), r["week"])
-    cuts = {}
-    for market, week in latest.items():
-        scores = [int(r["min_popularity_100"]) for r in cut_rows
-                  if r["market"] == market and r["week"] == week and r["min_popularity_100"] != ""]
-        cuts[market] = (min(scores) if scores else None, week)
-    heads = {}
-    for r in read_csv(store / "metrics" / "popularity.csv"):
-        if r["week"] == latest.get(r["market"]):  # `why` records how the row was picked at pull time, not whether it is tracked now
-            key = (r["market"], r["term"])
-            heads[key] = (max(int(r["popularity_100"]), heads.get(key, (0, ""))[0]), r["week"])
-    return heads, cuts
-
-
-def demand_label(demand, market: str, keyword: str) -> str:
-    """One cell for a tracked key: `head 55`, `below 44` (unlisted: unknown, not zero), `no data`, or `—` (never pulled)."""
-    heads, cuts = demand
-    market = market.lower()
-    if (market, norm(keyword)) in heads:
-        return f"head {heads[(market, norm(keyword))][0]}"
-    if market not in cuts:
-        return "—"
-    return f"below {cuts[market][0]}" if cuts[market][0] is not None else "no data"
-
-
 def cmd_report(args):
     store = Path(args.store).resolve()
     cut_rows = read_csv(store / "metrics" / "popularity_cut.csv")
@@ -609,6 +572,8 @@ def main(argv=None) -> int:
     pull = sub.add_parser("pull", parents=[parent], help="Append this week's popularity and impression share")
     pull.add_argument("--markets", help="comma list; default: every market in metrics/ranks.csv")
     pull.add_argument("--if-configured", action="store_true", help="exit 0 quietly when config.md has no Apple Ads account")
+    pull.add_argument("--since", metavar="YYYY-MM-DD",
+                      help="also store every earlier week back to this day that the store does not hold yet")
     sub.add_parser("report", parents=[parent], help="Print the stored radar; no network")
     kw = sub.add_parser("keywords", parents=[parent], help="Keyword report joined to keyword text (live, read-only)")
     kw.add_argument("--campaign", help="campaign id; default: every campaign")

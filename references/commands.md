@@ -1,6 +1,6 @@
 # Commands — the `asc` / free-endpoint cookbook, and the approval fence
 
-App: `$APP_ID` — read from `$STORE/config.md`, per repo (SKILL.md Step 1); never hardcoded here.
+App: `$APP_ID` — read from `$STORE/config.md`, per repo (`references/collect.md`, *Resolve the app and the single state store*); never hardcoded here.
 Two independent `asc` credential stores exist — `asc auth` for App Store Connect
 (configured) and `asc ads auth` for Apple Ads (a separate account, see `references/apple-ads.md`).
 Never report "asc is not set up" — that conflates the two and is simply wrong when only one is
@@ -42,6 +42,7 @@ continue.
 | `asc product-pages custom-pages create` / `update` | creates public pages |
 | `asc app-tags update` | changes public store-page tags |
 | `asc analytics request` | creates a persistent App Store Connect account resource |
+| `ios-aso-copilot publish` | pushes the page to a branch GitHub Pages serves: public to whoever has the address |
 | `asc screenshots` (writes), `asc video-previews` (writes) | changes public media |
 | `asc subscriptions` (writes), `asc pricing` (writes) | **money and public commercial terms** |
 | `asc release` (any), `asc testflight` distribution | ships |
@@ -225,3 +226,180 @@ ios-aso-copilot campaign --campaign threads_build_in_public --channel threads
 # Generate link, check anti-collision cooldowns, and scaffold a C<NNN> hypothesis:
 ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --scaffold-hypo --target "Threads Indie Founders"
 ```
+
+---
+
+## Unified CLI Interface (`ios-aso-copilot` / `scripts/copilot.py`)
+
+The skill provides a full-featured, pure-Python CLI for all operations. No Node.js runtime required.
+
+### Global Flags
+- `--debug`, `-d`: Print full debug diagnostics (command payloads, exit codes, API paths) to `stderr`.
+- `--info`, `-v`: Print informational progress steps to `stderr`.
+- `--quiet`, `-q`: Suppress non-essential output (clean automation).
+- `--json`: Output structured machine-readable JSON to `stdout` across all commands.
+- `--store <path>`: Explicit path to the marketing store directory (defaults to `./marketing`).
+
+### Primary Commands
+
+#### 1. System & Store Info
+```bash
+ios-aso-copilot info [--json] [--debug]
+```
+Outputs complete diagnostics: App Identity (Brand, App ID, working Version), Apple Ads config (account ID, profile, genres, topic words), local store status (hypotheses, decisions, CSV metrics count), and toolchain status (`asc`, `python3`, `git`).
+
+#### 2. Marketing & ASO Status
+```bash
+ios-aso-copilot status
+```
+Quick high-level snapshot: live ASC version states, ratings breakdown by country, and ledger status.
+
+#### 3. Keywords & Localization Vacuums
+```bash
+# Audit localization vacuums (unlocalized competitor apps in non-EN storefronts)
+ios-aso-copilot keywords vacuum --country pl --term "kompresor wideo"
+
+# Autocomplete suggestions directly from Apple's hints endpoint
+ios-aso-copilot keywords hints --country pl --term "czyszczenie"
+
+# Search term popularity in storefront, per term, from the stored weekly radar (`radar pull`):
+# `head N` (Apple's 1-100), `below N` (not listed: unknown, not zero), `no data`, or `—` (never pulled)
+ios-aso-copilot keywords popularity --country pl --terms "kompresor,czyszczenie"
+
+# Competitor discovery across multiple seed queries
+ios-aso-copilot keywords competitors --country pl --seeds "kompresor wideo,czyszczenie telefonu"
+
+# Deterministic validation and review export
+ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --brand myapp
+```
+
+#### 4. Apple Ads Management
+```bash
+# List campaigns with budget, status, target country
+ios-aso-copilot ads campaigns [--status ENABLED] [--country PL] [--json]
+
+# List ad groups in a campaign
+ios-aso-copilot ads adgroups --campaign-id <campaign-id>
+
+# List targeting keywords
+ios-aso-copilot ads keywords --adgroup-id 2151522366
+
+# Add exact or broad keywords with bid cap
+ios-aso-copilot ads add-keywords --adgroup-id 2151522366 --terms "kompresja mp4,zmniejsz wideo" --bid 0.30
+
+# Pause or resume campaign
+ios-aso-copilot ads pause --campaign-id <campaign-id>
+ios-aso-copilot ads resume --campaign-id <campaign-id>
+```
+
+#### 5. Channel Campaigns & Multi-Layer Attribution
+```bash
+# List all registered external campaigns and channel proposals
+ios-aso-copilot campaign --list
+
+# Generate App Store campaign link with auto-detected Provider Token (pt=) and media type (mt=8):
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads
+
+# Generate tracked link, check anti-collision cooldowns, and scaffold a C<NNN> hypothesis:
+ios-aso-copilot campaign --campaign threads_build_in_public --channel threads --scaffold-hypo --target "Threads Indie Founders"
+```
+
+**Attribution Architecture**:
+1. **Apple Search Ads (Paid Store Ads)**: App enables `Purchases.shared.attribution.enableAdServicesAttributionTokenCollection()`. RevenueCat automatically contacts Apple AdServices and stamps customer profiles with `attribution_campaign` and `attribution_keyword`. Inspect via `rc charts show actives --segment attribution_campaign`.
+2. **External Traffic & Social (Threads, Reddit, Web)**: Tracked via Apple App Store Campaign links (`?pt=<PROVIDER_TOKEN>&ct=<CAMPAIGN_TOKEN>&mt=8`). Auto-injects `**Provider Token**` from `marketing/config.md`. Inspect downloads, paying users, and proceeds in **App Store Connect → App Analytics → Sources → Campaigns**.
+
+#### 5. Data Cycles, RevenueCat Cashflow & Telemetry
+```bash
+ios-aso-copilot collect [--ranks] [--jobs N] [--skip-pull] [--skip-ga] [--skip-rc]  # The collection pass (also spelled `cycle`): every source side by side; --ranks adds the full rank sweep
+ios-aso-copilot export [--as-of YYYY-MM-DD] [--check]        # Store → data/ and STATE.md (offline)
+ios-aso-copilot build [--out DIR]                            # data/ → index.html (offline)
+ios-aso-copilot check                                        # Look through data/ for what must not be published
+ios-aso-copilot due [--as-of YYYY-MM-DD]                     # The rank reads live hypotheses still need
+ios-aso-copilot propose [--limit N] [--basket K]             # Generate the next rank hypotheses: free storefronts by money at stake
+ios-aso-copilot publish [--dry-run] [--branch gh-pages]      # ACTION: push the built page to the branch GitHub Pages serves
+ios-aso-copilot rc [--start YYYY-MM-DD] [--export] [--json]  # Live RevenueCat 3-tier revenue + Apple Ads Cashflow/ROAS (alias: cashflow)
+ios-aso-copilot funnel [--pull]                              # ASC Funnel metrics
+ios-aso-copilot reviews ratings                              # Customer reviews & ratings
+ios-aso-copilot ga --days 14                                 # In-app GA4 telemetry
+ios-aso-copilot telemetry [--days 30]                        # BigQuery in-app telemetry (funnel, retention, engine, paywall)
+ios-aso-copilot radar report                                 # Apple search popularity & impression share
+ios-aso-copilot ledger report                                # Hypotheses & keyword ledger
+```
+
+#### 6. Google Search Intelligence (SEO → ASO Bridge)
+See `references/google-search-intelligence.md` for complete playbooks and mathematical normalization rules.
+```bash
+# 1. Compare relative search interest volume across keywords in a country (0-100 index)
+ios-aso-copilot google trends "compress video" "shrink video" --country US
+# Discover rising/breakout queries (+80%, +160%, Breakout)
+ios-aso-copilot google trends "compress video" --country US --related
+# Regional interest breakdown (oblasts/states)
+ios-aso-copilot google trends "compress video" "shrink video" --country US --geo
+
+# 2. Live Google Autocomplete suggestions across storefronts and languages
+ios-aso-copilot google suggest "compress video" --country US --lang en
+# Deep multi-angle intent matrix (platforms, size limits, quality friction, devices, questions)
+ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
+ios-aso-copilot google suggest "compress video" --country US --lang en --matrix
+
+# 3. Multi-term batch against one anchor (an ORDER; put the anchor mid-list, the tool warns when its index is under 8)
+ios-aso-copilot google batch \
+  --anchor "<a mid-volume term>" \
+  --terms "term one,term two,term three" \
+  --country US
+
+# 4. The App Store side of the same question: what Apple completes (empty list = no App Store evidence)
+ios-aso-copilot keywords hints --term "<full term>" --country us
+```
+Google is web search, not the App Store. It can pick between two synonyms and show how people phrase a problem, and it is read
+AFTER the Apple side (`keywords hints`, rank reads, Ads delivery). Rules and a worked table: `references/google-search-intelligence.md`.
+1. **Synonyms**: compare candidates with `google trends` / `batch` (a mid-volume anchor), then confirm each one in Apple's autocomplete
+   before it takes a title, subtitle or keyword slot. No field-weight numbers: Apple publishes none.
+2. **Situations people describe** (`для телеграм`, `до 10 мб`): ideas for copy and Exact seeds; never a feature the app lacks, never
+   another app's name in the keyword field (Guideline 2.3.7).
+3. **Product-page copy for Google** describes real features only.
+4. **`batch` is an order, not a size** when the anchor's index is low; it prints `n/a` instead of a number it cannot support.
+#### 7. App Store Category Charts
+```bash
+# Check ranking in primary categories (Utilities, Photo & Video) in Ukraine (default)
+ios-aso-copilot charts
+
+# Check specific storefront and category with custom depth
+ios-aso-copilot charts --country ua --genre utilities --limit 100
+
+# Multi-country or multi-genre check with JSON output
+ios-aso-copilot charts --country ua,pl,us --genre utilities,photo_video --json
+
+# Top Paid or Top Grossing charts
+ios-aso-copilot charts --country ua --genre utilities --chart-type top-paid
+```
+Queries Apple's official, open iTunes RSS feed directly. Discovers real-time category standings (Top Free, Top Paid, Top Grossing) across storefronts without authentication. Returns the exact rank and neighboring apps if in Top 100, or the threshold cut-off app.
+
+## Bundled scripts
+
+Run only the needed script. Check its `--help` for the supported flags; not every script is dependency-free
+or has `--self-check`. Provider pulls need the app's configured credentials and may require the project
+virtual environment. Do not install packages or credentials as part of a status check.
+
+- `copilot.py`: CLI for live status reads, review/funnel/GA commands, the consolidated collection pass (`collect`, also `cycle`), and the offline `export`, `build`, `check` and `due`; see the route table in `references/collect.md` for scope and side effects.
+- `localization_tool.py`: audits storefront coverage across in-app String Catalogs (.xcstrings), metadata, and Xcode knownRegions; validates CLDR plural rules; scaffolds new market expansion packages.
+- `ledger.py`: the run-opening report above; `ingest` appends a snapshot to `metrics/ranks.csv` and
+  refuses any position deeper than the result list that query returned — a value carried over from an
+  older snapshot is not an observation.
+- `ledger.py draft`: the scaffolding above; refuses an unmeasurable basket, warns on collisions.
+- `ledger.py refresh`: re-queries the tracked basket per storefront and ingests each as it finishes (exit 3
+  if incomplete); `--failed-only` retries keys whose latest request status is `error`. Every command reports the store rows it could
+  not use, not just `report`.
+- `funnel_visualizer.py`: observed counts with explicit absence; no automatic health or cash estimate.
+- `rank_audit.py`: iTunes discovery snapshots, exact bundle identity and per-query error status.
+  Supply `--bundle`, `--niche` and target `--markets`; existing seed profiles are examples, not app identity.
+- `diff_snapshots.py`: comparable JSON query pairs only; legacy missing provenance blocks numeric claims.
+- `harvest_keywords.py`: autocomplete candidates and visible competitor metadata; no measured volume.
+- `ads_keywords.py`: local validation/export of model-reviewed Exact phrases; protects seeds, normalizes and deduplicates
+  deterministically, rejects brand tokens, labels word-order families, keeps accepted/rejected CSV with reasons.
+  It neither certifies native fluency nor uploads anything.
+- `economics.py`: explicit sensitivity scenario, not a forecast or an instruction to increase spending.
+- `campaign_link.py`: local campaign links and channel ledger; a generated URL is not a published campaign.
+
+Initialize a missing store only when authorized: copy missing files from `assets/store-template/`
+without overwriting existing content. Fill in the app's identity before running app-specific commands.

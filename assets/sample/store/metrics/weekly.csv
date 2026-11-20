@@ -1,0 +1,12 @@
+week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts,source,recorded,note
+2026-10-01,all,9999,999,99,0.99,,asc-analytics-deduped,2026-10-20,legacy row: one growing window written by hand
+2026-10-19,all,1000,100,40,40.00,,live:asc analytics daily r14+r3@2026-10-27,2026-10-27,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-10-19,us,600,60,24,40.00,,live:asc analytics daily r14+r3@2026-10-27,2026-10-27,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-10-19,ua,400,40,16,40.00,,live:asc analytics daily r14+r3@2026-10-27,2026-10-27,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-10-26,all,1200,150,45,30.00,,live:asc analytics daily r14+r3@2026-11-03,2026-11-03,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-10-26,us,700,90,27,30.00,,live:asc analytics daily r14+r3@2026-11-03,2026-11-03,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-10-26,ua,500,60,18,30.00,,live:asc analytics daily r14+r3@2026-11-03,2026-11-03,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-11-02,all,1500,160,64,40.00,,live:asc analytics daily r14+r3@2026-11-10,2026-11-10,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-11-02,us,900,100,40,40.00,,live:asc analytics daily r14+r3@2026-11-10,2026-11-10,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-11-02,ua,600,60,24,40.00,,live:asc analytics daily r14+r3@2026-11-10,2026-11-10,ASC funnel grouped from daily exports in raw; reports r14+r3.
+2026-11-09,all,300,30,10,33.33,,live:asc analytics daily r14+r3@2026-11-10,2026-11-10,ASC funnel grouped from daily exports in raw; reports r14+r3.

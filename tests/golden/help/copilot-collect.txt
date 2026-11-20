@@ -1,0 +1,17 @@
+usage: copilot.py cycle [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] [--skip-pull]
+                        [--skip-ga] [--skip-rc] [--ranks] [--jobs N]
+
+options:
+  -h, --help     show this help message and exit
+  --store STORE  Path to marketing store directory
+  --debug, -d    Print debug diagnostics to stderr
+  --info, -v     Print informational logs to stderr
+  --quiet, -q    Suppress non-essential output
+  --json         Format output as JSON where applicable
+  --skip-pull    Skip remote ASC funnel download
+  --skip-ga      Skip GA4 pull
+  --skip-rc      Skip live RevenueCat & Cashflow pull
+  --ranks        Also ask the App Store again for every tracked key (about an hour; it runs beside
+                 the other stages)
+  --jobs N       How many stages run side by side (default: all of them; 1 runs them one after
+                 another)

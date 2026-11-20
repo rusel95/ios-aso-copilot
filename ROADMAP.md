@@ -1,11 +1,74 @@
 # ASO capability roadmap
 
 Open work only. Completed changes belong in [CHANGELOG.md](CHANGELOG.md).
-Updated 2026-09-10 after a handbook-to-roadmap coverage audit. A documented playbook is not an implemented integration.
+Updated 2026-11-14 after the dashboard rework (3.0.0); the earlier audit of 2026-09-10 still stands. A documented playbook is not an implemented integration.
 App IDs, credentials, prices and event names belong in each app's store, not this global roadmap.
 The practical teaching companion for an app is its own `marketing/HANDBOOK.md`.
 An idea already enforced by the skill or explained in a reference is not duplicated here; this file tracks
 only the missing capability needed to operationalize it.
+
+## Next: collection as a job, the skill as the judge
+
+The owner's direction, 2026-11-14. Collection is already scripts only: `collect`, `export`, `build` and
+`check` need no model. The next step is to stop running them by hand.
+
+1. **A weekly job collects and publishes.** A scheduled GitHub workflow in the app's repository runs
+   `collect --ranks`, `export`, `export --check`, `check` and `build`, commits `marketing/metrics/` and
+   `marketing/data/`, and publishes the page. Templates are in `assets/workflows/`; `references/publish.md`
+   says what the owner decides first (public or private page, which secrets the job gets). Open work: the
+   job's credentials for App Store Connect, GA4, BigQuery, RevenueCat and Apple Ads as repository secrets,
+   a cache for the funnel's daily reports so a run asks only for new days, and a midweek schedule: a week
+   is written once Apple has published the Monday after it, which is a Wednesday.
+   Done when: a week passes with no manual pass and the page shows that week.
+2. **Rank reads on the days a window needs them.** A daily workflow runs `due` and sweeps only when a live
+   hypothesis is in the last three days of its window. Done when: no window closes with `(missed)` reads.
+3. **The skill only judges and proposes.** With the data collected and exported by the job, a session reads
+   `STATE.md` and `data/`, judges the hypotheses that are due, sums up which predictions held and which
+   did not, and drafts the next one. It runs no collection of its own unless asked. Done when: `SKILL.md`
+   starts from `data/` and a full session makes no network read.
+4. **Cloud sessions.** The judging session is a good fit for a scheduled cloud session after the weekly
+   job: it needs the repository and no local login. Open work: the routine's prompt, and where it writes
+   verdicts (a pull request against the hypothesis files, so a person approves each verdict).
+5. **Live runs in a cheaper model.** Until the job exists, a live pass is run in a subagent on a cheaper
+   model and the main session reads its stage table; `references/collect.md` says how.
+6. **Funnel by new-install cohort.** The in-app weeks are per week of events; the share of a week's new
+   installs that reach each step is not built. Done when: `in_app` carries cohort figures with both totals.
+7. **Corrections for restated days.** A week is written once, when the reports already hold a later day,
+   so it never lacks its Sunday. App Store Connect still restates a day in its next two daily reports: in
+   the measured store a day's first reading was within 1.4% of its final one. Appending a correction when
+   a later pull differs would remove that too. Done when: a week read on its Wednesday and again a week
+   later shows the later figures.
+8. **Corrections in the digests.** `funnel` and the pass's funnel digest read the first row of a week;
+   once corrections are appended they must take the latest, as the export does.
+9. **`keys.json` grows with keys times sweeps.** Fine for a year of weekly sweeps of a thousand keys; split
+   by quarter when the page gets slow.
+10. **Chart history needs a config line.** Chart positions are stored only when `config.md` names
+    `**Charts storefronts**`; offer the storefronts with live hypotheses as the default.
+11. **Sales and Trends reports.** Daily, weekly and monthly sales reports are kept for a year and yearly ones
+    for ten; they give downloads and proceeds by storefront, and are the only money source for a store with no
+    subscription provider. Blocked on the vendor number (`~/.asc/config.json` holds none and no API lists
+    it), then: a collector for weekly reports, proceeds in their own currencies, a `sales` family.
+    Done when: such a store's Money tab shows a year of weeks.
+12. **The snapshot's shape.** The funnel collector reads a one-time snapshot's daily reports as it reads the
+    ongoing ones. If a filled snapshot holds older periods only as weekly or monthly reports, fold those too.
+    Done when: a store shows funnel weeks from before its ongoing request.
+13. **In-app history before the BigQuery export.** The in-app weeks begin with the first daily events table.
+    GA4's own reports reach back to the property's start. Done when: weeks before the export are filled from
+    GA4, marked as a different source.
+14. **Release days of past versions.** App Store Connect lists versions with the day each record was created,
+    not the day it went live; the public lookup gives the live version's day only. Done when: every past
+    version has a dated row from a source that states the day.
+15. **Reachable, and not stored yet.** The owner's rule (2026-11-14): whatever a connected source gives is
+    collected. What the machine's logins can already read and no stage stores:
+    - App Store Connect performance metrics by version (launch time, hangs, memory, battery, disk writes);
+    - reviews by day and storefront (only the totals are stored; text stays out on purpose);
+    - RevenueCat's other charts (churn, trial conversion, refunds, lifetime value);
+    - Apple Ads keyword and search-term reports by week (`radar keywords` reads them and stores nothing);
+    - product page optimization tests and custom product pages;
+    - `asc insights weekly` and `daily`;
+    - Google Search Console, which one app reads with a script of its own.
+    Each needs a series file, a catalog family and a place on the page. Done when: every row above is either a
+    family on the page or struck out with the reason it is not worth storing.
 
 ## P0 Make observations trustworthy
 

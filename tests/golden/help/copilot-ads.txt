@@ -1,0 +1,19 @@
+usage: copilot.py ads [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                      {campaigns,list,adgroups,keywords,add-keywords,pause,resume} ...
+
+positional arguments:
+  {campaigns,list,adgroups,keywords,add-keywords,pause,resume}
+    campaigns (list)    List Apple Ads campaigns
+    adgroups            List ad groups in campaign
+    keywords            List targeting keywords
+    add-keywords        Add keywords to ad group
+    pause               Pause a campaign
+    resume              Resume a campaign
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable

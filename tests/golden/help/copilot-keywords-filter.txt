@@ -1,0 +1,14 @@
+usage: copilot.py keywords filter [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                  --input INPUT --output OUTPUT [--brand BRAND] [--limit LIMIT]
+
+options:
+  -h, --help           show this help message and exit
+  --store STORE        Path to marketing store directory
+  --debug, -d          Print debug diagnostics to stderr
+  --info, -v           Print informational logs to stderr
+  --quiet, -q          Suppress non-essential output
+  --json               Format output as JSON where applicable
+  --input, -i INPUT    Input CSV path
+  --output, -o OUTPUT  Output directory
+  --brand BRAND        Protected brand name(s)
+  --limit LIMIT        Max candidates ceiling

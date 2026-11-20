@@ -1,0 +1,21 @@
+usage: copilot.py campaign [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] [--list]
+                           [--campaign CAMPAIGN] [--channel CHANNEL]
+                           [--type {reddit_reply,reddit_showcase,threads,x,ugc_video,other}]
+                           [--pt PT] [--target TARGET] [--scaffold-hypo] [--force]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --list                List registered campaigns and hypotheses
+  --campaign CAMPAIGN   Campaign token (e.g. threads_build_in_public)
+  --channel CHANNEL     Channel (e.g. threads, reddit, x, linkedin)
+  --type {reddit_reply,reddit_showcase,threads,x,ugc_video,other}
+                        Copy template type
+  --pt PT               Provider Token (auto-detected if omitted)
+  --target TARGET       Target audience / community
+  --scaffold-hypo       Create C<NNN> markdown hypothesis in hypotheses/
+  --force               Bypass anti-collision warnings

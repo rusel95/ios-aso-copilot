@@ -1,0 +1,13 @@
+usage: copilot.py telemetry [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                            [--days DAYS] [--export-md] [--export-json]
+
+options:
+  -h, --help     show this help message and exit
+  --store STORE  Path to marketing store directory
+  --debug, -d    Print debug diagnostics to stderr
+  --info, -v     Print informational logs to stderr
+  --quiet, -q    Suppress non-essential output
+  --json         Format output as JSON where applicable
+  --days DAYS    Days window (0 for all-time)
+  --export-md    Export markdown report to <store>/metrics/telemetry_latest.md
+  --export-json  Export json to <store>/metrics/telemetry_latest.json

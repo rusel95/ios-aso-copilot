@@ -1,0 +1,17 @@
+usage: copilot.py publish [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                          [--branch BRANCH] [--remote REMOTE] [--path PATH] [--dry-run]
+
+options:
+  -h, --help       show this help message and exit
+  --store STORE    Path to marketing store directory
+  --debug, -d      Print debug diagnostics to stderr
+  --info, -v       Print informational logs to stderr
+  --quiet, -q      Suppress non-essential output
+  --json           Format output as JSON where applicable
+  --branch BRANCH  The branch GitHub Pages serves (default: `**Pages branch**` in config.md, else
+                   gh-pages)
+  --remote REMOTE  The repository to push to (default: `**Pages repository**` in config.md, else
+                   the store's own)
+  --path PATH      A folder of that branch to put the page in, beside what is already served there
+                   (default: `**Pages path**` in config.md, else the branch is the page's own)
+  --dry-run        Check and build, and say what would be pushed

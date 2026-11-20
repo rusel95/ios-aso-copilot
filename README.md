@@ -86,6 +86,19 @@ In Claude Code, Cursor, or Antigravity, once installed:
 
 ## What it does
 
+Three steps, each with one job: `collect` reads the sources into `marketing/metrics/`, `export` turns the
+store into `marketing/data/` for a stated day, `build` turns that into one page with the history: rank
+bands sweep by sweep, every key's positions over time, the store funnel, money, Apple Ads, in-app weeks
+and every hypothesis with its state. The same store and day give the same bytes.
+
+```bash
+ios-aso-copilot collect --ranks      # every source side by side, with the rank sweep
+ios-aso-copilot export               # store → data/ and STATE.md
+ios-aso-copilot build                # data/ → public/index.html
+```
+
+One store per project: run it from each app's repository, or pass `--store`.
+
 1. Detects ASO phase live: `P0-prelaunch → P1-review → P2-cold → P3-measure`
 2. Runs keyword rank audit across 25 markets with opportunity scoring
 3. Records weekly metrics, appends to `marketing/metrics/`
@@ -134,16 +147,24 @@ ios-aso-copilot/
 │   ├── harvest_keywords.py ← Apple autocomplete hints + competitor discovery
 │   ├── radar.py            ← Apple search popularity, impression share, keyword report join
 │   ├── ads_keywords.py     ← reviewed Exact phrase validation; deterministic accepted/rejected exports
-│   └── economics.py        ← LTV / break-even / scaling verdict
+│   ├── economics.py        ← LTV / break-even / scaling verdict
+│   ├── copilot.py          ← the one CLI: collect, export, build, check, due and the rest
+│   └── aso/                ← the library behind the entry files (store, ranks, ledger, dashboard)
 ├── references/
 │   ├── aso-loop.md         ← hypothesis lifecycle, verdict criteria
 │   ├── commands.md         ← exact asc invocations, the approval fence
 │   ├── provenance.md       ← source tagging rules
 │   ├── state-store.md      ← marketing/ file schemas
+│   ├── collect.md          ← the pass, stage by stage
+│   ├── export-and-page.md  ← the data contract and the page
+│   ├── judge.md            ← reading the ledger, verdicts, drafting
 │   ├── apple-ads.md        ← Apple Ads API setup
 │   └── playbooks.md        ← experiments, CPPs, reviews
+├── tests/                  ← python3 -m unittest discover -s tests -t .
 └── assets/
-    └── store-template/     ← seed files for marketing/ initialization
+    ├── store-template/     ← seed files for marketing/ initialization
+    ├── dashboard/          ← the page's template, style, script and catalog
+    └── sample/store/       ← an invented app's store, used by the tests
 ```
 
 ## Per-app setup

@@ -1,0 +1,66 @@
+# The page of an app's marketing store, built from marketing/data/ and published to GitHub Pages.
+# It collects nothing and holds no source credential: it proves the committed data is what the store
+# exports, looks for what must not be published, builds one page and deploys it.
+# Before copying it into an app repository, read references/publish.md: a Pages site is public.
+name: ASO dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "marketing/data/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: aso-dashboard
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The app repository
+        uses: actions/checkout@v4
+
+      - name: The skill, at the commit that was reviewed
+        uses: actions/checkout@v4
+        with:
+          repository: rusel95/ios-aso-copilot
+          ref: 0000000000000000000000000000000000000000   # a full commit hash, never a branch or a tag
+          path: .aso-copilot
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The data is what the store exports for its day
+        run: |
+          AS_OF=$(python3 -c "import json; print(json.load(open('marketing/data/events.json'))['as_of'])")
+          python3 .aso-copilot/scripts/export_dashboard.py --store marketing --as-of "$AS_OF" --check
+
+      - name: Nothing in the data that must not be published
+        run: python3 .aso-copilot/scripts/copilot.py check --store marketing
+
+      - name: Build the page
+        env:
+          APP_NAME: ${{ github.event.repository.name }}
+        run: python3 .aso-copilot/scripts/build_site.py --data marketing/data --out _site --name "$APP_NAME"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

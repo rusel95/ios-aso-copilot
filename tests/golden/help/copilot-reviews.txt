@@ -1,0 +1,18 @@
+usage: copilot.py reviews [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                          [--limit LIMIT] [--review-id REVIEW_ID] [--response RESPONSE]
+                          [{ratings,unreplied,list,respond}]
+
+positional arguments:
+  {ratings,unreplied,list,respond}
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --limit LIMIT         Limit for list
+  --review-id REVIEW_ID
+                        Review ID for response
+  --response RESPONSE   Response text

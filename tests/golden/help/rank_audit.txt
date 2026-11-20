@@ -1,0 +1,29 @@
+usage: rank_audit.py [-h] [--bundle BUNDLE] [--markets MARKETS] [--expand-from-hints]
+                     [--keywords KEYWORDS] [--keywords-file KEYWORDS_FILE] [--seeds SEEDS]
+                     [--niche {whitenoise,baby,compress,media}] [--output OUTPUT] [--delay DELAY]
+                     [--reanalyze REANALYZE] [--self-check]
+
+App Store keyword rank + opportunity audit
+
+options:
+  -h, --help            show this help message and exit
+  --bundle BUNDLE       Exact app bundle ID; required outside self-check
+  --markets MARKETS     Comma-separated codes or 'all'
+  --expand-from-hints   Use Apple autocomplete to generate queries (recommended)
+  --keywords KEYWORDS   Manual comma-separated keywords (bypasses hint expansion). A keyword that
+                        itself contains a comma cannot round-trip through this flag — it will be
+                        split at that comma like any other separator. Use --keywords-file for a
+                        basket where that matters.
+  --keywords-file KEYWORDS_FILE
+                        Path to a newline-delimited keyword list (UTF-8, one keyword per line,
+                        blank lines ignored). Safe for keywords that contain commas; takes
+                        precedence over --keywords if both are given.
+  --seeds SEEDS         Custom comma-separated seed terms for hint expansion
+  --niche {whitenoise,baby,compress,media}
+                        Seed niche profile (whitenoise, baby, compress, media)
+  --output OUTPUT
+  --delay DELAY
+  --reanalyze REANALYZE
+                        Path to an existing audit JSON file to recompute scores without querying
+                        Apple APIs
+  --self-check

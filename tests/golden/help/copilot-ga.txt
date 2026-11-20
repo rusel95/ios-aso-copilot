@@ -1,0 +1,19 @@
+usage: copilot.py ga [-h] [--store STORE] [--debug] [--info] [--quiet] [--json] [--days DAYS]
+                     [--property-id PROPERTY_ID] [--credentials CREDENTIALS] [--realtime]
+                     [--include-debug] [--export-csv]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --days DAYS           Days window
+  --property-id PROPERTY_ID
+                        GA4 Property ID (numeric)
+  --credentials CREDENTIALS
+                        Path to service-account.json
+  --realtime            Show events from the last 30 minutes only
+  --include-debug       Include debug / simulator traffic
+  --export-csv          Export funnel metrics to <store>/metrics/ga4_funnel.csv

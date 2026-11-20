@@ -1,0 +1,32 @@
+usage: radar.py [-h] [--store STORE] [--self-check] {pull,report,keywords} ...
+
+Apple demand radar: what Apple says people search for, read from the app's own Apple Ads account.
+
+Read-only against Apple Ads; appends to the store's metrics/ (references/apple-ads.md §3c).
+
+    radar.py --store marketing pull [--markets jp,us] [--if-configured]
+    radar.py --store marketing report
+    radar.py --store marketing keywords [--campaign ID] [--start YYYY-MM-DD --end YYYY-MM-DD]
+    radar.py --self-check
+
+Popularity lists only each genre's head (~100-350 terms per storefront). A tracked term that is not
+listed sits below the cut: volume unknown, never zero. The cut is stored beside the terms so the two
+are never confused. Nothing here reads a competitor, a keyword report of somebody else's app, or a
+campaign's spend; `keywords` only reads this account's own campaigns.
+
+config.md, all optional; without profile and account the radar refuses to guess an account:
+    **Apple Ads profile**: <asc ads profile name>
+    **Apple Ads account**: <numeric ad account id>
+    **Apple Ads genres**: PHOTO_VIDEO, PRODUCTIVITY_UTILITIES    Apple's spelling of the app's categories
+    **Apple Ads topic words**: compress, clean up, 圧縮             head terms containing one are stored too
+
+positional arguments:
+  {pull,report,keywords}
+    pull                Append this week's popularity and impression share
+    report              Print the stored radar; no network
+    keywords            Keyword report joined to keyword text (live, read-only)
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to the marketing store directory
+  --self-check          offline checks with canned Apple replies

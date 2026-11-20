@@ -1,0 +1,63 @@
+# Marketing ledger · 2026-11-14 · store assets/sample/store
+
+7 hypotheses · 12 tracked keys · 38 observations on 4 dates (2026-10-05, 2026-11-09) · 2 priced storefronts
+
+**Coverage: 8 of 12 keys have a comparable pair, 1 have no successful observation at all; 2 requests failed.** A thin section below is thin because of this line, not because nothing moved.
+
+**1 tracked keys are unmeasurable by this method: the API returns zero results for them** (ua 1). They are left out of every section below; a hypothesis whose basket is only such keys cannot be judged on rank.
+
+_Every store file parsed cleanly._
+
+## A · Hypothesis ledger — close before proposing
+
+| ID | Markets | Live since | Window | State | Its own basket ↑/↓/→ | Action |
+|---|---|---|---|---|---|---|
+| H001 | us | 2026-10-06 | 21d | judged: worked | 2 / 0 / 0 | closed |
+| H002 | ua | 2026-10-06 | 21d | judged: no-effect | 0 / 0 / 1 | closed |
+| H003 | us | 2026-10-06 | 21d | judged: adverse | 0 / 1 / 0 | closed |
+| H004 | ua | 2026-10-10 | 14d | judged: withheld | funnel — not rank-measured | closed |
+| H005 | ua | 2026-10-20 | 14d | DUE (25d ≥ 14d) | 1 / 0 / 0 (+1 unpaired) | judge now |
+| H006 | us | 2026-11-05 | 21d | open (12d left) | 0 / 0 / 0 (+1 unpaired) | wait |
+| H007 | us | — | 14d | not shipped | funnel — not rank-measured | ship it or drop it |
+
+4 judged · 1 due · 1 open · 1 not shipped
+
+## B · Every tracked key — progress and regress (non-brand)
+
+_2 brand-term keys excluded: rank on brand measures indexation only, not demand._
+
+| Market | Key | First | Pos | Latest | Pos | Δ | |
+|---|---|---|---:|---|---:|---:|---|
+| us | tide times | 2026-10-05 | 120 | 2026-11-02 | 60 | +60 | improved |
+| us | tide tracker | 2026-10-05 | 40 | 2026-11-09 | 7 | +33 | improved |
+| ua | приплив | 2026-10-05 | 15 | 2026-11-02 | 4 | +11 | improved |
+| ua | п’ятниця море | 2026-10-05 | 33 | 2026-11-02 | 31 | +2 | improved |
+| ua | прогноз хвиль | 2026-10-05 | 70 | 2026-11-02 | 70 | +0 | flat |
+| us | moon phase | 2026-10-05 | 8 | 2026-11-09 | 30 | -22 | regressed |
+
+Entered ranking: 2 · Fell out of depth: 1 · Never within depth: 0 · Incomparable pairs: 0
+  ENTERED  us · surf forecast → position 150 on 2026-11-02
+  ENTERED  ua · графік припливів → position 11 on 2026-11-02
+  EXITED   us · sea level · was 180 on 2026-10-19
+
+## C · What to do next, ordered by money at stake
+
+_Order = net proceeds per paying subscriber in that storefront (live ASC price record) × gain (how much of a top-3 position is unclaimed) × reach (how movable the current position is). Gain and reach are declared ordering assumptions printed on every row, not measured tap share. No currency total is implied: this ranks WHAT FIRST, it does not forecast revenue. A key whose last observation was a failed request is absent here — an outage is not an opportunity._
+
+_"Dominant" below means a verified top-3 position (top-5 for us/gb/de/fr/jp/cn) as of the LATEST observation — not merely that an open hypothesis targets that market. A hypothesis in flight with the key still outside that band is still open ground: it is labelled `open hypothesis, not yet dominant`, not `covered`._
+
+_Demand is Apple's own search popularity (`radar.py pull` → metrics/popularity*.csv): `head N` is its 1–100 score for a term in the published head list; `below N` means not listed, so under the lowest score listed for that storefront: volume unknown, not zero; `no data` means Apple lists nothing there; `—` means never pulled. It informs the order; it is not part of the score._
+
+| Score | Market | Key | Demand | Position now | Band | Net proceeds/sub | Gain×Reach | Status |
+|---:|---|---|---|---:|---|---:|---:|---|
+| 14.0 | us | moon phase | below 38 | 30 | top30 | $25.00 | 0.8×0.7 | open hypothesis, not yet dominant |
+| 11.25 | us | tide tracker | below 38 | 7 | top10 | $25.00 | 0.45×1.0 | open hypothesis, not yet dominant |
+| 8.31 | us | tide times | head 41 | 60 | deep | $25.00 | 0.95×0.35 | open hypothesis, not yet dominant |
+| 8.31 | us | surf forecast | below 38 | 150 | deep | $25.00 | 0.95×0.35 | open hypothesis, not yet dominant |
+| 2.5 | us | sea level | below 38 | >depth | beyond-depth | $25.00 | 1.0×0.1 | open hypothesis, not yet dominant |
+| 2.24 | ua | графік припливів | no data | 11 | top30 | $4.00 | 0.8×0.7 | open hypothesis, not yet dominant |
+| 1.8 | ua | приплив | no data | 4 | top10 | $4.00 | 0.45×1.0 | open hypothesis, not yet dominant |
+| 1.33 | ua | п’ятниця море | no data | 31 | deep | $4.00 | 0.95×0.35 | open hypothesis, not yet dominant |
+| 1.33 | ua | прогноз хвиль | no data | 70 | deep | $4.00 | 0.95×0.35 | open hypothesis, not yet dominant |
+
+2 brand-term keys excluded: rank on our own name shows we are indexed, not that anyone searches for us. Set `**Brand tokens**:` in config.md to change the list.

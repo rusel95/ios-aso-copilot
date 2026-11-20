@@ -1,0 +1,13 @@
+usage: copilot.py ads campaigns [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                [--status STATUS] [--country COUNTRY]
+
+options:
+  -h, --help            show this help message and exit
+  --store STORE         Path to marketing store directory
+  --debug, -d           Print debug diagnostics to stderr
+  --info, -v            Print informational logs to stderr
+  --quiet, -q           Suppress non-essential output
+  --json                Format output as JSON where applicable
+  --status STATUS       Filter by status (ENABLED, PAUSED, ALL)
+  --country, -c COUNTRY
+                        Filter by targeted country
