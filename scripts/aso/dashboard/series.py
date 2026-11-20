@@ -39,7 +39,7 @@ def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.da
     line; in the columns of `keep` a later blank does not erase an earlier count. A row with an unreadable cell is
     named and skipped. `stored` says whether the file holds any row at all,
     which is the difference between "nothing stores this" and "nothing that week"."""
-    found, stored = {}, False
+    known, stored = [], False
     for n, r in enumerate(read_csv(store / "metrics" / name), 2):
         stored = True
         captured = parse_date(r.get("captured"))
@@ -55,12 +55,13 @@ def latest_rows(store: Path, name: str, key: tuple, numbers: tuple, as_of: dt.da
         except ValueError:
             notes.append(f"metrics/{name}:{n}: {column} {r.get(column)!r} is not a number; the row is skipped")
             continue
-        at = tuple(r.get(k, "") for k in key)
-        if at not in found or captured >= found[at]["captured"]:
-            for column in keep:                    # a later blank is no answer: the count the source gave before stands
-                if row[column] is None and at in found:
-                    row[column] = found[at][column]
-            found[at] = row
+        known.append((captured, n, tuple(r.get(k, "") for k in key), row))
+    found = {}
+    for _, _, at, row in sorted(known, key=lambda k: k[:2]):       # oldest first, so a later row is always the one that stands
+        for column in keep:                    # a later blank is no answer: the count the source gave before stands
+            if row[column] is None and at in found:
+                row[column] = found[at][column]
+        found[at] = row
     return list(found.values()), stored
 
 

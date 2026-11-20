@@ -12,7 +12,7 @@ from tests.helpers import copy_store  # noqa: E402
 from aso.dashboard import contract, export  # noqa: E402
 from aso.pull_revenuecat_series import (ADS_COLS, ADS_KEEP, CASHFLOW_COLS, REVENUE_COLS, ads_weeks, append_changed,  # noqa: E402
                                         cashflow_weeks, revenue_row)
-from aso.store import read_csv  # noqa: E402
+from aso.store import append_csv, read_csv  # noqa: E402
 
 AS_OF = dt.date(2026, 11, 14)
 # two closed weeks (Mon 2026-10-26, Mon 2026-11-02) and one still open on the as-of day (Mon 2026-11-09)
@@ -156,6 +156,19 @@ class Appending(unittest.TestCase):
             with self.assertRaises(ValueError):                                                      # not ours: never guessed at
                 append_changed(path, ADS_COLS, rows, key)
 
+    def test_a_migration_that_fails_leaves_the_file_as_it_was(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ads.csv"
+            older = [c for c in ADS_COLS if c != "installs"]
+            text = (",".join(older) + "\n2026-10-26,9001,us,6.00,300,30,apple-ads,2026-11-01\n"
+                    "2026-11-02,9001,us,2.50,100,10,apple-ads,2026-11-08,an,extra,cell\n"            # more cells than the header
+                    "2026-11-09,9001,us,3.00,100,10,apple-ads,2026-11-14\n")
+            path.write_bytes(text.encode("utf-8"))
+            with self.assertRaises(ValueError):
+                append_changed(path, ADS_COLS, ads_weeks(SPEND, AS_OF, "2026-11-14"), ("week_start", "campaign_id"), keep=ADS_KEEP)
+            self.assertEqual(path.read_bytes(), text.encode("utf-8"))                              # not a row lost
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["ads.csv"])                   # no half-written copy left
+
 
 class Collector(unittest.TestCase):
     def test_a_second_pass_that_gets_no_install_count_leaves_the_ads_series_and_the_page_as_they_were(self):
@@ -245,6 +258,14 @@ class Families(unittest.TestCase):
         ads = self.families(as_of=dt.date(2026, 11, 21))["ads"]["figures"]
         self.assertEqual(ads["cpi_usd"]["value"], 0.8)
         self.assertEqual(ads["installs"]["value"], 10)
+
+    def test_a_blank_row_captured_later_wins_whatever_its_place_in_the_file(self):
+        path = self.store / "metrics" / "ads.csv"
+        known = ads_weeks(SPEND, AS_OF, "2026-11-10")
+        blank = [dict(r, installs="", captured="2026-11-20") for r in known]
+        append_csv(path, ADS_COLS, blank + known)                         # the later capture is the earlier line
+        ads = self.families(as_of=dt.date(2026, 11, 21))["ads"]["figures"]
+        self.assertEqual((ads["installs"]["value"], ads["cpi_usd"]["value"]), (10, 0.8))
 
     def test_a_week_only_money_knows_still_gets_a_file(self):
         self.store_rows()

@@ -86,10 +86,17 @@ def append_csv(path: Path, cols: list, rows: list) -> None:
             if not set(held) <= set(cols):
                 raise ValueError(f"{path.name}: its header {held} is not a part of {cols}; migrate the file by hand first")
             old = read_csv(path)
-            with path.open("w", encoding="utf-8", newline="") as fh:
-                writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
-                writer.writeheader()
-                writer.writerows(old)
+            if any(None in r for r in old):         # a row with more cells than the header: which column each is for is unknown
+                raise ValueError(f"{path.name}: a row holds more cells than its header names; migrate the file by hand first")
+            tmp = path.with_name(path.name + ".migrating")      # the file is replaced whole or not at all
+            try:
+                with tmp.open("w", encoding="utf-8", newline="") as fh:
+                    writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
+                    writer.writeheader()
+                    writer.writerows(old)
+                os.replace(tmp, path)
+            finally:
+                tmp.unlink(missing_ok=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=cols, lineterminator="\n")
