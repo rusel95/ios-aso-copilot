@@ -73,6 +73,14 @@ self-contained page. The same store and day give the same bytes.
   a row that differs in nothing else is not appended. An In-app share above a whole (more `completed` than
   `initiated`, from app versions that sent no start event) is unavailable, not 1481%. The funnel digest shows the
   newest week, not every week a history pull recorded. A GA4 failure prints the error that ended it, one line.
+- **What was left of that review.** A series file of an older version no longer stops a pass with a `KeyError`: its
+  rows are kept and gain the new columns blank, and a header that is not a part of ours is refused, not guessed at.
+  A store that already holds a blank install count heals on read. `export` refuses a day before the one `data/`
+  holds (it would delete the later files) unless `--rewind` is given. The in-app weeks ignore a `TODO` placeholder,
+  read `Firebase Property ID` as the property, and take the newest eight weeks a pass. The radar keeps an empty
+  answer for a week Apple has settled instead of asking again every pass. `status` reads the chart of the store's
+  own storefront, not always Ukraine. The committed `.claude/launch.json` that named one machine's scratch folder
+  is gone, and a test fails on a tracked file that names one.
 
 **Changed behaviour to know about.** The pass pulls the funnel with the skill's own `pull_funnel.py` even
 when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,

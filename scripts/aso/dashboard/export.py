@@ -6,6 +6,7 @@ same functions the ledger report prints, so the page and the report cannot disag
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 from pathlib import Path
 
@@ -261,8 +262,29 @@ def check(store: Path, files: dict) -> list:
     return sorted(set(differ) | (set(data_files(store)) - set(files)))
 
 
-def run(store: Path, as_of: dt.date, check_only: bool = False) -> int:
-    """The export command: build, refuse to write what breaks the contract, then write or compare."""
+def held_day(store: Path) -> tuple:
+    """(the day the data folder was exported for, whether it holds an export at all). The day is the latest `as_of` of the
+    entity files that can be read, so one damaged file does not hide a newer export; None when none can be read."""
+    days = []
+    for name in ENTITIES:
+        try:
+            days.append(dt.date.fromisoformat(json.loads((store / "data" / name).read_text(encoding="utf-8"))["as_of"]))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return (max(days) if days else None), bool(data_files(store))
+
+
+def run(store: Path, as_of: dt.date, check_only: bool = False, rewind: bool = False) -> int:
+    """The export command: build, refuse to write what breaks the contract, then write or compare. An export for a day
+    before the one the data folder holds would delete every file of the days after it: that takes `rewind`. So does a
+    folder that holds files but none says which day it is for. A first export, into an empty folder, needs nothing."""
+    held, present = held_day(store)
+    if not check_only and not rewind and present and (held is None or as_of < held):
+        print(f"FAIL export: data/ is as of {held}; --as-of {as_of} would remove the files of the days after it. "
+              f"Pass --rewind to replace data/ with that earlier day." if held else
+              f"FAIL export: data/ holds files but none says which day it is for, so --as-of {as_of} might replace a newer "
+              f"export. Pass --rewind to go on.")
+        return 1
     files, notes = build_all(store, as_of)
     catalog = load_catalog()
     broken = [(path, found) for path, obj in sorted(files.items()) for found in validate(path, canonical(obj), catalog)]

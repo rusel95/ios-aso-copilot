@@ -142,6 +142,28 @@ class DemandForEveryWeek(unittest.TestCase):
             self.assertEqual(again["popularity"], [])                                        # nothing is asked twice
             self.assertIn("already stored", said)
 
+    def test_an_old_week_Apple_has_nothing_for_is_asked_once_and_a_late_week_is_asked_again(self):
+        import argparse
+        import radar
+        asked = []
+
+        def nothing(cfg, resource, payload):
+            if resource[1] == "search-term-popularity":
+                asked.append(payload["timeRange"]["start"])
+            return {"result": {"rows": []}}
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.store(tmp)
+            args = argparse.Namespace(store=str(store), markets=None, if_configured=False, since="2026-10-13")
+            passes = []
+            for _ in range(2):
+                asked.clear()
+                with contextlib.redirect_stdout(io.StringIO()):
+                    radar.cmd_pull(args, run=nothing, today=dt.date(2026, 11, 14))
+                passes.append(set(asked))
+            kept = {r["week"] for r in read_csv(store / "metrics" / "popularity_cut.csv")}
+        self.assertEqual(kept, {"2026-10-11", "2026-10-18"})            # the two oldest weeks: Apple has published, and has none
+        self.assertEqual(passes[1], {"2026-10-25", "2026-11-01"})      # the two newest may only be late: asked again
+
     def test_impression_share_is_asked_for_the_whole_span_four_weeks_a_request(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, asked, _ = self.pull(self.store(tmp), "2026-09-13")                           # eight weeks back
@@ -184,6 +206,18 @@ class EverythingTheSourcesGive(unittest.TestCase):
         self.assertEqual(rows[1]["reviews"], "")                             # the listing's total is for all storefronts
         self.assertEqual(ratings_rows(ratings, None, "2026-11-14")[0]["reviews"], "")       # not read: blank, not zero
         self.assertNotIn("not kept", str(rows))
+
+    def test_the_charts_are_read_first_where_the_store_tracks_most_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp)
+            (store / "metrics").mkdir()
+            (store / "metrics" / "ranks.csv").write_text(
+                "date,market,keyword,group,position,popularity,difficulty,source,depth,status\n"
+                "2026-11-02,ua,a,target,3,,,itunes-search-api,200,ok\n"
+                "2026-11-02,us,a,target,3,,,itunes-search-api,200,ok\n2026-11-02,us,b,target,9,,,itunes-search-api,200,ok\n"
+                "2026-11-09,us,a,target,3,,,itunes-search-api,200,ok\n", encoding="utf-8")
+            self.assertEqual(cycle.chart_storefronts(store, {}), ["us", "ua"])
+            self.assertEqual(cycle.chart_storefronts(store, {"Charts storefronts": "DE, fr"}), ["de", "fr"])   # config.md decides
 
     def test_chart_positions_are_read_for_every_storefront_the_store_tracks_when_none_is_named(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -159,7 +159,7 @@ def money_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
 def ads_family_weeks(store: Path, as_of: dt.date, notes: list) -> tuple:
     """(week start -> the ads family, stored), from the closed weeks of Apple Ads results stored per campaign."""
     rows, stored = latest_rows(store, "ads.csv", ("week_start", "campaign_id"), ("spend_usd", "impressions", "taps", "installs"),
-                               as_of, notes)
+                               as_of, notes, keep=("installs",))      # a store that already holds a blank row heals on read
     by = (("market", "market"), ("campaign", "campaign_id"))
     out = {}
     for week, theirs in by_closed_week(rows, as_of).items():

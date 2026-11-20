@@ -24,10 +24,12 @@ def main(argv=None) -> int:
     parser.add_argument("--as-of", type=dt.date.fromisoformat, required=True, metavar="YYYY-MM-DD",
                         help="the day the export is made for; the only date it uses")
     parser.add_argument("--check", action="store_true", help="compare with the data folder instead of writing it")
+    parser.add_argument("--rewind", action="store_true",
+                        help="allow a day before the one data/ holds (it removes the files of the days after it)")
     args = parser.parse_args(argv)
     if not args.store.is_dir():
         parser.error(f"--store {args.store} is not a directory")
-    return run(args.store.resolve(), args.as_of, check_only=args.check)
+    return run(args.store.resolve(), args.as_of, check_only=args.check, rewind=args.rewind)
 
 
 if __name__ == "__main__":

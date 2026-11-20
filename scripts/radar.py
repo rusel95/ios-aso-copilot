@@ -117,13 +117,17 @@ def listed(run, cfg, resource, filters, size=1000) -> list:
 ASK_AT_ONCE = 4
 
 
-def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
-    """Append the week's popularity for each market. -> (stored_week or None, markets stored, failures)."""
+def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads, settled=False):
+    """Append the week's popularity for each market. -> (stored_week or None, markets stored, failures).
+
+    `settled` says the week is old enough that Apple has published it: if every storefront answers with nothing, that
+    is the answer, and it is stored as such (a cut row of zero per storefront) so the next pass does not ask again.
+    The newest weeks are not settled: an empty answer there may only mean Apple is late, and is never stored."""
     metrics = store / "metrics"
     basket, _ = read_basket(store)
     done = {(r["week"], r["market"]) for r in read_csv(metrics / "popularity_cut.csv")}
     failures = []
-    for week in (week_start, week_start - dt.timedelta(days=7)):  # a lagging week falls back once
+    for week in ((week_start,) if settled else (week_start, week_start - dt.timedelta(days=7))):  # a lagging week falls back once
         todo = [m for m in markets if (week.isoformat(), m) not in done]
         if not todo:
             return week.isoformat(), [], failures
@@ -148,7 +152,7 @@ def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
                     results[market] = rows
                 else:
                     failures.append((market, why))
-        if not any(results.values()):
+        if not any(results.values()) and not (settled and results and not failures):
             continue  # nothing anywhere: Apple has not published this week yet
         pop_rows, cut_rows = [], []
         for market, rows in results.items():
@@ -174,7 +178,7 @@ def pull_popularity(store, cfg, markets, week_start, captured, run=asc_ads):
                                  "listed": 0, "min_popularity_100": "", "source": SOURCE})
         append_csv(metrics / "popularity.csv", POP_COLS, pop_rows)
         append_csv(metrics / "popularity_cut.csv", CUT_COLS, cut_rows)
-        return week.isoformat(), sorted(results), failures
+        return week.isoformat(), (sorted(results) if pop_rows or any(r["listed"] for r in cut_rows) else []), failures
     return None, [], failures
 
 
@@ -240,7 +244,9 @@ def cmd_pull(args, run=asc_ads, today=None):
     first_week = since - dt.timedelta(days=(since.weekday() + 1) % 7) if since else week_start     # the Sunday on or before
     filled = failed = 0
     while since and older >= first_week:
-        _, stored, failures = pull_popularity(store, cfg, markets, older, captured, run)
+        # the two newest weeks may only be late; every older one is settled, and an empty answer for it is kept
+        _, stored, failures = pull_popularity(store, cfg, markets, older, captured, run,
+                                              settled=older <= week_start - dt.timedelta(days=14))
         filled += bool(stored)
         failed += len(failures)
         older -= dt.timedelta(days=7)

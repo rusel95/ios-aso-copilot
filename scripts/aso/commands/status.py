@@ -6,8 +6,9 @@ import sys
 from pathlib import Path
 
 from aso.commands.base import SKILL_DIR, compact_asc_output, log_info, resolve_app_identity, run_cmd, skill_version
-from aso.commands.charts import fetch_category_chart, find_app_in_chart
-from aso.commands.cycle import cashflow_digest, funnel_digest
+from aso.commands.charts import GENRE_NAMES, fetch_category_chart, find_app_in_chart, genre_ids
+from aso.commands.cycle import cashflow_digest, chart_storefronts, funnel_digest
+from pull_bigquery_telemetry import parse_config
 
 
 def cmd_status(args):
@@ -77,17 +78,24 @@ def cmd_status(args):
     # 4. App Store Category Charts
     print("\n--- 4. App Store Category Charts ---")
     try:
-        apps, err = fetch_category_chart("ua", 6002, limit=100, timeout=3.0)
-        if not err and apps:
-            match = find_app_in_chart(apps, app["app_id"], app["brand"])
-            if match:
-                print(f"  🎉 {app['brand']} is #{match['rank']} in Top Free Utilities [UA]!")
+        config = parse_config(store)
+        storefronts = chart_storefronts(store, config)
+        if not storefronts:
+            print("  Category chart: not set up (the store tracks no key yet, and config.md names no Charts storefronts).")
+        for country in storefronts[:1]:           # the store's own main storefront, in the first genre it names
+            genre = genre_ids(config.get("Charts genres"), app)[0]
+            where = f"Top Free {GENRE_NAMES.get(genre, genre)} [{country.upper()}]"
+            apps, err = fetch_category_chart(country, genre, limit=100, timeout=3.0)
+            if not err and apps:
+                match = find_app_in_chart(apps, app["app_id"], app["brand"])
+                if match:
+                    print(f"  🎉 {app['brand']} is #{match['rank']} in {where}!")
+                else:
+                    th = apps[-1] if apps else None
+                    th_name = f"#{th['rank']} {th['name']} by {th['developer']}" if th else "no entries"
+                    print(f"  Not in {where} (Threshold: {th_name}). Run 'copilot charts' for details.")
             else:
-                th = apps[-1] if apps else None
-                th_name = f"#{th['rank']} {th['name']} by {th['developer']}" if th else "no entries"
-                print(f"  Not in Top 100 Utilities [UA] (Threshold: {th_name}). Run 'copilot charts' for details.")
-        else:
-            print(f"  Category chart query unavailable ({err or 'no data'}).")
+                print(f"  Category chart query unavailable ({err or 'no data'}).")
     except Exception as exc:
         print(f"  Category chart query skipped ({exc}).")
 

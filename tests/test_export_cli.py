@@ -32,6 +32,38 @@ class ExportCommand(unittest.TestCase):
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF, "--check")
             self.assertEqual((code, out.splitlines()[-1]), (1, "FAIL check: events.json"))
 
+    def test_an_earlier_day_than_the_data_holds_is_refused_unless_rewound(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
+            held = sorted(p.name for p in (store / "data" / "snapshot").glob("*.json"))
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", "2026-10-20")
+            self.assertEqual(code, 1)
+            self.assertIn("--rewind", out)
+            self.assertEqual(sorted(p.name for p in (store / "data" / "snapshot").glob("*.json")), held)     # nothing was removed
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", "2026-10-20", "--check")
+            self.assertNotIn("--rewind", out)                                                              # a comparison writes nothing
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", "2026-10-20", "--rewind")
+            self.assertEqual(code, 0, out)
+            self.assertIn("REMOVED ", out)
+
+    def test_a_damaged_day_file_does_not_hide_a_newer_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = copy_store(tmp)
+            run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
+            (store / "data" / "events.json").write_text("{}\n", encoding="utf-8")                # keys.json still says AS_OF
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", "2026-10-20")
+            self.assertEqual(code, 1)
+            self.assertIn("--rewind", out)
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)     # the same day repairs it
+            self.assertEqual(code, 0, out)
+            for name in ("events.json", "keys.json", "hypotheses.json"):                            # no entity says its day
+                (store / "data" / name).write_text("{}\n", encoding="utf-8")
+            code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
+            self.assertEqual(code, 1)
+            self.assertIn("none says which day", out)
+            self.assertEqual(run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF, "--rewind")[0], 0)
+
     def test_check_writes_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = copy_store(tmp)

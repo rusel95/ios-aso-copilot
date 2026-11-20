@@ -1,7 +1,9 @@
 """SKILL.md is a router: short, with the sections a run starts from, naming only commands and files that exist."""
 import json
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -21,6 +23,36 @@ SECTIONS = ["Start here", "Rules for every step", "Collect", "Export and page", 
 def section(title: str) -> str:
     found = re.search(rf"^## {re.escape(title)}\n(.*?)(?=^## |\Z)", SKILL, re.M | re.S)
     return found.group(1) if found else ""
+
+
+def tracked_local_paths(root: Path) -> list:
+    """(file, needle) for each tracked file of the repository at `root` that names a folder of one machine. Raises
+    OSError or CalledProcessError when `root` is not a git checkout. File names come NUL-delimited: git quotes a name
+    with a non-ASCII letter otherwise, and the file would silently go unread."""
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\0")
+    needles = ("/Users" + "/", "/private" + "/tmp", "/home" + "/")
+    return [(name, needle) for name in tracked if name and (root / name).is_file()
+            for needle in needles if needle in (root / name).read_text(encoding="utf-8", errors="ignore")]
+
+
+class NoLocalPaths(unittest.TestCase):
+    def test_no_tracked_file_names_a_folder_of_one_machine(self):
+        """A committed preview setting once named the scratch folder of one laptop, in a repository made public."""
+        try:
+            found = tracked_local_paths(ROOT)
+        except (OSError, subprocess.CalledProcessError):
+            self.skipTest("not a git checkout")
+        self.assertEqual(found, [])
+
+    def test_a_file_with_a_non_ascii_name_is_read_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
+            except (OSError, subprocess.CalledProcessError):
+                self.skipTest("git is not available")
+            (Path(tmp) / "référence.md").write_text("see " + "/Users" + "/alice/project\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=tmp, check=True)
+            self.assertEqual(tracked_local_paths(Path(tmp)), [("référence.md", "/Users" + "/")])
 
 
 class Router(unittest.TestCase):
