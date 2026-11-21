@@ -128,11 +128,15 @@ def _today() -> str:
 
 
 def _record(args: argparse.Namespace, market: str, terms: list[str], source: str) -> None:
-    """`--record`: put what was just printed into the store's keyword registry (offline; dated today)."""
+    """`--record`: put what was just printed into the store's keyword registry (offline; dated today, UTC). The find
+    is already on stdout, so a registry fault is reported and does not fail the command."""
     from aso import keyword_registry
-    done = keyword_registry.add(Path(args.store).resolve(), market, terms, source, _today())
-    print(f"recorded {len(terms)} {source} keyword(s) in {keyword_registry.REGISTRY}: appended {done['appended']} rows"
-          + (f"; refused {len(done['refused'])} brand keyword(s), never tracked" if done["refused"] else ""), file=sys.stderr)
+    try:
+        done = keyword_registry.add(Path(args.store).resolve(), market, terms, source, _today())
+    except Exception as exc:  # noqa: BLE001
+        print(f"Not recorded in the keyword registry: {exc}", file=sys.stderr)
+        return
+    print(keyword_registry.record_note(done, len(terms), source, market), file=sys.stderr)
 
 
 def cmd_hints(args: argparse.Namespace) -> None:

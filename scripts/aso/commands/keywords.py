@@ -124,16 +124,16 @@ def cmd_keywords(args):
 
 
 def record_found(args, market, terms, source):
-    """`--record` on a network command: put what it just found into the keyword registry, dated today (the clock is read
-    here, in the command, never in the registry). Reports on stderr so `--json` output stays whole; never fails the command."""
+    """`--record` on a network command: put what it just found into the keyword registry, dated today in UTC, as
+    `harvest_keywords.py` dates it (the clock is read here, in the command, never in the registry). Reports on stderr so
+    `--json` output stays whole; never fails the command, whatever the registry raises."""
     store = Path(args.store).resolve()
     try:
-        done = keyword_registry.add(store, market, terms, source, dt.date.today())
-    except (ValueError, OSError) as exc:
+        done = keyword_registry.add(store, market, terms, source, dt.datetime.now(dt.timezone.utc).date())
+    except Exception as exc:  # noqa: BLE001  the find was printed or is about to be: a registry fault must not take it away
         log_error(f"Not recorded in the keyword registry: {exc}")
         return
-    log_info(f"Recorded {len(terms)} {source} keyword(s) for {market} in {keyword_registry.REGISTRY}: appended {done['appended']} rows"
-             + (f"; refused {len(done['refused'])} brand keyword(s), never tracked" if done["refused"] else ""))
+    log_info(keyword_registry.record_note(done, len(terms), source, market))
 
 
 def cmd_keywords_registry(args):
@@ -143,7 +143,11 @@ def cmd_keywords_registry(args):
         print(f"Store not found: {store}")
         return 2
     action = getattr(args, "registry_action", None)
-    as_of = dt.date.fromisoformat(args.as_of) if getattr(args, "as_of", None) else dt.date.today()
+    try:
+        as_of = dt.date.fromisoformat(args.as_of) if getattr(args, "as_of", None) else dt.date.today()
+    except ValueError:
+        print(f"Error: --as-of must be a day as YYYY-MM-DD, not {args.as_of!r}")
+        return 2
     if action in ("build", "add"):
         print(f"as of {as_of}")
         try:
@@ -161,6 +165,10 @@ def cmd_keywords_registry(args):
         if done["refused"]:
             names = [f"{m} {k}" for m, k in done["refused"]]
             print(f"refused {len(names)} brand keys (never tracked): " + ", ".join(names[:8]) + (" ..." if len(names) > 8 else ""))
+        if done["unsafe"]:
+            names = [f"{m} {k}" for m, k in done["unsafe"]]
+            print(f"refused {len(names)} terms starting with = + - or @ (a spreadsheet would run them as a formula): "
+                  + ", ".join(names[:8]) + (" ..." if len(names) > 8 else ""))
         print("read, keys by source: " + " · ".join(f"{name} {n}" for name, n in done["read"].items()))
         for where, why in done["skipped"][:12]:
             print(f"NOTE {where}: {why}")

@@ -96,6 +96,9 @@ self-contained page. The same store and day give the same bytes.
   candidates not yet tracked and the largest overlaps; `keywords registry add`, and `--record` on `keywords hints`,
   `keywords competitors`, `google suggest` and `harvest_keywords.py`, put what the network found into it with its
   source. The two apostrophes stay two rows (U+0027 and U+2019 are two queries to Apple); `show` lists the pairs.
+  `add` takes only what a network command finds, and refuses (and names) a term starting with `=`, `+`, `-` or `@`; a key a
+  tracking list names is not shown as a candidate; a file with no `text` column, an unreadable text file, a basket for a market
+  that is no storefront and a store with no brand tokens are reported, not skipped quietly.
 
 **Changed behaviour to know about.** The pass pulls the funnel with the skill's own `pull_funnel.py` even
 when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,

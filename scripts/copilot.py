@@ -29,6 +29,14 @@ from aso.commands.dashboard import cmd_build, cmd_check, cmd_due, cmd_export, cm
 from aso.commands.google import cmd_google  # noqa: E402
 from aso.commands.keywords import cmd_keywords  # noqa: E402
 from aso.commands.status import cmd_brief, cmd_info, cmd_status  # noqa: E402
+from aso.keyword_registry import NETWORK_SOURCES  # noqa: E402
+
+
+def _at_least_one(text):
+    number = int(text)
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not 1 or more")
+    return number
 
 
 def build_parser():
@@ -94,12 +102,11 @@ def build_parser():
     p_rbuild.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the rows are recorded for (default: today)")
     p_rshow = reg_subs.add_parser("show", help="Counts by market and source, candidates not yet tracked, overlaps, apostrophe twins",
                                   parents=[common_parent])
-    p_rshow.add_argument("--limit", type=int, default=10, help="How many candidates and overlaps to list (default: 10)")
+    p_rshow.add_argument("--limit", type=_at_least_one, default=10, help="How many candidates and overlaps to list (default: 10)")
     p_radd = reg_subs.add_parser("add", help="Record keywords a network command found, with their source", parents=[common_parent])
     p_radd.add_argument("terms", nargs="+", help="The keywords found")
     p_radd.add_argument("--market", "-c", required=True, help="Storefront code they were found for (e.g. us, pl)")
-    p_radd.add_argument("--source", required=True, help="Where they were found: ranks, tracking-file, ads-keyword, ads-search-term, "
-                                                         "autocomplete-hints, google-suggest, competitor-harvest, hypothesis-basket, popularity-head")
+    p_radd.add_argument("--source", required=True, choices=NETWORK_SOURCES, help="Which network command found them")
     p_radd.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day they were seen (default: today)")
 
     # ads

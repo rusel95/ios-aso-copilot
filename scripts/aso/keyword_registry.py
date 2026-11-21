@@ -6,7 +6,8 @@ own files and from what the network commands record with `add`. Nothing here ask
 passes the day.
 
 A brand key is never tracked: `Pool.see`, the one door every source goes through, turns it away, and `build` drops
-a brand row an older file still holds (the one time the file is rewritten).
+a brand row an older file still holds (the one time the file is rewritten). A term a network command found that starts
+with `=`, `+`, `-` or `@` is turned away too: a spreadsheet would run it as a formula.
 """
 from __future__ import annotations
 
@@ -31,6 +32,9 @@ KEY = ("market", "key_norm")
 # Where a keyword was found. Closed, like references/provenance.md: a new kind is added here and in state-store.md.
 SOURCES = ("ranks", "tracking-file", "ads-keyword", "ads-search-term", "autocomplete-hints", "google-suggest",
            "competitor-harvest", "hypothesis-basket", "popularity-head")
+# What `add` takes: only what a network command finds. The other kinds mean "read from a file", and `sources` only grows.
+NETWORK_SOURCES = ("autocomplete-hints", "google-suggest", "competitor-harvest")
+FORMULA_START = ("=", "+", "-", "@")   # a cell that starts so is a formula to Excel, Numbers and Sheets
 OWN_GROUPS = ("own", "title")          # the store's own tags for the app's metadata words (ranks `group`, tracking `##`)
 # What `keywords filter` and the Apple Ads work leave under ads/: only reviewed or live keywords, and Apple's own hints.
 ADS_FILES = {"accepted.csv", "keywords.txt", "reviewed_live.csv", "market_specific_observed.csv", "native_seeds.tsv"}
@@ -47,8 +51,33 @@ def key_norm(text) -> str:
 
 def is_brand(tokens, keyword) -> bool:
     """A brand key: a whole-word hit of any `**Brand tokens**` token (`aso.ranks.brand_hit`), so `tidepoolish`
-    is not a hit for `tidepool`."""
-    return any(brand_hit(t, keyword or "") for t in tokens)
+    is not a hit for `tidepool`. Both sides are NFC, as `Pool.see` reads a key."""
+    keyword = unicodedata.normalize("NFC", keyword or "")
+    return any(brand_hit(unicodedata.normalize("NFC", t), keyword) for t in tokens)
+
+
+def _formula(text) -> bool:
+    """A term a spreadsheet would run as a formula: it starts with `=`, `+`, `-` or `@`."""
+    return " ".join((text or "").split()).startswith(FORMULA_START)
+
+
+def _names(items) -> str:
+    """The first eight terms of (market, keyword) pairs, for a line a person reads."""
+    names = [k for _, k in items]
+    return ", ".join(names[:8]) + (" ..." if len(names) > 8 else "")
+
+
+def record_note(done: dict, count: int, source: str, market: str) -> str:
+    """The line `--record` reports: what was recorded, and every term turned away, by name."""
+    parts = [f"Recorded {count} {source} keyword(s) for {market} in {REGISTRY}: appended {done['appended']} rows"]
+    if done["refused"]:
+        parts.append(f"refused {len(done['refused'])} brand keyword(s), never tracked: {_names(done['refused'])}")
+    if done["unsafe"]:
+        parts.append(f"refused {len(done['unsafe'])} term(s) starting with = + - or @ (a spreadsheet would run them as a "
+                     f"formula): {_names(done['unsafe'])}")
+    if not done["brand_tokens"]:
+        parts.append("NOTE config.md names no **Brand tokens**, so no brand keyword was refused")
+    return "; ".join(parts)
 
 
 class Pool:
@@ -78,10 +107,18 @@ class Pool:
 
 def _table(path: Path, rel: str) -> list:
     try:
-        with path.open(encoding="utf-8", newline="") as fh:
+        with path.open(encoding="utf-8-sig", newline="") as fh:        # a spreadsheet's "CSV UTF-8" starts with a BOM
             return list(csv.DictReader(fh, delimiter="\t" if path.suffix == ".tsv" else ","))
     except (OSError, UnicodeDecodeError, csv.Error) as exc:
         problem(rel, f"cannot be read as a table ({exc}); its keywords are NOT in the registry")
+        return []
+
+
+def _lines(path: Path, rel: str) -> list:
+    try:
+        return path.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        problem(rel, f"cannot be read as text ({exc}); its keywords are NOT in the registry")
         return []
 
 
@@ -93,7 +130,7 @@ def _tracking(pool: Pool, store: Path, skipped: list) -> None:
             skipped.append((f"keywords/{path.name}", "its name does not give a storefront"))
             continue
         group = ""
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in _lines(path, f"keywords/{path.name}"):
             line = line.strip()
             if line.startswith("##"):
                 group = line.lstrip("#").split("(")[0].strip().lower()
@@ -110,10 +147,12 @@ def _ads(pool: Pool, store: Path, skipped: list) -> None:
         home = next((m.group(1) for part in path.relative_to(root).parts[:-1]
                      if (m := FOLDER.match(part)) and m.group(1) in STOREFRONTS), "")
         if path.suffix == ".txt":
-            rows = [{"text": line.strip()} for line in path.read_text(encoding="utf-8").splitlines()
-                    if line.strip() and not line.startswith("#")]
+            rows = [{"text": s} for s in (line.strip() for line in _lines(path, rel)) if s and not s.startswith("#")]
         else:
             rows = _table(path, rel)
+        if rows and not {"text", "suggestion"} & set(rows[0]):
+            skipped.append((rel, "has no `text` or `suggestion` column; its keywords are NOT in the registry"))
+            continue
         for row in rows:
             asked = (row.get("market") or "").strip().lower()
             market = asked or home
@@ -166,10 +205,15 @@ def _drop_brand(path: Path, brand) -> int:
 def build(store: Path, as_of, found=()) -> dict:
     """Fold every source of the store, and the sightings in `found` ((market, keyword, source) the network just
     returned, dated `as_of`), into the registry. Appends a row for a key that is new or whose values changed; `sources`
-    and the days only grow. A brand key is refused, and an older file's brand keys are dropped. Returns {appended, keys,
-    new, read, skipped, dropped, refused}."""
+    and the days only grow. A brand key is refused, and an older file's brand keys are dropped; a found term that starts
+    with `=`, `+`, `-` or `@` is refused. Returns {appended, keys, new, read, skipped, dropped, refused, unsafe,
+    brand_tokens}."""
     store, as_of = Path(store), str(as_of)
+    if not store.is_dir():
+        raise ValueError(f"store not found: {store}")                  # never create a store by recording into it
     brand = read_brand_tokens(store)
+    if not brand:
+        problem("config.md", "names no **Brand tokens**, so no brand key is refused and the registry may hold brand keys")
     dropped = _drop_brand(store / REGISTRY, brand)
     held = {(r["market"], r["key_norm"]): r for r in read_registry(store)}
     ranks, pool, skipped = read_ranks(store), Pool(brand), []
@@ -181,11 +225,19 @@ def build(store: Path, as_of, found=()) -> dict:
         pool.see(r.get("market"), r.get("term"), "popularity-head", r.get("captured") or "")
     for h in read_hypotheses(store):
         queries = [q.strip() for q in (h.get("queries") or "").split(";") if q.strip()]
-        for market in (m for m in hyp_markets(h) if m in STOREFRONTS):
+        for market in hyp_markets(h):
+            if market not in STOREFRONTS:
+                if queries:
+                    skipped.append((f"hypotheses/{h['id']}", f"market {market!r} is not a storefront, {len(queries)} queries not placed"))
+                continue
             for query in queries:
                 pool.see(market, query, "hypothesis-basket", hypothesis=h["id"])
+    unsafe = []
     for market, keyword, source in found:
-        pool.see(market, keyword, source, as_of)
+        if _formula(keyword):
+            unsafe.append((market, keyword))
+        else:
+            pool.see(market, keyword, source, as_of)
 
     latest, demand = _latest_ranks(ranks), demand_lookup(store)
     rows = []
@@ -207,19 +259,19 @@ def build(store: Path, as_of, found=()) -> dict:
     appended = append_changed(store / REGISTRY, COLUMNS, rows, KEY)
     return {"appended": appended, "keys": len(rows), "new": len(set(pool.keys) - set(held)), "skipped": skipped,
             "read": dict(sorted(Counter(s for seen in pool.keys.values() for s in seen["sources"]).items())),
-            "dropped": dropped, "refused": sorted(pool.refused)}
+            "dropped": dropped, "refused": sorted(pool.refused), "unsafe": unsafe, "brand_tokens": len(brand)}
 
 
 def add(store: Path, market: str, keywords, source: str, as_of) -> dict:
     """Record what a network command found: `keywords` for `market`, from `source`, seen on `as_of`."""
-    if source not in SOURCES:
-        raise ValueError(f"unknown source {source!r}; the registry knows {', '.join(SOURCES)}")
+    if source not in NETWORK_SOURCES:
+        raise ValueError(f"{source!r} is not something a network command finds; add records {', '.join(NETWORK_SOURCES)}")
     market = (market or "").strip().lower()
     if market not in STOREFRONTS:
         raise ValueError(f"{market!r} is not an App Store storefront code")
     done = build(store, as_of, [(market, k, source) for k in keywords])
     brand = read_brand_tokens(Path(store))
-    return {**done, "refused": [(market, k) for k in keywords if is_brand(brand, k)]}   # the terms handed in, not the store's own brand keys
+    return {**done, "refused": [(market, k) for k in keywords if not _formula(k) and is_brand(brand, k)]}   # the terms handed in, not the store's own brand keys
 
 
 def twins(rows: list) -> list:
@@ -233,7 +285,7 @@ def twins(rows: list) -> list:
 
 def summary(rows: list, limit: int = 10) -> dict:
     """What `show` prints. Counts are an inventory and keep the excluded rows (shown apart); the candidates and the
-    overlaps, which feed decisions, leave them out."""
+    overlaps, which feed decisions, leave them out; a candidate is also not on a tracking list already."""
     by_market, by_source, excluded, pairs, candidates = {}, Counter(), Counter(), Counter(), []
     for r in rows:
         sources = [s for s in r["sources"].split(";") if s]
@@ -246,7 +298,7 @@ def summary(rows: list, limit: int = 10) -> dict:
             excluded[r["excluded"]] += 1
             continue
         pairs.update(itertools.combinations(sorted(sources), 2))
-        if r["tracked"] != "yes":
+        if r["tracked"] != "yes" and "tracking-file" not in sources:      # a key on a tracking list is chosen, only unswept
             m["candidates"] += 1
             candidates.append((len(sources), r))
     candidates.sort(key=lambda c: (-c[0], c[1]["market"], c[1]["key_norm"]))

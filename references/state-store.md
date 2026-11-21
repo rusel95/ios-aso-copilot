@@ -237,20 +237,23 @@ us,tide times,tide times,2026-10-05,2026-11-02,hypothesis-basket;popularity-head
 | `key_norm` | the identity: NFC, case-folded, single-spaced (`aso.store.norm`). **The apostrophe is left as typed** |
 | `first_seen`, `last_seen` | earliest and latest dated sighting: a rank read, a popularity capture, a recorded find. A key only a file names is first held on the day it is added |
 | `sources` | `;`-joined, sorted, only grows (below) |
-| `tracked` | `yes` when `metrics/ranks.csv` holds a row for the key |
+| `tracked` | `yes` when `metrics/ranks.csv` holds a row for the key. A key a tracking list names is chosen, only not swept yet: `show` does not list it as a candidate |
 | `popularity` | `head N`, `below N` (Apple lists terms above N only: **unknown, not zero**), `no data` (Apple lists nothing there) or blank (never pulled); the latest stored week, as `radar` reads it |
 | `position`, `status`, `rank_date` | the newest rank read that observed something, else the newest failed one. Blank position with `beyond-depth` is not in the top `depth`, not a rank |
 | `hypotheses` | `;`-joined ids of the `H` hypotheses whose `queries:` name this exact key in this market |
 | `excluded` | `own-metadata` (a key the store tags `own` or `title`: ranks `group`, or a `## OWN` / `## TITLE` head in a tracking list), else blank. The row is kept and flagged; `show` leaves it out of candidates and overlaps. The skill holds no title or subtitle text offline, so a phrase copied from them that nothing tagged is not caught. A brand key has no row at all (next line) |
+| `captured` | the day the row was appended. Not a value: a row that differs only here is not appended |
 
 **A brand key is never tracked.** A key is a brand key when `aso.ranks.brand_hit` is true for any `**Brand tokens**` token of
 `config.md` (a whole word: `tidepoolish` is not a hit for `tidepool`). Every way in (`build` from the store's files,
 `add`, `--record`) refuses one and says how many; `build` also drops the rows of any an older registry still holds, the
 one time the file is rewritten (whole or not at all), and `show` never lists one. `ranks.csv` is not touched: it stays the ledger.
-| `captured` | the day the row was appended. Not a value: a row that differs only here is not appended |
 
 `sources` is where a keyword was found, a closed list (a new kind is added in `aso/keyword_registry.py` and here); it is not
-a provenance tag. A figure taken from a row cites `store:metrics/ranks.csv#<rank_date>/<market>` as always, and a
+a provenance tag. `add` and `--record` take only the three a network command finds (`autocomplete-hints`, `google-suggest`,
+`competitor-harvest`): the others mean "read from a file", and `sources` only grows, so a wrong one could never be taken back.
+A term they bring that starts with `=`, `+`, `-` or `@` is refused and named, because a spreadsheet would run it as a formula; a
+file the owner wrote is read as written. `--record` dates a find with the UTC day, as `harvest_keywords.py` does. A figure taken from a row cites `store:metrics/ranks.csv#<rank_date>/<market>` as always, and a
 recorded find is `live:<command>@<last_seen>`.
 
 | Kind | Read from |
@@ -268,7 +271,9 @@ recorded find is `live:<command>@<last_seen>`.
 Not read: before review or after rejection (`*_candidates.csv`, `*_keywords_5000.txt`, `rejected.csv`, `batches/`, `final.tsv`,
 `review.tsv`), mutation logs, channel hypotheses. An ads file's market is its rows' `market` column, else the first folder
 under `ads/` that starts with a storefront code and `_` (`de_reviewed`, `il_h076`, `se`; not `nordic_h077`). A file or row that names none (a
-language folder, a campaign shared by two storefronts) is **not guessed**: `build` prints a `NOTE` for it.
+language folder, a campaign shared by two storefronts) is **not guessed**: `build` prints a `NOTE` for it. So does a file with
+no `text` or `suggestion` column, a text file that cannot be read (a BOM is read through), a hypothesis with `queries:` whose
+`markets:` value is no storefront (`all`), and a `config.md` with no `**Brand tokens**` line, where no brand key can be refused.
 
 **The two apostrophes.** `п'ятниця море` (U+0027) and `п’ятниця море` (U+2019, what Apple's autocomplete types)
 are two queries to Apple: in one real store, on one day, the same app ranked #37 for one and #18 for the other. So they are two rows with two `key_norm`s,
