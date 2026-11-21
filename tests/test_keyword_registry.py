@@ -79,10 +79,10 @@ class Build(unittest.TestCase):
         rows = built(self.store)
         self.assertEqual(sorted(k for k in rows if rows[k]["tracked"] == "yes"),
                          sorted({(m, kr.key_norm(w)) for m, w in [
-                             ("us", "tidepool"), ("us", "tide tracker"), ("us", "tide times"), ("us", "surf forecast"),
-                             ("us", "moon phase"), ("us", "sea level"), ("ua", "tidepool"), ("ua", "приплив"),
+                             ("us", "tide tracker"), ("us", "tide times"), ("us", "surf forecast"),
+                             ("us", "moon phase"), ("us", "sea level"), ("ua", "приплив"),
                              ("ua", "графік припливів"), ("ua", "прогноз хвиль"), ("ua", "фаза місяця"), ("ua", "п’ятниця море")]}))
-        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(rows), 10)                       # the sample's brand word, tidepool, is tracked in us and ua: refused
 
     def test_the_two_apostrophes_stay_two_rows_and_the_hypothesis_names_one(self):
         append(self.store, "metrics/ranks.csv",
@@ -133,23 +133,39 @@ class Build(unittest.TestCase):
         self.assertEqual(rows[("ua", "приплив")]["popularity"], "no data")        # Apple lists nothing for ua
         self.assertEqual(rows[("gb", "storage")]["popularity"], "")                 # gb was never pulled: no answer at all
 
-    def test_brand_and_own_metadata_rows_are_kept_and_flagged(self):
-        write(self.store, "keywords/tracking-us.txt", "## OWN (1)\ntide\n## TARGET (1)\nsurf spots\n")
-        write(self.store, "ads/us_reviewed/accepted.csv", "text,evidence\ntidepool app,model\ntidepoolish,model\n")
+    def test_brand_keys_are_refused_from_every_source_and_own_metadata_is_flagged(self):
+        write(self.store, "keywords/tracking-us.txt", "## OWN (1)\ntide\n## TARGET (2)\nsurf spots\ntidepool tracker\n")
+        write(self.store, "ads/us_reviewed/accepted.csv", "text,evidence\ntidepool app,model\ntidepoolish,model\ntide pool,model\n")
+        write(self.store, "hypotheses/H009-brand.md", "---\nid: H009\nmarkets: us\nqueries: tidepool;wave height\nstatus: draft\n---\n")
         append(self.store, "metrics/ranks.csv", "2026-11-09,us,my subtitle words,title,12,,,itunes-search-api,200,ok\n")
-        rows = built(self.store)
-        self.assertEqual(rows[("us", "tidepool")]["excluded"], "brand")
-        self.assertEqual(rows[("us", "tidepool app")]["excluded"], "brand")
+        result = kr.build(self.store, AS_OF)
+        rows = {(r["market"], r["key_norm"]): r for r in kr.read_registry(self.store)}
+        for brand in [("us", "tidepool"), ("ua", "tidepool"), ("us", "tidepool app"), ("us", "tidepool tracker")]:
+            self.assertNotIn(brand, rows)                                           # ranks, ads, tracking list and basket alike
+        self.assertEqual(result["refused"], [("ua", "tidepool"), ("us", "tidepool"), ("us", "tidepool app"), ("us", "tidepool tracker")])
+        self.assertIn("tidepool", (self.store / "metrics" / "ranks.csv").read_text(encoding="utf-8"))   # the ledger is not touched
         self.assertEqual(rows[("us", "tidepoolish")]["excluded"], "")             # a brand token is a whole word, as everywhere
+        self.assertIn(("us", "tide pool"), rows)                                    # only its letters, not the word: kept
         self.assertEqual(rows[("us", "tide")]["excluded"], "own-metadata")
         self.assertEqual(rows[("us", "my subtitle words")]["excluded"], "own-metadata")
         self.assertEqual(rows[("us", "surf spots")]["excluded"], "")
+        self.assertEqual(rows[("us", "wave height")]["hypotheses"], "H009")         # the basket's other query still counts
         shown = kr.summary(list(rows.values()))
-        self.assertEqual(shown["excluded"], {"brand": 3, "own-metadata": 2})        # tidepool in us and ua, and tidepool app
+        self.assertEqual(shown["excluded"], {"own-metadata": 2})
         names = {c["keyword"] for c in shown["candidates"]}
-        self.assertNotIn("tidepool app", names)
         self.assertNotIn("tide", names)
         self.assertIn("surf spots", names)
+
+    def test_an_older_registry_that_holds_brand_keys_is_cleaned_and_the_rest_is_left_as_it_was(self):
+        kr.build(self.store, AS_OF)
+        clean = (self.store / kr.REGISTRY).read_bytes()
+        stale = ",".join(["us", "Tidepool", "tidepool", AS_OF, AS_OF, "ranks", "yes", "", "1", "ok", AS_OF, "", "brand", AS_OF])
+        append(self.store, kr.REGISTRY, stale + "\n" + stale.replace("ranks", "ads-keyword") + "\n")
+        self.assertNotIn(("us", "tidepool"), {(r["market"], r["key_norm"]) for r in kr.read_registry(self.store)})   # a reader never sees it
+        result = kr.build(self.store, AS_OF)
+        self.assertEqual((result["dropped"], result["appended"]), (1, 0))           # one key, though it held two rows
+        self.assertEqual((self.store / kr.REGISTRY).read_bytes(), clean)
+        self.assertEqual(kr.build(self.store, AS_OF)["dropped"], 0)
 
     def test_files_that_name_no_storefront_are_reported_not_dropped_quietly(self):
         write(self.store, "ads/de_reviewed/accepted.csv", "text,evidence\nvideo komprimieren,model\n")
@@ -189,6 +205,17 @@ class Add(unittest.TestCase):
         self.assertEqual(rows[("us", "tide times")]["sources"], "autocomplete-hints;hypothesis-basket;popularity-head;ranks")
         self.assertEqual(kr.add(self.store, "us", ["Tide Chart App"], "autocomplete-hints", AS_OF)["appended"], 0)
 
+    def test_a_brand_keyword_is_refused_and_a_generic_one_with_its_letters_is_kept(self):
+        kr.build(self.store, AS_OF)
+        result = kr.add(self.store, "us", ["Tidepool Tides", "tidepoolish", "tide pool", "wave height"], "google-suggest", AS_OF)
+        self.assertEqual(result["refused"], [("us", "Tidepool Tides")])            # what was handed in, not the store's own brand keys
+        self.assertEqual(result["appended"], 3)
+        rows = {(r["market"], r["key_norm"]): r for r in kr.read_registry(self.store)}
+        self.assertNotIn(("us", "tidepool tides"), rows)
+        self.assertEqual(rows[("us", "tidepoolish")]["sources"], "google-suggest")
+        self.assertIn(("us", "tide pool"), rows)
+        self.assertNotIn("Tidepool Tides", (self.store / kr.REGISTRY).read_text(encoding="utf-8"))
+
     def test_a_source_outside_the_list_is_refused(self):
         with self.assertRaises(ValueError):
             kr.add(self.store, "us", ["x"], "a-friend-said", AS_OF)
@@ -211,9 +238,9 @@ class Show(unittest.TestCase):
         rows = built(self.store)
         shown = kr.summary(list(rows.values()))
         self.assertEqual(shown["keys"], len(rows))
-        self.assertEqual(shown["by_market"]["us"], {"keys": 8, "tracked": 6, "candidates": 2, "excluded": 1})
+        self.assertEqual(shown["by_market"]["us"], {"keys": 7, "tracked": 5, "candidates": 2, "excluded": 0})
         self.assertEqual(shown["by_source"]["tracking-file"], 2)
-        self.assertEqual(shown["by_source"]["ranks"], 14)
+        self.assertEqual(shown["by_source"]["ranks"], 12)
         self.assertEqual({c["keyword"] for c in shown["candidates"]}, {"wave height", "tide chart"})
         self.assertEqual(shown["overlaps"][0], {"sources": ["hypothesis-basket", "ranks"], "keys": 7})
         self.assertIn({"sources": ["ads-keyword", "tracking-file"], "keys": 1}, shown["overlaps"])
@@ -235,7 +262,8 @@ class Command(unittest.TestCase):
     def test_build_show_and_add_through_the_cli(self):
         code, out, err = run("copilot.py", "keywords", "registry", "build", "--store", str(self.store), "--as-of", AS_OF)
         self.assertEqual((code, err), (0, ""), out)
-        self.assertIn("appended 12", out)
+        self.assertIn("appended 10", out)
+        self.assertIn("refused 2 brand keys (never tracked): ua tidepool, us tidepool", out)
         code, out, _ = run("copilot.py", "keywords", "registry", "build", "--store", str(self.store), "--as-of", AS_OF)
         self.assertIn("appended 0", out)
         code, out, _ = run("copilot.py", "keywords", "registry", "add", "--store", str(self.store), "--as-of", AS_OF,
@@ -244,7 +272,7 @@ class Command(unittest.TestCase):
         self.assertIn("appended 2", out)
         code, out, _ = run("copilot.py", "keywords", "registry", "show", "--store", str(self.store), "--json")
         shown = json.loads(out)
-        self.assertEqual((code, shown["keys"]), (0, 14))
+        self.assertEqual((code, shown["keys"]), (0, 12))
         self.assertEqual(shown["by_source"]["google-suggest"], 2)
 
     def test_record_on_the_network_commands_files_what_they_found_with_its_source(self):

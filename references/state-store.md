@@ -223,7 +223,7 @@ One pool of every keyword the store knows, so each is collected once and says wh
 `keywords competitors` and `google suggest` find is only printed. `copilot.py keywords registry build` folds the files
 and `keywords registry add` (or `--record` on those commands and on `harvest_keywords.py`) puts in what the network
 found. Offline: no network, and no clock but `--as-of` (default today). Append-only like every series: a row is added
-when a key is new or one of its values changed, never rewritten, and a reader takes the latest row of each
+when a key is new or one of its values changed, never rewritten (but for dropping a brand key, below), and a reader takes the latest row of each
 `(market, key_norm)`. The same store and day give the same bytes, and a second build appends 0 rows.
 
 ```csv
@@ -241,7 +241,12 @@ us,tide times,tide times,2026-10-05,2026-11-02,hypothesis-basket;popularity-head
 | `popularity` | `head N`, `below N` (Apple lists terms above N only: **unknown, not zero**), `no data` (Apple lists nothing there) or blank (never pulled); the latest stored week, as `radar` reads it |
 | `position`, `status`, `rank_date` | the newest rank read that observed something, else the newest failed one. Blank position with `beyond-depth` is not in the top `depth`, not a rank |
 | `hypotheses` | `;`-joined ids of the `H` hypotheses whose `queries:` name this exact key in this market |
-| `excluded` | `brand` (config.md `**Brand tokens**`, whole words, `aso.ranks.brand_hit`) or `own-metadata` (a key the store tags `own` or `title`: ranks `group`, or a `## OWN` / `## TITLE` head in a tracking list), else blank. The row is kept and flagged; `show` leaves it out of candidates and overlaps. The skill holds no title or subtitle text offline, so a phrase copied from them that nothing tagged is not caught |
+| `excluded` | `own-metadata` (a key the store tags `own` or `title`: ranks `group`, or a `## OWN` / `## TITLE` head in a tracking list), else blank. The row is kept and flagged; `show` leaves it out of candidates and overlaps. The skill holds no title or subtitle text offline, so a phrase copied from them that nothing tagged is not caught. A brand key has no row at all (next line) |
+
+**A brand key is never tracked.** A key is a brand key when `aso.ranks.brand_hit` is true for any `**Brand tokens**` token of
+`config.md` (a whole word: `tidepoolish` is not a hit for `tidepool`). Every way in (`build` from the store's files,
+`add`, `--record`) refuses one and says how many; `build` also drops the rows of any an older registry still holds, the
+one time the file is rewritten (whole or not at all), and `show` never lists one. `ranks.csv` is not touched: it stays the ledger.
 | `captured` | the day the row was appended. Not a value: a row that differs only here is not appended |
 
 `sources` is where a keyword was found, a closed list (a new kind is added in `aso/keyword_registry.py` and here); it is not

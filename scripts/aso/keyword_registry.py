@@ -4,11 +4,15 @@ One logical row per (market, query) in `keywords/registry.csv`. The file is appe
 when a key is new or a value of it changed, and a reader takes the latest row of each key. It is built from the store's
 own files and from what the network commands record with `add`. Nothing here asks the network or the clock: the caller
 passes the day.
+
+A brand key is never tracked: `Pool.see`, the one door every source goes through, turns it away, and `build` drops
+a brand row an older file still holds (the one time the file is rewritten).
 """
 from __future__ import annotations
 
 import csv
 import itertools
+import os
 import re
 import unicodedata
 from collections import Counter
@@ -41,16 +45,26 @@ def key_norm(text) -> str:
     return norm(unicodedata.normalize("NFC", text or ""))
 
 
-class Pool:
-    """Everything one run saw, by key: the first spelling, the sources, the days it was dated, the hypotheses, own-ness."""
+def is_brand(tokens, keyword) -> bool:
+    """A brand key: a whole-word hit of any `**Brand tokens**` token (`aso.ranks.brand_hit`), so `tidepoolish`
+    is not a hit for `tidepool`."""
+    return any(brand_hit(t, keyword or "") for t in tokens)
 
-    def __init__(self):
-        self.keys = {}
+
+class Pool:
+    """Everything one run saw, by key: the first spelling, the sources, the days it was dated, the hypotheses, own-ness.
+    A brand key is refused here and listed in `refused`, whichever source brought it."""
+
+    def __init__(self, brand=()):
+        self.keys, self.brand, self.refused = {}, brand, set()
 
     def see(self, market, keyword, source, day="", hypothesis="", own=False):
         market = (market or "").strip().lower()
         spelling = " ".join(unicodedata.normalize("NFC", keyword or "").split())
         if not market or not spelling:
+            return
+        if is_brand(self.brand, spelling):
+            self.refused.add((market, norm(spelling)))
             return
         seen = self.keys.setdefault((market, norm(spelling)), {"keyword": spelling, "sources": set(), "days": set(),
                                                                "hypotheses": set(), "own": False})
@@ -125,18 +139,40 @@ def _latest_ranks(rows: list) -> dict:
 
 
 def read_registry(store: Path) -> list:
-    """The latest row of every key, in key order."""
-    latest = {(r["market"], r["key_norm"]): r for r in read_csv(Path(store) / REGISTRY)}
+    """The latest row of every key, in key order. A brand key is never one, even if an older file still holds it."""
+    brand = read_brand_tokens(Path(store))
+    latest = {(r["market"], r["key_norm"]): r for r in read_csv(Path(store) / REGISTRY) if not is_brand(brand, r["keyword"])}
     return [latest[k] for k in sorted(latest)]
+
+
+def _drop_brand(path: Path, brand) -> int:
+    """Remove the keys of an older registry that are brand keys, every row of them, and say how many keys went. The file
+    is replaced whole or not at all."""
+    rows = read_csv(path)
+    gone = {(r["market"], r["key_norm"]) for r in rows if is_brand(brand, r["keyword"])}
+    if gone:
+        tmp = path.with_name(path.name + ".dropping")
+        try:
+            with tmp.open("w", encoding="utf-8", newline="") as fh:
+                writer = csv.DictWriter(fh, fieldnames=COLUMNS, lineterminator="\n")
+                writer.writeheader()
+                writer.writerows(r for r in rows if (r["market"], r["key_norm"]) not in gone)
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
+    return len(gone)
 
 
 def build(store: Path, as_of, found=()) -> dict:
     """Fold every source of the store, and the sightings in `found` ((market, keyword, source) the network just
     returned, dated `as_of`), into the registry. Appends a row for a key that is new or whose values changed; `sources`
-    and the days only grow. Returns {appended, keys, new, read, skipped}."""
+    and the days only grow. A brand key is refused, and an older file's brand keys are dropped. Returns {appended, keys,
+    new, read, skipped, dropped, refused}."""
     store, as_of = Path(store), str(as_of)
+    brand = read_brand_tokens(store)
+    dropped = _drop_brand(store / REGISTRY, brand)
     held = {(r["market"], r["key_norm"]): r for r in read_registry(store)}
-    ranks, pool, skipped = read_ranks(store), Pool(), []
+    ranks, pool, skipped = read_ranks(store), Pool(brand), []
     for r in ranks:
         pool.see(r["market"], r["keyword"], "ranks", r["date"], own=(r.get("group") or "").strip().lower() in OWN_GROUPS)
     _tracking(pool, store, skipped)
@@ -151,7 +187,7 @@ def build(store: Path, as_of, found=()) -> dict:
     for market, keyword, source in found:
         pool.see(market, keyword, source, as_of)
 
-    latest, demand, brand = _latest_ranks(ranks), demand_lookup(store), read_brand_tokens(store)
+    latest, demand = _latest_ranks(ranks), demand_lookup(store)
     rows = []
     for key in sorted(set(pool.keys) | set(held)):
         seen, old = pool.keys.get(key, {}), held.get(key, {})
@@ -167,11 +203,11 @@ def build(store: Path, as_of, found=()) -> dict:
             "tracked": "yes" if rank else "no", "popularity": "" if label == "—" else label,
             "position": str(rank["position"] or "") if rank else "", "status": rank["status"] if rank else "",
             "rank_date": rank["date"] if rank else "", "hypotheses": ";".join(sorted(seen.get("hypotheses", ()))),
-            "excluded": "brand" if any(brand_hit(t, keyword) for t in brand) else "own-metadata" if seen.get("own") else "",
-            "captured": as_of})
+            "excluded": "own-metadata" if seen.get("own") else "", "captured": as_of})
     appended = append_changed(store / REGISTRY, COLUMNS, rows, KEY)
     return {"appended": appended, "keys": len(rows), "new": len(set(pool.keys) - set(held)), "skipped": skipped,
-            "read": dict(sorted(Counter(s for seen in pool.keys.values() for s in seen["sources"]).items()))}
+            "read": dict(sorted(Counter(s for seen in pool.keys.values() for s in seen["sources"]).items())),
+            "dropped": dropped, "refused": sorted(pool.refused)}
 
 
 def add(store: Path, market: str, keywords, source: str, as_of) -> dict:
@@ -181,7 +217,9 @@ def add(store: Path, market: str, keywords, source: str, as_of) -> dict:
     market = (market or "").strip().lower()
     if market not in STOREFRONTS:
         raise ValueError(f"{market!r} is not an App Store storefront code")
-    return build(store, as_of, [(market, k, source) for k in keywords])
+    done = build(store, as_of, [(market, k, source) for k in keywords])
+    brand = read_brand_tokens(Path(store))
+    return {**done, "refused": [(market, k) for k in keywords if is_brand(brand, k)]}   # the terms handed in, not the store's own brand keys
 
 
 def twins(rows: list) -> list:

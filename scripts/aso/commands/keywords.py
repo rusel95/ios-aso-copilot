@@ -132,7 +132,8 @@ def record_found(args, market, terms, source):
     except (ValueError, OSError) as exc:
         log_error(f"Not recorded in the keyword registry: {exc}")
         return
-    log_info(f"Recorded {len(terms)} {source} keyword(s) for {market} in {keyword_registry.REGISTRY}: appended {done['appended']} rows")
+    log_info(f"Recorded {len(terms)} {source} keyword(s) for {market} in {keyword_registry.REGISTRY}: appended {done['appended']} rows"
+             + (f"; refused {len(done['refused'])} brand keyword(s), never tracked" if done["refused"] else ""))
 
 
 def cmd_keywords_registry(args):
@@ -155,6 +156,11 @@ def cmd_keywords_registry(args):
             return 2
         print(f"registry {action}: appended {done['appended']} rows ({done['new']} new keys) to {keyword_registry.REGISTRY}; "
               f"{done['keys']} keys in all")
+        if done["dropped"]:
+            print(f"dropped {done['dropped']} brand keys an older registry held (a brand key is never tracked)")
+        if done["refused"]:
+            names = [f"{m} {k}" for m, k in done["refused"]]
+            print(f"refused {len(names)} brand keys (never tracked): " + ", ".join(names[:8]) + (" ..." if len(names) > 8 else ""))
         print("read, keys by source: " + " · ".join(f"{name} {n}" for name, n in done["read"].items()))
         for where, why in done["skipped"][:12]:
             print(f"NOTE {where}: {why}")

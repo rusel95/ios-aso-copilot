@@ -131,7 +131,8 @@ def _record(args: argparse.Namespace, market: str, terms: list[str], source: str
     """`--record`: put what was just printed into the store's keyword registry (offline; dated today)."""
     from aso import keyword_registry
     done = keyword_registry.add(Path(args.store).resolve(), market, terms, source, _today())
-    print(f"recorded {len(terms)} {source} keyword(s) in {keyword_registry.REGISTRY}: appended {done['appended']} rows", file=sys.stderr)
+    print(f"recorded {len(terms)} {source} keyword(s) in {keyword_registry.REGISTRY}: appended {done['appended']} rows"
+          + (f"; refused {len(done['refused'])} brand keyword(s), never tracked" if done["refused"] else ""), file=sys.stderr)
 
 
 def cmd_hints(args: argparse.Namespace) -> None:

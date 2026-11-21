@@ -89,9 +89,10 @@ self-contained page. The same store and day give the same bytes.
   and the popularity files, and what `keywords hints`, `keywords competitors` and `google suggest` found was only
   printed. `keywords registry build` folds all of it, offline, into `keywords/registry.csv`: one logical row per
   market and query, with where it came from (`sources`), whether the rank ledger tracks it, its latest position and
-  request status, its popularity (`below N` stays unknown, not zero), the hypotheses that name it, and a brand or
-  own-metadata flag (the rows are kept and left out of candidates and overlaps). Append-only, no clock beyond
-  `--as-of`, and a second build appends nothing. `keywords registry show` gives the counts by market and source, the
+  request status, its popularity (`below N` stays unknown, not zero), the hypotheses that name it, and an
+  own-metadata flag (the row is kept and left out of candidates and overlaps). A brand key (a whole-word hit of a
+  config.md brand token) is never tracked: every way in refuses it, and `build` drops one an older registry holds.
+  Append-only, no clock beyond `--as-of`, and a second build appends nothing. `keywords registry show` gives the counts by market and source, the
   candidates not yet tracked and the largest overlaps; `keywords registry add`, and `--record` on `keywords hints`,
   `keywords competitors`, `google suggest` and `harvest_keywords.py`, put what the network found into it with its
   source. The two apostrophes stay two rows (U+0027 and U+2019 are two queries to Apple); `show` lists the pairs.
