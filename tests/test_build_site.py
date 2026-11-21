@@ -42,7 +42,7 @@ class Build(unittest.TestCase):
     def test_the_payload_holds_the_data_and_nothing_of_the_store(self):
         with tempfile.TemporaryDirectory() as tmp:
             payload = payload_of(page(tmp))
-        self.assertEqual(sorted(payload), ["catalog", "events", "hypotheses", "keys", "name", "places", "snapshots", "weeks"])
+        self.assertEqual(sorted(payload), ["catalog", "events", "hypotheses", "keys", "name", "notes", "places", "snapshots", "weeks"])
         self.assertEqual(payload["name"], "Tidepool")
         self.assertEqual([w["period"]["id"] for w in payload["weeks"]], SAMPLE_WEEKS)
         self.assertEqual([f["period"]["id"] for f in payload["snapshots"]], SAMPLE_SNAPSHOTS)

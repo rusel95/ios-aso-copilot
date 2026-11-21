@@ -57,7 +57,7 @@ class ExportCommand(unittest.TestCase):
             self.assertIn("--rewind", out)
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)     # the same day repairs it
             self.assertEqual(code, 0, out)
-            for name in ("events.json", "keys.json", "hypotheses.json"):                            # no entity says its day
+            for name in ("events.json", "keys.json", "hypotheses.json", "notes.json"):                            # no entity says its day
                 (store / "data" / name).write_text("{}\n", encoding="utf-8")
             code, out, _ = run("export_dashboard.py", "--store", str(store), "--as-of", AS_OF)
             self.assertEqual(code, 1)

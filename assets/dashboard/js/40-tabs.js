@@ -183,8 +183,12 @@ ASO.pages["#/how"] = function (payload) {
     '<section class="block">\n<h2>How to read a figure</h2><dl class="terms"><dt>Measured</dt><dd>A value read from a source. Open it to see its ' +
     "definition, its source and the day it was fetched.</dd><dt>Approximation</dt><dd>Marked ≈. It stands in for something that cannot be measured " +
     'directly; its panel says how.</dd><dt>Missing</dt><dd>Words on a hatched mark, never a zero. A measured zero reads 0.</dd></dl><dl class="terms">' +
-    codes + '</dl></section><section class="block">\n<h2>Rules the page keeps</h2><ul class="plain"><li>Every figure comes from a data file; the page ' +
+    codes + '</dl></section><section class="block">\n<h2>The written parts</h2><dl class="terms">' + Object.keys(payload.catalog.prose).sort().map(function (key) {
+      var part = payload.catalog.prose[key];
+      return "<dt>" + ASO.esc(part.title) + "</dt><dd>" + ASO.esc(part.definition) + ' <span class="meta">' + ASO.esc(part.source) + "</span></dd>";
+    }).join("") + '</dl></section><section class="block">\n<h2>Rules the page keeps</h2><ul class="plain"><li>Every figure comes from a data file; the page ' +
     "computes none.</li><li>Only closed weeks are shown.</li><li>A rank sweep that read under half of the tracked keys is left out of trends.</li>" +
-    "<li>A source older than " + ASO.STALE_AFTER + " days is marked stale, by the reader's clock.</li><li>The page writes no verdict and no forecast.</li>" +
+    "<li>A source older than " + ASO.STALE_AFTER + " days is marked stale, by the reader's clock.</li><li>The page writes no verdict and no forecast; " +
+    "the reasoning it shows is the text of the store's own files.</li>" +
     '</ul><p class="meta">Data as of ' + ASO.esc(payload.hypotheses.as_of) + ".</p></section></div>";
 };

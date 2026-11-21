@@ -4,7 +4,7 @@
 // it formats, sorts and draws what the data files hold.
 var ASO = { pages: {} };
 
-ASO.TABS = [["#/", "Overview"], ["#/ledger", "Ledger"], ["#/keywords", "Keywords"], ["#/funnel", "Store funnel"],
+ASO.TABS = [["#/", "Overview"], ["#/ledger", "Ledger"], ["#/notes", "Notes"], ["#/keywords", "Keywords"], ["#/funnel", "Store funnel"],
             ["#/money", "Money"], ["#/ads", "Apple Ads"], ["#/in-app", "In-app"], ["#/how", "How data gets here"]];
 ASO.MISSING = { no_source: "Not stored yet", no_data: "Nothing to measure", not_configured: "Not set up",
                 unreachable: "Could not be fetched" };
@@ -167,8 +167,32 @@ ASO.countStates = function (payload) {
 // What a hypothesis is drawn as: its verdict when judged, else its state.
 ASO.mark = function (h) { return h.state === "judged" ? (h.verdict || "judged") : h.state; };
 
+// The style class of a mark. A verdict a person wrote in full ("withheld: no rank signal") is drawn as its first word.
+ASO.markClass = function (mark) { return "m-" + (String(mark).match(/^[a-z-]+/) || ["judged"])[0]; };
+
+// Text a person wrote in the store, drawn as written: paragraphs kept, hard-wrapped lines joined, list and table lines
+// kept apart. Everything goes through ASO.esc, so nothing in it is ever markup.
+ASO.prose = function (text) {
+  return String(text).split(/\n{2,}/).map(function (para) {
+    return "<p>" + para.split("\n").map(function (line, i) {
+      return (i === 0 ? "" : /^\s*([-*]\s|\d+[.)]\s|\||#{1,6}\s)/.test(line) ? "<br>" : " ") + ASO.esc(line.trim());
+    }).join("") + "</p>";
+  }).join("");
+};
+
 // ---- shell
-ASO.route = function (hash) { return !hash || hash === "#" ? "#/" : hash; };
+ASO.route = function (hash) { return !hash || hash === "#" ? "#/" : hash.split("?")[0]; };
+
+// The `?name=value` part of a route, as an object: `#/ledger?mark=worked` -> { mark: "worked" }.
+ASO.query = function (hash) {
+  var found = {}, at = String(hash || "").indexOf("?");
+  if (at < 0) { return found; }
+  hash.slice(at + 1).split("&").forEach(function (pair) {
+    var parts = pair.split("=");
+    try { found[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join("=")); } catch (error) { /* a broken escape is no filter */ }
+  });
+  return found;
+};
 
 ASO.nav = function (hash) {
   var current = ASO.route(hash);
@@ -180,7 +204,7 @@ ASO.nav = function (hash) {
 ASO.render = function (hash, payload, today) {
   var page = ASO.pages[ASO.route(hash)];
   if (!page) { return '<section class="block"><h2>No such page</h2><p><a href="#/">Back to the overview</a></p></section>'; }
-  return page(payload, today);
+  return page(payload, today, hash);
 };
 
 // ---- the panel behind a figure

@@ -469,5 +469,25 @@
    "title": "Subscriptions"
   }
  },
+ "prose": {
+  "decisions": {
+   "cap": 6000,
+   "definition": "The newest entries of decisions.md dated on or before the day exported, newest first, as written. An entry is a `## <day> — <title>` heading and what follows it; one longer than the cap is cut at a line end and says so.",
+   "limit": 8,
+   "source": "decisions.md",
+   "title": "Decisions"
+  },
+  "reasoning": {
+   "definition": "The latest `Verdict reasoning` section of a hypothesis file, as written: the newest day in its heading wins, and an undated section loses to a dated one. Read as the file stands today, whatever day was exported.",
+   "source": "hypotheses/<id>-<slug>.md",
+   "title": "Verdict reasoning"
+  },
+  "report": {
+   "cap": 30000,
+   "definition": "The newest cycle report of the store whose file name carries a day on or before the day exported, as written; one longer than the cap is cut at a line end and says so.",
+   "source": "reports/*cycle*.md",
+   "title": "Latest cycle report"
+  }
+ },
  "schema": "aso-copilot/catalog@1"
 }

@@ -43,6 +43,7 @@ def page(texts: dict, catalog: dict, name: str) -> str:
         "hypotheses": objects["hypotheses.json"],
         "keys": objects["keys.json"],
         "events": objects["events.json"],
+        "notes": objects["notes.json"],
     }
     # compact, since nobody reads the page's source; `<` is escaped so no keyword can close the script element
     data = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).replace("<", "\\u003c")

@@ -19,3 +19,15 @@ confounds: []
 ## Reasoning
 
 Invented for the sample store.
+
+## Verdict reasoning (2026-10-28)
+
+**Judged 2026-10-28: `worked`.** Both `tide tracker` and `tide times` moved up in the us storefront inside the window, and
+nothing else in the listing changed. Invented for the sample store.
+
+- us `tide tracker`: entered the list at #40.
+- us `tide times`: from #120 to #60.
+
+## Amendment 2026-11-01 — the title stays
+
+No revert is planned. This section is not part of the reasoning.

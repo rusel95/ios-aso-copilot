@@ -1,5 +1,6 @@
-// Ledger: what to judge, what to decide, what comes next; every hypothesis as a square; the timeline; and for each
-// hypothesis whose window has closed, what was read against what it predicted. The page writes no verdict.
+// Ledger: what to judge, what to decide, what comes next; every hypothesis as a square and as a row to open; the timeline;
+// and for each hypothesis whose window has closed, what was read against what it predicted. The page writes no verdict:
+// the reasoning it shows is the text the hypothesis file holds.
 ASO.MARKS = [["worked", "worked"], ["no-effect", "no-effect"], ["adverse", "adverse"], ["withheld", "withheld"],
              ["due", "due"], ["open", "open"], ["not-shipped", "not shipped"]];
 ASO.SERIES = ["s1", "s2", "s3", "s4"];        // a fixed order of series colours; a fifth query and on is drawn grey
@@ -45,7 +46,8 @@ ASO.squares = function (payload) {
   all.forEach(function (h) { var m = ASO.mark(h); counts[m] = (counts[m] || 0) + 1; });
   var judged = all.filter(function (h) { return h.state === "judged"; }).length;
   return '<div class="squares">' + all.map(function (h) {
-    return '<span class="sq m-' + ASO.esc(ASO.mark(h)) + '" title="' + ASO.esc(h.id + " · " + ASO.markLabel(ASO.mark(h))) + '"></span>';
+    return '<button class="sq ' + ASO.markClass(ASO.mark(h)) + '" data-hyp="' + ASO.esc(h.id) + '" title="' +
+      ASO.esc(h.id + " · " + ASO.markLabel(ASO.mark(h)) + " · " + h.title) + '"></button>';
   }).join("") + '</div><ul class="legend">' + ASO.MARKS.filter(function (m) { return counts[m[0]]; }).map(function (m) {
     return '<li><span class="sq m-' + m[0] + '"></span><strong>' + counts[m[0]] + "</strong> " + ASO.esc(m[1]) + "</li>";
   }).join("") + '</ul><p class="lead">Of ' + judged + " judged, " + (counts.worked || 0) + " worked.</p>";
@@ -89,7 +91,7 @@ ASO.timeline = function (payload, today) {
   live.forEach(function (h, i) {
     var mid = top + i * row + 12, mark = ASO.mark(h), title = h.title.length > 36 ? h.title.slice(0, 35) + "…" : h.title;
     out += '<text class="tl-id" x="0" y="' + (mid + 4) + '">' + ASO.esc(h.id) + '</text><text class="tl-title" x="48" y="' + (mid + 4) + '">' +
-      ASO.esc(title) + '</text><rect class="tl-bar m-' + ASO.esc(mark) + '" x="' + x(h.went_live) + '" y="' + (mid - 6) + '" width="' +
+      ASO.esc(title) + '</text><rect class="tl-bar ' + ASO.markClass(mark) + '" x="' + x(h.went_live) + '" y="' + (mid - 6) + '" width="' +
       Math.max(3, +x(h.window_end) - +x(h.went_live)).toFixed(1) + '" height="12" rx="3"><title>' +
       ASO.esc(h.id + " · " + ASO.markLabel(mark) + " · " + h.went_live + " → " + h.window_end) + "</title></rect>";
   });
@@ -134,6 +136,65 @@ ASO.rankChart = function (payload, h, today) {
   return '<ul class="legend">' + legend + '</ul><div class="scroll">' + out + "</svg></div>";
 };
 
+// The marks the data holds, in the ledger's order, then any verdict a person wrote in full, by name.
+ASO.marksHeld = function (counts) {
+  var known = ASO.MARKS.map(function (m) { return m[0]; });
+  return known.filter(function (m) { return counts[m]; })
+    .concat(Object.keys(counts).filter(function (m) { return known.indexOf(m) < 0; }).sort());
+};
+
+ASO.markDot = function (mark) {
+  return '<span class="mark"><span class="sq ' + ASO.markClass(mark) + '"></span>' + ASO.esc(ASO.markLabel(mark)) + "</span>";
+};
+
+// Every hypothesis, newest id first, as a row that opens its card; `mark` keeps one verdict or state. The page filters:
+// it judges nothing.
+ASO.hypList = function (payload, mark) {
+  var all = payload.hypotheses.hypotheses, counts = {};
+  all.forEach(function (h) { counts[ASO.mark(h)] = (counts[ASO.mark(h)] || 0) + 1; });
+  function link(value, label, count) {
+    return '<a class="filter" href="#/ledger' + (value ? "?mark=" + encodeURIComponent(value) : "") + '"' +
+      ((value || "") === (mark || "") ? ' aria-current="true"' : "") + ">" + ASO.esc(label) + " <strong>" + count + "</strong></a>";
+  }
+  var rows = all.filter(function (h) { return !mark || ASO.mark(h) === mark; }).sort(function (a, b) {
+    return +b.id.slice(1) - +a.id.slice(1) || (a.id < b.id ? -1 : 1);
+  });
+  return '<nav class="filters" aria-label="Show hypotheses by verdict or state">' + link("", "all", all.length) +
+    ASO.marksHeld(counts).map(function (m) { return link(m, ASO.markLabel(m), counts[m]); }).join("") + "</nav>" +
+    (rows.length ? '<ul class="hyp-list">' + rows.map(function (h) {
+      return '<li><button class="hyp" data-hyp="' + ASO.esc(h.id) + '"><span class="id">' + ASO.esc(h.id) + "</span><span>" + ASO.esc(h.title) +
+        '</span><span class="meta">' + ASO.esc(h.markets.join(", ")) + "</span>" + ASO.markDot(ASO.mark(h)) + '<span class="meta">' +
+        (h.went_live ? "live " + ASO.esc(h.went_live) : "never shipped") + "</span></button></li>";
+    }).join("") + "</ul>" : '<p class="meta">No hypothesis is ' + ASO.esc(ASO.markLabel(mark)) + ".</p>");
+};
+
+// One hypothesis, opened from a square or a row: what it said, what was read, and the reasoning its file gives.
+ASO.hypCard = function (payload, id, today) {
+  var h = payload.hypotheses.hypotheses.filter(function (item) { return item.id === id; })[0];
+  if (!h) { return '<h2>No such hypothesis</h2><p><button class="close" data-close="1">Close</button></p>'; }
+  var out = '<h2><span class="id">' + ASO.esc(h.id) + "</span> " + ASO.esc(h.title) + " " + ASO.markDot(ASO.mark(h)) + "</h2>";
+  out += '<p class="meta">' + (h.went_live ? "live " + ASO.esc(h.went_live) + " · " + h.window_days + "-day window to " + ASO.esc(h.window_end) :
+    "never went live") + " · signal: " + ASO.esc(h.signal) + (h.markets.length ? " · " + ASO.esc(h.markets.join(", ")) : "") + "</p>";
+  if (h.basket) {
+    out += '<p class="lead">' + (h.reads_in_window === null ? "" : '<span class="chip">' + h.reads_in_window +
+      (h.reads_in_window === 1 ? " read" : " reads") + " inside the window</span> ") + ASO.esc(ASO.basketLine(h)) + "</p>";
+    if (h.went_live && h.reads_in_window !== null && h.basket_keys.length) { out += ASO.rankChart(payload, h, today); }
+  }
+  out += '<dl class="terms">';
+  [["Queries", h.queries.join(" · ")], ["Prediction", h.prediction], ["Kill criterion", h.kill_criterion],
+   ["Confounds", h.confounds.join(" · ")]].forEach(function (pair) {
+    if (pair[1]) { out += "<dt>" + pair[0] + "</dt><dd>" + ASO.esc(pair[1]) + "</dd>"; }
+  });
+  out += "</dl>";
+  if (h.reasoning) {
+    out += "<h3>Verdict reasoning" + (h.reasoning.date ? " · " + ASO.esc(h.reasoning.date) : "") + '</h3><div class="prose">' +
+      ASO.prose(h.reasoning.text) + "</div>";
+  } else if (h.state === "judged") {
+    out += '<p class="note">This hypothesis has a verdict, and its file holds no "Verdict reasoning" section to show.</p>';
+  }
+  return out + '<p><button class="close" data-close="1">Close</button></p>';
+};
+
 ASO.dueCard = function (payload, h, today) {
   var reads = h.reads_in_window;
   var out = '<section class="block due-card" id="due-' + ASO.esc(h.id) + '"><h2><span class="id">' + ASO.esc(h.id) + "</span> " +
@@ -159,7 +220,7 @@ ASO.dueCard = function (payload, h, today) {
   return out + "</dl></section>";
 };
 
-ASO.pages["#/ledger"] = function (payload, today) {
+ASO.pages["#/ledger"] = function (payload, today, hash) {
   var due = payload.hypotheses.hypotheses.filter(function (h) { return h.state === "due"; })
     .sort(function (a, b) { return b.days_past_window - a.days_past_window || (a.id < b.id ? -1 : 1); });
   var out = '<h1 class="page">Close before proposing</h1><div class="blocks"><section class="block">\n<h2>Judge</h2><p class="meta">' +
@@ -172,6 +233,9 @@ ASO.pages["#/ledger"] = function (payload, today) {
   out += '<div class="blocks"><section class="block">\n<h2>' + payload.hypotheses.hypotheses.length + " hypotheses</h2>" + ASO.squares(payload) +
     '</section><section class="block">\n<h2>What worked</h2>' + ASO.verdictList(payload, "worked") +
     '</section><section class="block">\n<h2>What hurt</h2>' + ASO.verdictList(payload, "adverse") + "</section></div>";
+
+  out += '<section class="block" id="all-hypotheses">\n<h2>Every hypothesis</h2><p class="meta">Open one for its prediction, what was read and ' +
+    "the reasoning behind its verdict.</p>" + ASO.hypList(payload, ASO.query(hash).mark) + "</section>";
 
   out += '<section class="block">\n<h2>Timeline</h2><p class="meta">Each bar runs from the day a change went live to the end of its declared window.</p>' +
     ASO.timeline(payload, today) + "</section>";

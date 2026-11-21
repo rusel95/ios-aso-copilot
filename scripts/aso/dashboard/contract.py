@@ -16,7 +16,7 @@ from pathlib import Path
 
 SCHEMA = "aso-copilot/dashboard-data@1"
 CODES = ("no_source", "no_data", "not_configured", "unreachable")
-ENTITIES = ("hypotheses.json", "keys.json", "events.json")
+ENTITIES = ("hypotheses.json", "keys.json", "events.json", "notes.json")
 CATALOG = Path(__file__).resolve().parents[3] / "assets" / "dashboard" / "catalog.json"
 OPEN_KEY = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$")     # an open family's keys: <section>.<metric>
 
@@ -186,7 +186,7 @@ def check_rows(label: str, rows, columns: list) -> list:
 STATES = ("judged", "due", "open", "not-shipped")
 HYPOTHESIS_KEYS = {"id", "kind", "title", "markets", "queries", "status", "verdict", "signal", "went_live", "window_days",
                    "window_end", "state", "age_days", "days_past_window", "reads_in_window", "basket", "basket_keys",
-                   "prediction", "kill_criterion", "confounds"}
+                   "prediction", "kill_criterion", "confounds", "reasoning"}
 BASKET_KEYS = {"up", "down", "flat", "unpaired", "unmeasurable"}
 KEY_KEYS = {"market", "keyword", "group", "brand", "positions", "movement", "priority"}
 
@@ -213,7 +213,16 @@ def check_hypotheses(obj: dict) -> list:
             problems.append(f"{label}: markets, queries, confounds and basket_keys must be lists")
         elif not all(isinstance(k, list) and len(k) == 2 for k in h["basket_keys"]):
             problems.append(f"{label}: a basket key is a market and a keyword")
+        if h["reasoning"] is not None and not check_text(h["reasoning"], {"date", "text"}):
+            problems.append(f"{label}: reasoning must be null or hold a date (or null) and its text")
     return problems
+
+
+def check_text(item, keys: set) -> bool:
+    """A prose entry: exactly `keys`, text non-empty, and a date (when it has the key) a real day or null."""
+    return (isinstance(item, dict) and set(item) == keys and isinstance(item["text"], str) and bool(item["text"].strip())
+            and ("date" not in keys or item["date"] is None or as_date(item["date"]) is not None)
+            and (item.get("truncated") in (None, True, False)))
 
 
 def check_keys(obj: dict) -> list:
@@ -246,4 +255,19 @@ def check_events(obj: dict) -> list:
     return problems
 
 
-ENTITY_CHECKS = {"hypotheses.json": check_hypotheses, "keys.json": check_keys, "events.json": check_events}
+def check_notes(obj: dict) -> list:
+    problems = check_top(obj, {"decisions", "report"})
+    decisions = obj.get("decisions")
+    if not isinstance(decisions, list) or not all(check_text(d, {"date", "title", "text", "truncated"}) and as_date(d["date"])
+                                                  and isinstance(d["title"], str) and isinstance(d["truncated"], bool)
+                                                  for d in decisions):
+        problems.append("decisions must be a list of entries holding date, title, text and truncated")
+    report = obj.get("report")
+    if report is not None and not (check_text(report, {"name", "date", "text", "truncated"}) and as_date(report["date"])
+                                   and isinstance(report["name"], str) and isinstance(report["truncated"], bool)):
+        problems.append("report must be null or hold name, date, text and truncated")
+    return problems
+
+
+ENTITY_CHECKS = {"hypotheses.json": check_hypotheses, "keys.json": check_keys, "events.json": check_events,
+                 "notes.json": check_notes}

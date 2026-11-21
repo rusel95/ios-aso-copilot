@@ -11,7 +11,9 @@ ASO.start = function () {
   function show() {
     document.getElementById("tabs").innerHTML = ASO.nav(location.hash);
     main.innerHTML = ASO.render(location.hash, payload, today());
-    window.scrollTo(0, 0);
+    // a filter on the ledger's list keeps the reader at the list
+    var list = document.getElementById("all-hypotheses");
+    if (location.hash.indexOf("?") > 0 && list) { list.scrollIntoView(); } else { window.scrollTo(0, 0); }
   }
 
   document.getElementById("app-name").textContent = payload.name;
@@ -19,10 +21,17 @@ ASO.start = function () {
   document.title = "ASO Copilot · " + payload.name;
 
   main.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-fig]");
-    if (!button) { return; }
-    dialog.innerHTML = ASO.panel(payload, button.getAttribute("data-fig"), button.getAttribute("data-period"));
-    dialog.showModal();
+    var card = event.target.closest("[data-hyp]"), button = event.target.closest("[data-fig]");
+    if (card) {
+      dialog.className = "wide";
+      dialog.innerHTML = ASO.hypCard(payload, card.getAttribute("data-hyp"), today());
+      dialog.showModal();
+      dialog.scrollTop = 0;       // showModal focuses the Close button at the foot of a long card
+    } else if (button) {
+      dialog.className = "";
+      dialog.innerHTML = ASO.panel(payload, button.getAttribute("data-fig"), button.getAttribute("data-period"));
+      dialog.showModal();
+    }
   });
   dialog.addEventListener("click", function (event) {
     if (event.target === dialog || event.target.hasAttribute("data-close")) { dialog.close(); }
