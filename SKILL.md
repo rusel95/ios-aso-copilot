@@ -128,6 +128,7 @@ build     data/   → page       offline; one self-contained index.html that com
 | Update the page | `ios-aso-copilot export`, then `ios-aso-copilot build` | `references/export-and-page.md` |
 | A window closed | `ios-aso-copilot due`, `ios-aso-copilot ledger` | `references/judge.md` |
 | What to test next | `ios-aso-copilot propose`, `ios-aso-copilot radar` | `references/judge.md`, `references/aso-loop.md` |
+| Which keywords exist, which are untracked | `ios-aso-copilot keywords registry build`, then `show` | `references/state-store.md` |
 | Change keywords, bids, replies, metadata | a queue entry first | `references/actions.md` |
 
 `ios-aso-copilot --full [app and scope]` is a skill argument, not a CLI flag: one pass with the rank sweep,

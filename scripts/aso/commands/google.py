@@ -9,6 +9,7 @@ import urllib.request
 from pathlib import Path
 
 from aso.commands.base import ENTRY, SKILL_DIR, log_error, log_info, log_warn
+from aso.commands.keywords import record_found
 
 
 def cmd_google(args):
@@ -232,6 +233,8 @@ def cmd_google_suggest(args):
             for s in suggs:
                 if s not in discovered:
                     discovered[s] = mod_key
+        if getattr(args, "record", False):
+            record_found(args, country.lower(), list(discovered), "google-suggest")
 
         categories = {
             "platforms": [],
@@ -295,6 +298,8 @@ def cmd_google_suggest(args):
 
     # Standard suggestions
     suggestions = fetch_suggestions(term)[:limit]
+    if getattr(args, "record", False):
+        record_found(args, country.lower(), suggestions, "google-suggest")
     if as_json:
         print(json.dumps(suggestions, ensure_ascii=False, indent=2))
         return 0

@@ -1,5 +1,5 @@
 usage: copilot.py keywords hints [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
-                                 --term TERM [--country COUNTRY]
+                                 --term TERM [--country COUNTRY] [--record]
 
 options:
   -h, --help            show this help message and exit
@@ -11,3 +11,4 @@ options:
   --term, -t TERM       Search prefix/term
   --country, -c, --storefront COUNTRY
                         Storefront code (e.g. us, pl, jp)
+  --record              Record the hints in the keyword registry (autocomplete-hints)
