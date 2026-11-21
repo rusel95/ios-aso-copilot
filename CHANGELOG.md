@@ -7,6 +7,29 @@ followed here. Changes are pushed to [github.com/rusel95/ios-aso-copilot](https:
 
 ---
 
+## 3.1.0 — the reasoning on the page
+
+The Ledger tab said which hypotheses worked, and not why. The judgement lived only in the store's markdown files.
+Now it is carried to the page, as written, and nothing on the page computes or judges it.
+
+- **The reasoning behind each verdict.** `hypotheses.json` gains `reasoning`: the latest `Verdict reasoning`
+  section of the hypothesis file (`{date, text}`, or `null`). The newest day in the heading wins; an undated
+  section loses to a dated one. Read as the file stands today, whatever `--as-of` says, like the verdict.
+- **Every hypothesis, and a card for each.** The Ledger lists all of them, newest first, with a filter by verdict or
+  state (`#/ledger?mark=worked`, a link, so it can be shared). A square or a row opens its card: title, verdict, live day
+  and window, prediction, kill criterion, confounds, the reads against the window, and the reasoning.
+- **A Notes tab.** The new `notes.json` carries the newest eight entries of `decisions.md` (dated on or before the
+  day exported) and the latest `reports/*cycle*.md` (by the day in its name). Plain escaped text; a long one is cut at
+  a line end and says so.
+- **`check` reads it too.** The new text sits in `data/`, so the clean check refuses an address, a key or an
+  account identifier in it, by file and kind, never by value; the export masks the store's own identifiers there
+  as it does in a confound.
+- **A new entity file, so re-export.** `notes.json` is the fourth entity file and `reasoning` a new key of every
+  hypothesis; `build` refuses an older `data/` until `export` has been run again. The contract stays `@1`: the
+  producer and the page are one skill.
+
+---
+
 ## 3.0.0 — collect, export, page
 
 The skill now has three boundaries. `collect` reads the sources and appends to the store. `export` turns

@@ -92,7 +92,7 @@ triggers:
   - окупність
 argument-hint: "[collect | export | build | check | due | status | brief | ledger | radar | keywords | ads | rc | funnel | reviews | ga | telemetry | google | charts | campaign | info] [flags]"
 metadata:
-  version: 3.0.0
+  version: 3.1.0
 ---
 
 # iOS ASO Copilot

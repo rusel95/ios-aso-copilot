@@ -19,3 +19,12 @@ confounds: []
 ## Reasoning
 
 Invented for the sample store.
+
+## Verdict reasoning
+
+Judged `adverse`: dropping `moon phase` from the subtitle cost the key its place, and nothing gained elsewhere paid for it.
+Invented for the sample store.
+
+### What would change this
+
+A later read showing the key back inside the top 30 without a listing change.

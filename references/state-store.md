@@ -297,13 +297,14 @@ data/
 ├── week/<monday>.json         flows of one closed Monday week: store funnel, lifecycle, money, ads, in-app
 ├── snapshot/<date>.json       stocks read on one day: ranks, coverage, demand, impression share,
 │                              subscriptions, ratings, charts
-├── hypotheses.json            every hypothesis with its state on the export's day and its basket
+├── hypotheses.json            every hypothesis with its state on the export's day, its basket and its verdict reasoning
 ├── keys.json                  every tracked key with its position on each sweep date
-└── events.json                the queue and the releases
+├── events.json                the queue and the releases
+└── notes.json                 the newest decisions.md entries and the latest cycle report, as written
 ```
 
 By path: `data/week/<monday>.json`, `data/snapshot/<date>.json`, `data/hypotheses.json`, `data/keys.json`,
-`data/events.json`. The contract (`aso-copilot/dashboard-data@1`), the meaning of `unavailable` and its four codes are in
+`data/events.json`, `data/notes.json`. The contract (`aso-copilot/dashboard-data@1`), the meaning of `unavailable` and its four codes are in
 `references/export-and-page.md`.
 
 ## STATE.md

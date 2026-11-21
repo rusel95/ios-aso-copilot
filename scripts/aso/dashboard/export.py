@@ -16,6 +16,7 @@ from aso.dashboard.export_weeks import (NOTHING_THAT_WEEK, NOT_STORED_YET, ads_f
                                         lifecycle_weeks, money_weeks)
 from aso.dashboard.clean import identifiers, mask, whole
 from aso.dashboard.state import ours, state_md
+from aso.dashboard.export_notes import notes as store_notes, verdict_reasoning
 from aso.dashboard.export_snapshots import (chart_snapshots, insight_snapshots, rank_snapshots, ratings_snapshots, subscription_snapshots)
 from aso.ledger_state import hypothesis_states, priority
 from aso.ranks import brand_hit, loose_index, movers, resolve_key, series, zero_result_keys
@@ -97,6 +98,7 @@ def hypotheses(store: Path, as_of: dt.date) -> dict:
             "prediction": (h.get("prediction") or "").strip() or None,
             "kill_criterion": (h.get("kill_criterion") or "").strip() or None,
             "confounds": list_field(store / "hypotheses" / h["_path"], "confounds"),
+            "reasoning": verdict_reasoning(store / "hypotheses" / h["_path"]),
         })
     return {**header(as_of), "hypotheses": sorted(out, key=lambda h: h["id"])}
 
@@ -154,8 +156,8 @@ def events(store: Path, as_of: dt.date) -> dict:
     return {**header(as_of), "releases": releases(store, as_of), "queue": queue(store, as_of)}
 
 
-VERDICT_NOTE = ("hypothesis files carry no history: a verdict is read as it stands in the file today, "
-                "whatever --as-of says")
+VERDICT_NOTE = ("hypothesis files carry no history: a verdict and its reasoning are read as they stand in the file "
+                "today, whatever --as-of says")
 
 
 def period_file(as_of: dt.date, kind: str, start: dt.date, end: dt.date, families: dict) -> dict:
@@ -205,6 +207,7 @@ def build_all(store: Path, as_of: dt.date) -> tuple:
     files["hypotheses.json"] = hypotheses(store, as_of)
     files["keys.json"] = keys(store, as_of)
     files["events.json"] = events(store, as_of)
+    files["notes.json"] = {**header(as_of), **store_notes(store, as_of)}
     # A person types an account id into a confound or a queue title. It is not carried into data/: the page may be
     # published, and the clean check would refuse the file. The store's own file is left as it was written.
     wanted = [(label, whole(value)) for label, value in identifiers(store).items()]

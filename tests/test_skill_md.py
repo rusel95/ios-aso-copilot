@@ -83,7 +83,7 @@ class Router(unittest.TestCase):
 
     def test_the_version_is_one(self):
         version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
-        self.assertEqual(version, "3.0.0")
+        self.assertEqual(version, "3.1.0")
         self.assertIn(f"version: {version}", SKILL)
         self.assertIn(f"## {version}", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 

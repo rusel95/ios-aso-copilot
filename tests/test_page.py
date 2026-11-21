@@ -87,8 +87,9 @@ class Shell(PageCase):
         nav = self.js("ASO.nav('#/keywords')")
         self.assertRegex(nav, r'<a href="#/keywords" aria-current="page">Keywords</a>')
         self.assertEqual(nav.count('aria-current="page"'), 1)
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav), ["Overview", "Ledger", "Keywords", "Store funnel", "Money",
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav), ["Overview", "Ledger", "Notes", "Keywords", "Store funnel", "Money",
                                                           "Apple Ads", "In-app", "How data gets here"])
+        self.assertIn('aria-current="page">Ledger</a>', self.js("ASO.nav('#/ledger?mark=worked')"))      # a filter does not leave the tab
 
     def test_an_unknown_route_says_so(self):
         self.assertIn("No such page", self.read("#/nope"))
@@ -225,11 +226,11 @@ class Ledger(PageCase):
 
     def test_one_square_per_hypothesis(self):
         markup = self.render("#/ledger")
-        squares = re.findall(r'<span class="sq m-([a-z-]+)" title="([^"]+)"></span>', markup)
+        squares = re.findall(r'<button class="sq m-([a-z-]+)" data-hyp="([A-Z]\d+)" title="([^"]+)"></button>', markup)
         self.assertEqual(len(squares), 8)
-        self.assertIn(("due", "H005 · due"), squares)
-        self.assertIn(("worked", "H001 · worked"), squares)
-        self.assertIn(("not-shipped", "H007 · not shipped"), squares)
+        self.assertIn(("due", "H005", "H005 · due · ua tide phrases"), squares)          # the tooltip names the hypothesis
+        self.assertIn(("worked", "H001", "H001 · worked · us tide tracker title"), squares)
+        self.assertIn(("not-shipped", "H007", "H007 · not shipped · us paywall timing"), squares)
 
     def test_legend_counts(self):
         seen = text_of(self.render("#/ledger"))
@@ -274,6 +275,112 @@ class Ledger(PageCase):
         self.assertNotIn("<b>x</b>", markup)
         self.assertNotIn("<i>y</i>", markup)
         self.assertIn("&lt;b&gt;x&lt;/b&gt;", markup)
+
+
+class HypothesisList(PageCase):
+    def rows(self, route="#/ledger"):
+        return re.findall(r'<button class="hyp" data-hyp="([A-Z]\d+)">', self.render(route))
+
+    def card(self, ident, first="0"):
+        return self.js(f"({first}, ASO.hypCard(payload, {ident!r}, '2026-11-14'))")
+
+    def test_every_hypothesis_is_a_row_newest_first(self):
+        self.assertEqual(self.rows(), ["H007", "H006", "H005", "H004", "H003", "H002", "C001", "H001"])
+
+    def test_a_filter_keeps_one_verdict_or_state_and_the_tab(self):
+        self.assertEqual(self.rows("#/ledger?mark=worked"), ["H001"])
+        self.assertEqual(self.rows("#/ledger?mark=due"), ["H005", "C001"])
+        markup = self.render("#/ledger?mark=due")
+        self.assertRegex(markup, r'<a class="filter" href="#/ledger\?mark=due" aria-current="true">due <strong>2</strong></a>')
+        self.assertIn('<a class="filter" href="#/ledger">all <strong>8</strong></a>', markup)
+        self.assertIn("No hypothesis is nope.", self.read("#/ledger?mark=nope"))
+
+    def test_a_verdict_written_in_full_is_a_filter_of_its_own_and_drawn_as_its_first_word(self):
+        first = "(payload.hypotheses.hypotheses[0].verdict = 'withheld: no rank signal', payload.hypotheses.hypotheses[0].state = 'judged', 0)"
+        markup = self.render("#/ledger", first=first)
+        self.assertIn("withheld: no rank signal <strong>1</strong>", markup)
+        self.assertEqual(self.js("ASO.markClass('withheld: no rank signal')"), "m-withheld")
+        self.assertEqual(self.js("ASO.markClass('')"), "m-judged")
+
+    def test_the_card_of_a_judged_hypothesis_gives_what_was_said_read_and_concluded(self):
+        seen = text_of(self.card("H001"))
+        for words in ("H001 us tide tracker title worked", "live 2026-10-06 · 21-day window to 2026-10-27", "signal: rank",
+                      "Queries tide tracker · tide times", "Prediction", "Kill criterion", "Verdict reasoning · 2026-10-28",
+                      "Judged 2026-10-28: `worked`."):
+            self.assertIn(words, seen)
+        self.assertNotIn("not part of the reasoning", seen)                  # the amendment below it is another section
+
+    def test_reasoning_keeps_its_paragraphs_joins_wrapped_lines_and_keeps_list_lines_apart(self):
+        markup = self.card("H001")
+        self.assertIn("moved up in the us storefront inside the window, and nothing else in the listing changed.", markup)
+        self.assertIn("<br>- us `tide times`: from #120 to #60.", markup)
+        self.assertEqual(self.js("ASO.prose('a\\nb\\n\\n- c\\n- d <i>')"), "<p>a b</p><p>- c<br>- d &lt;i&gt;</p>")
+
+    def test_a_judged_hypothesis_with_no_reasoning_says_its_file_holds_none(self):
+        self.assertIn('its file holds no "Verdict reasoning" section', text_of(self.card("H002")))
+
+    def test_a_hypothesis_that_never_shipped_says_so_and_draws_no_chart(self):
+        card = self.card("H007")
+        self.assertIn("never went live", text_of(card))
+        self.assertNotIn("<polyline", card)
+        self.assertNotIn("holds no", text_of(card))                          # only a judged one is owed its reasoning
+
+    def test_the_card_of_a_due_hypothesis_draws_its_reads(self):
+        card = self.card("H005")
+        self.assertIn("1 read inside the window", text_of(card))
+        self.assertEqual(card.count("<polyline"), 2)
+
+    def test_the_card_of_a_channel_hypothesis_draws_no_rank_chart(self):
+        card = self.card("C001")
+        self.assertNotIn("<polyline", card)
+        self.assertIn("signal: channel", text_of(card))
+
+    def test_an_unknown_hypothesis_says_so(self):
+        self.assertIn("No such hypothesis", self.card("H999"))
+
+    def test_text_from_the_files_is_escaped_in_the_card(self):
+        card = self.card("H001", "(payload.hypotheses.hypotheses.forEach(function (h) { h.reasoning = { date: '<b>', text: '<script>x</script>' }; "
+                                "h.title = '<img src=x>'; }), 0)")
+        for raw in ("<script>", "<img", "<b>"):
+            self.assertNotIn(raw, card)
+        self.assertIn("&lt;script&gt;x&lt;/script&gt;", card)
+
+    def test_a_query_is_read_and_a_broken_one_is_no_filter(self):
+        self.assertEqual(self.js("ASO.query('#/ledger?mark=withheld%3A%20x&a=1')"), '{"mark":"withheld: x","a":"1"}')
+        self.assertEqual(self.js("ASO.query('#/ledger?mark=%E0%A4%A')"), "{}")
+        self.assertEqual(self.js("ASO.query('#/ledger')"), "{}")
+
+
+class Notes(PageCase):
+    def test_the_newest_decisions_come_first_as_written(self):
+        seen = self.read("#/notes")
+        self.assertLess(seen.index("Stage the 1.0.1 keyword field"), seen.index("Judge H001 as worked"))
+        self.assertLess(seen.index("Judge H001 as worked"), seen.index("The first window is 21 days"))
+        self.assertIn("2026-11-12 Stage the 1.0.1 keyword field", seen)
+        self.assertIn("**Decision**: record `worked`; keep the title.", seen)         # as written: no markdown is interpreted
+
+    def test_the_latest_cycle_report_is_there_unchanged(self):
+        markup = self.render("#/notes")
+        self.assertIn("aso_cycle_2026-11-10.md</span> · 2026-11-10", markup)
+        self.assertNotIn("aso_cycle_2026-10-27", markup)                     # the older report is not shown
+        self.assertIn("| us | 5 | 2 |", re.search(r'<pre class="report">(.*?)</pre>', markup, re.S).group(1))
+
+    def test_what_the_store_holds_no_notes_of_says_so(self):
+        seen = self.read("#/notes", first="(payload.notes.decisions = [], payload.notes.report = null, 0)")
+        self.assertIn("decisions.md holds no entry dated on or before the day exported.", seen)
+        self.assertIn("No cycle report yet.", seen)
+
+    def test_text_from_the_store_is_escaped(self):
+        markup = self.render("#/notes", first="(payload.notes.decisions[0].text = '<img src=x onerror=alert(1)>', "
+                                              "payload.notes.decisions[0].title = '<b>t</b>', payload.notes.report.text = '<script>y</script>', 0)")
+        for raw in ("<img", "<b>t", "<script>"):
+            self.assertNotIn(raw, markup)
+        self.assertIn("&lt;script&gt;y&lt;/script&gt;", markup)
+
+    def test_a_cut_text_says_so(self):
+        seen = self.read("#/notes", first="(payload.notes.decisions[0].truncated = true, payload.notes.report.truncated = true, 0)")
+        self.assertIn("Cut here; the rest is in decisions.md.", seen)
+        self.assertIn("Cut here; the rest is in the file.", seen)
 
 
 class Keywords(PageCase):
@@ -425,9 +532,11 @@ class Tabs(PageCase):
         for word in ("Collect", "Export", "Build", "Not stored yet", "no_source", "Nothing to measure", "no_data",
                      "Not set up", "not_configured", "Could not be fetched", "unreachable", "Approximation"):
             self.assertIn(word, seen)
+        for word in ("The written parts", "Verdict reasoning", "Latest cycle report", "reports/*cycle*.md", "decisions.md"):
+            self.assertIn(word, seen)
 
     def test_every_tab_of_the_navigation_renders(self):
-        for route in ("#/", "#/ledger", "#/keywords", "#/funnel", "#/money", "#/ads", "#/in-app", "#/how"):
+        for route in ("#/", "#/ledger", "#/notes", "#/keywords", "#/funnel", "#/money", "#/ads", "#/in-app", "#/how"):
             with self.subTest(route=route):
                 self.assertNotIn("No such page", self.read(route))
 

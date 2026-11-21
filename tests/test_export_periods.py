@@ -199,7 +199,7 @@ class Whole(unittest.TestCase):
             for path in (store / "metrics").glob("*.csv"):
                 path.write_text(path.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
             files, _ = built(store)
-            self.assertEqual(sorted(files), ["events.json", "hypotheses.json", "keys.json"])
+            self.assertEqual(sorted(files), ["events.json", "hypotheses.json", "keys.json", "notes.json"])
             self.assertEqual((files["hypotheses.json"]["hypotheses"], files["keys.json"]["keys"]), ([], []))
             catalog = contract.load_catalog()
             for path, obj in files.items():

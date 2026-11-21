@@ -90,7 +90,8 @@ h1.page{font:600 20px var(--head);margin:0}
   font-size:13px;align-items:baseline}
 .next .strong{text-align:right}
 .squares{display:flex;flex-wrap:wrap;gap:4px}
-.sq{width:16px;height:16px;border-radius:3px;display:inline-block;flex:none}
+.sq{width:16px;height:16px;border-radius:3px;display:inline-block;flex:none;border:0;padding:0}
+button.sq{cursor:pointer}button.sq:hover,button.sq:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px}
 .legend li{display:flex;align-items:center;gap:7px}
 .legend .sq{width:12px;height:12px}
@@ -122,6 +123,25 @@ circle.s-rest,rect.s-rest{fill:var(--noeffect)}
 .terms{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;font-size:13px}
 .terms dt{font:600 11px var(--text);letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);padding-top:2px}
 @media (max-width:700px){.terms{grid-template-columns:1fr}}
+
+/* every hypothesis, its card, and the notes */
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filter{font:12px var(--mono);color:var(--ink2);border:1px solid var(--axis);border-radius:4px;padding:3px 9px;text-decoration:none}
+.filter:hover{color:var(--ink)}.filter[aria-current]{background:var(--ink);border-color:var(--ink);color:var(--page)}
+.hyp-list li{border-bottom:1px solid var(--hair)}
+.hyp{width:100%;display:grid;grid-template-columns:52px minmax(0,1fr) 96px 150px 150px;gap:10px;align-items:baseline;
+  font:13px var(--text);color:inherit;text-align:left;background:none;border:0;padding:7px 4px;cursor:pointer}
+.hyp:hover,.hyp:focus-visible{background:var(--page)}
+.mark{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:400}
+.mark .sq{width:12px;height:12px}
+@media (max-width:700px){.hyp{grid-template-columns:52px minmax(0,1fr)}.hyp>:nth-child(n+3){grid-column:2}}
+dialog.wide{max-width:min(860px,94vw);max-height:90vh}
+dialog h3{font:600 13px var(--head);margin-top:16px}
+.prose p{margin-top:8px;font-size:13px;line-height:1.5}
+.entry{padding-top:12px;border-top:1px solid var(--hair)}.entry:first-of-type{border-top:0;padding-top:0}
+.entry h3{font:600 15px var(--head);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+details summary{cursor:pointer;font-size:13px}
+.report{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 var(--mono);margin:10px 0 0;max-height:70vh;overflow:auto}
 
 /* keywords */
 .blocks.wide{grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr))}
