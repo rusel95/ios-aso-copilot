@@ -3,7 +3,7 @@ usage: ledger.py [-h] [--store STORE] [--as-of AS_OF] [--date DATE] [--delay DEL
                  [--market MARKET] [--queries QUERIES] [--window WINDOW] [--out OUT]
                  [--bundle BUNDLE] [--markets MARKETS] [--failed-only] [--out-dir OUT_DIR]
                  [--self-check]
-                 [{report,ingest,draft,refresh,bands}] [snapshot]
+                 [{report,ingest,draft,refresh,bands,drop-brand}] [snapshot]
 
 Deterministic hypothesis + keyword ledger. Same store, same output, every run.
 
@@ -19,10 +19,11 @@ cash projection (references/provenance.md, references/aso-loop.md).
 
     ledger.py --store PATH report
     ledger.py --store PATH ingest SNAPSHOT.json --date 2026-09-08 --depth 200
+    ledger.py --store PATH drop-brand      # a brand is never tracked: remove the brand rows an old store holds
     ledger.py --self-check
 
 positional arguments:
-  {report,ingest,draft,refresh,bands}
+  {report,ingest,draft,refresh,bands,drop-brand}
   snapshot
 
 options:
