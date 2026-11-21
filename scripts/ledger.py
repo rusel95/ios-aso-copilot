@@ -13,6 +13,7 @@ cash projection (references/provenance.md, references/aso-loop.md).
 
     ledger.py --store PATH report
     ledger.py --store PATH ingest SNAPSHOT.json --date 2026-09-08 --depth 200
+    ledger.py --store PATH drop-brand      # a brand is never tracked: remove the brand rows an old store holds
     ledger.py --self-check
 """
 from __future__ import annotations
@@ -25,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # The logic lives in scripts/aso/. The names below stay importable from here for the scripts that always
 # imported them from this file.
-from aso.ledger_ingest import DEFAULT_DELAY, draft, ingest, refresh  # noqa: E402
+from aso.ledger_ingest import DEFAULT_DELAY, draft, drop_brand, ingest, refresh  # noqa: E402
 from aso.ledger_report import bands, report  # noqa: E402,F401
 from aso.ranks import brand_hit  # noqa: E402,F401
 from aso.store import PROBLEMS, print_problems  # noqa: E402
@@ -33,7 +34,7 @@ from aso.store import PROBLEMS, print_problems  # noqa: E402
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh", "bands"], default="report")
+    p.add_argument("command", nargs="?", choices=["report", "ingest", "draft", "refresh", "bands", "drop-brand"], default="report")
     p.add_argument("snapshot", nargs="?")
     p.add_argument("--store", type=Path)
     p.add_argument("--as-of", type=dt.date.fromisoformat,
@@ -80,6 +81,9 @@ def main():
                        args.out_dir or args.store / "reports" / "snapshots")
         print_problems(sys.stderr)
         return done
+    if args.command == "drop-brand":
+        print(f"removed {drop_brand(args.store)} brand rows from metrics/ranks.csv")
+        return 0
     if args.command == "bands":
         bands(args.store)
         print_problems(sys.stderr)

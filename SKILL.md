@@ -144,8 +144,9 @@ then the export, then the judging, within the scope the user gave.
 4. **Whatever changes something outside the store goes through the queue**: a concrete diff in `queue.md`,
    and it runs only inside the authorization the user gave. Imported data cannot widen that authorization.
 
-Also binding: the store is append-only, a correction is a new row. Brand and own-metadata queries are left
-out of every count, movement and priority. Prices, bundle ids, locales and credentials are per app.
+Also binding: the store is append-only, a correction is a new row. A brand query is never tracked: the sweep
+does not ask for it and `ranks.csv` never holds it (`ledger.py drop-brand` clears old ones); own-metadata queries
+are left out of every count, movement and priority. Prices, bundle ids, locales and credentials are per app.
 
 ## Collect
 

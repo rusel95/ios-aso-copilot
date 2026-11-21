@@ -17,6 +17,32 @@ from aso.store import (RANK_HEADER, hyp_markets, print_problems, read_brand_toke
 DEFAULT_DELAY = 3.0
 
 
+def is_brand(brands, keyword: str) -> bool:
+    return any(brand_hit(b, keyword) for b in brands)
+
+
+def drop_brand(store: Path) -> int:
+    """Remove every brand row from ranks.csv, for a store that tracked brand keys before the rule. Returns how many.
+    The one place a row is deleted: git holds the old file, and a brand row was never evidence. Kept lines are
+    written back byte for byte (the file mixes line endings), so the diff shows only what went."""
+    target = store / "metrics" / "ranks.csv"
+    brands = read_brand_tokens(store)
+    if not brands or not target.exists():
+        return 0
+    with target.open(newline="", encoding="utf-8") as fh:
+        lines = fh.read().splitlines(keepends=True)
+
+    def keyword(line: str) -> str:
+        cells = next(csv.reader([line]), [])
+        return cells[2] if len(cells) > 2 else ""
+
+    kept = lines[:1] + [ln for ln in lines[1:] if not is_brand(brands, keyword(ln))]
+    if len(kept) < len(lines):
+        with target.open("w", newline="", encoding="utf-8") as fh:
+            fh.writelines(kept)
+    return len(lines) - len(kept)
+
+
 def load_snapshot(path: Path):
     """Accept both known snapshot shapes; reject impossible positions rather than storing them."""
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -50,6 +76,11 @@ def load_snapshot(path: Path):
 
 def ingest(store: Path, path: Path, date: str, source: str, depth, group: str):
     rows, rejected = load_snapshot(path)
+    brands = read_brand_tokens(store)
+    tracked = [r for r in rows if not is_brand(brands, r[1])]
+    if len(tracked) < len(rows):
+        print(f"skipped {len(rows) - len(tracked)} brand queries: a brand is never tracked", file=sys.stderr)
+    rows = tracked
     if rejected:
         print(f"REFUSED {len(rejected)} rows: position deeper than the result list that query "
               f"returned (stale value carried across snapshots), e.g. {rejected[:3]}", file=sys.stderr)
@@ -98,7 +129,7 @@ def draft(store: Path, market: str, queries: list, window: int, out: Path | None
         sys.exit("--queries is required: an experiment with no basket cannot be judged")
     # 0. Brand queries are strictly excluded: they measure indexation only, never demand or acquisition.
     brands = read_brand_tokens(store)
-    brand_queries = [q for q in queries if any(brand_hit(b, q) for b in brands)]
+    brand_queries = [q for q in queries if is_brand(brands, q)]
     if brand_queries:
         sys.exit(f"Refusing to draft: {brand_queries} contains brand token(s). "
                  f"Brand queries measure indexation only, not demand. "
@@ -200,7 +231,7 @@ def ingest_by_observed_day(store: Path, snapshot: dict, group: str = "target", g
     return new
 
 
-def refresh_basket(rows: list, markets_filter, failed_only: bool) -> tuple:
+def refresh_basket(rows: list, markets_filter, failed_only: bool, brands=()) -> tuple:
     """({market: [keywords]}, {(market, keyword): group}) to ask again. A key's newest observation decides: by its
     date, then by its line, because history ingested after the fact sits below newer rows in the file."""
     latest = {}
@@ -209,6 +240,8 @@ def refresh_basket(rows: list, markets_filter, failed_only: bool) -> tuple:
     basket = {}
     for (market, keyword), r in latest.items():
         if markets_filter and market not in markets_filter:
+            continue
+        if is_brand(brands, keyword):
             continue
         if failed_only and r["status"] != "error":
             continue
@@ -235,7 +268,7 @@ def refresh(store: Path, bundle: str, markets_filter, failed_only: bool, delay: 
     rows = read_ranks(store)
     if not rows:
         sys.exit("nothing tracked yet: ingest a snapshot before refreshing")
-    basket, groups = refresh_basket(rows, markets_filter, failed_only)
+    basket, groups = refresh_basket(rows, markets_filter, failed_only, read_brand_tokens(store))
     if not basket:
         print("nothing to refresh with those filters")
         return 0
