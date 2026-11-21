@@ -162,7 +162,8 @@ store lacks, so a first pass is long and later ones are short. A rate-limited fu
 pull goes on from there. Run the pass in a subagent on a cheaper model when one is available, and judge
 here. Single sources: `ios-aso-copilot funnel`, `ios-aso-copilot ga`, `ios-aso-copilot rc`,
 `ios-aso-copilot telemetry`, `ios-aso-copilot reviews`, `ios-aso-copilot charts`. Everything else:
-`references/collect.md`.
+`references/collect.md`. With SwiftBar set up, the pass starts from its menu; without it, run the commands
+yourself: `references/swiftbar.md`.
 
 ## Export and page
 
@@ -220,6 +221,7 @@ is prepared as a diff, queued, and applied only under an authorization that cove
 | The pass, identity, narrow commands, release status | `references/collect.md` |
 | Data contract, files, page, `STATE.md` | `references/export-and-page.md` |
 | Publishing the page, the scheduled pass | `references/publish.md` |
+| Menu bar (SwiftBar), and when it is not set up | `references/swiftbar.md` |
 | Verdicts, evidence rules, drafting | `references/judge.md`, `references/aso-loop.md` |
 | What needs authorization, the queue | `references/actions.md`, `references/commands.md` |
 | Store files and their columns | `references/state-store.md` |
