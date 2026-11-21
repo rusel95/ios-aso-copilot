@@ -220,7 +220,9 @@ class EverythingTheSourcesGive(unittest.TestCase):
             "week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts,source,recorded,note\n"
             "2026-11-02,all,563,65,33,,,s,2026-11-10,\n2026-11-02,ua,459,60,31,,,s,2026-11-10,\n"
             "2026-11-02,us,104,5,2,,,s,2026-11-10,\n2026-11-02,us,104,5,50,,,s,2026-11-03,\n"           # an older reading of the same week
-            "2026-11-02,search,300,40,20,,,s,2026-11-10,\n", encoding="utf-8")
+            "2026-11-02,search,300,40,20,,,s,2026-11-10,\n"
+            # a second week the other way round: by the newest week alone US would win (40 v 20); over both weeks UA does (51 v 42)
+            "2026-11-09,ua,200,20,20,,,s,2026-11-16,\n2026-11-09,us,300,30,40,,,s,2026-11-16,\n", encoding="utf-8")
         return store
 
     def test_the_home_storefront_is_where_the_downloads_come_from_not_where_the_basket_is_widest(self):
