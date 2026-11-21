@@ -13,7 +13,7 @@ from aso.commands.charts import fetch_category_chart, genre_ids, read_charts
 from aso.commands.collect import fetch_lookup, funnel_script, prepare_funnel_pull
 from aso.commands.parallel import run_stages
 from aso.pull_revenuecat_series import ADS_COLS, ADS_KEEP
-from aso.store import append_changed, read_ranks
+from aso.store import append_changed, read_csv, read_ranks
 from aso.store_state import first_release_day, store_charts, store_ratings, store_release
 from pull_bigquery_telemetry import parse_config, store_weeks
 
@@ -163,17 +163,44 @@ def cashflow_digest(store: Path):
 TELEMETRY_WEEKS_PER_PASS = 8
 
 
+def named_storefronts(config: dict) -> list:
+    return [c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
+
+
 def chart_storefronts(store: Path, config: dict) -> list:
     """The storefronts to read the category charts in: the ones config.md names, else every storefront the store
     tracks a key in, the one with most keys first (the feeds are public, so nothing is needed to ask)."""
-    named = [c.strip().lower() for c in config.get("Charts storefronts", "").split(",") if c.strip()]
-    if named:
-        return named
+    if named_storefronts(config):
+        return named_storefronts(config)
     keys = {}
     for r in read_ranks(store):
         if r.get("market"):
             keys.setdefault(r["market"], set()).add(r["keyword"])
     return sorted(keys, key=lambda market: (-len(keys[market]), market))
+
+
+def home_storefront(store: Path, config: dict):
+    """The one storefront `status` shows a chart for, because that is where the app is: the first config.md names; else
+    the one with the most first downloads in the funnel (its storefront rows, each week once, as last recorded); else
+    where the store tracks most keys. A basket is widest where it is searched, which is not where the app lives."""
+    if named_storefronts(config):
+        return named_storefronts(config)[0]
+    latest = {}
+    for r in read_csv(store / "metrics" / "weekly.csv"):
+        territory = (r.get("segment") or "").strip().lower()
+        if len(territory) == 2 and territory.isalpha():
+            at = (r.get("week_start"), territory)
+            if at not in latest or (r.get("recorded") or "") >= latest[at][0]:
+                latest[at] = (r.get("recorded") or "", r.get("downloads"))
+    brought = {}
+    for (_, territory), (_, downloads) in latest.items():
+        try:
+            brought[territory] = brought.get(territory, 0) + int(float(downloads or 0))
+        except ValueError:
+            continue
+    if any(brought.values()):
+        return max(sorted(brought), key=lambda territory: brought[territory])
+    return next(iter(chart_storefronts(store, config)), None)
 
 
 def collect_extras(store: Path, app: dict) -> bool:
