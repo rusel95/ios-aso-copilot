@@ -1,0 +1,18 @@
+usage: copilot.py keywords registry [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
+                                    {build,show,add} ...
+
+positional arguments:
+  {build,show,add}
+    build           Fold ranks, tracking lists, ads files, popularity and hypotheses into
+                    keywords/registry.csv
+    show            Counts by market and source, candidates not yet tracked, overlaps, apostrophe
+                    twins
+    add             Record keywords a network command found, with their source
+
+options:
+  -h, --help        show this help message and exit
+  --store STORE     Path to marketing store directory
+  --debug, -d       Print debug diagnostics to stderr
+  --info, -v        Print informational logs to stderr
+  --quiet, -q       Suppress non-essential output
+  --json            Format output as JSON where applicable

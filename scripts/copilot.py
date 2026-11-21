@@ -29,6 +29,14 @@ from aso.commands.dashboard import cmd_build, cmd_check, cmd_due, cmd_export, cm
 from aso.commands.google import cmd_google  # noqa: E402
 from aso.commands.keywords import cmd_keywords  # noqa: E402
 from aso.commands.status import cmd_brief, cmd_info, cmd_status  # noqa: E402
+from aso.keyword_registry import NETWORK_SOURCES  # noqa: E402
+
+
+def _at_least_one(text):
+    number = int(text)
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not 1 or more")
+    return number
 
 
 def build_parser():
@@ -62,6 +70,7 @@ def build_parser():
     p_hint = kw_subs.add_parser("hints", help="Apple App Store autocomplete hints", parents=[common_parent])
     p_hint.add_argument("--term", "-t", required=True, help="Search prefix/term")
     p_hint.add_argument("--country", "-c", "--storefront", default="us", help="Storefront code (e.g. us, pl, jp)")
+    p_hint.add_argument("--record", action="store_true", help="Record the hints in the keyword registry (autocomplete-hints)")
 
     p_vac = kw_subs.add_parser("vacuum", help="Audit localization vacuum in storefront", parents=[common_parent])
     p_vac.add_argument("--term", "-t", required=True, help="Keyword query")
@@ -77,12 +86,28 @@ def build_parser():
     p_comp.add_argument("--seeds", "-s", required=True, help="Comma-separated seed terms")
     p_comp.add_argument("--country", "-c", default="us", help="Country code (e.g. us, pl)")
     p_comp.add_argument("--limit", type=int, default=25, help="Limit of competitors")
+    p_comp.add_argument("--record", action="store_true", help="Record the competitors' app names in the keyword registry (competitor-harvest)")
 
     p_filt = kw_subs.add_parser("filter", help="Deterministic candidate review and export", parents=[common_parent])
     p_filt.add_argument("--input", "-i", required=True, help="Input CSV path")
     p_filt.add_argument("--output", "-o", required=True, help="Output directory")
     p_filt.add_argument("--brand", action="append", default=[], help="Protected brand name(s)")
     p_filt.add_argument("--limit", type=int, default=5000, help="Max candidates ceiling")
+
+    p_reg = kw_subs.add_parser("registry", help="One pool of every keyword the store knows, with where each came from (offline)",
+                               parents=[common_parent])
+    reg_subs = p_reg.add_subparsers(dest="registry_action")
+    p_rbuild = reg_subs.add_parser("build", help="Fold ranks, tracking lists, ads files, popularity and hypotheses into keywords/registry.csv",
+                                   parents=[common_parent])
+    p_rbuild.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day the rows are recorded for (default: today)")
+    p_rshow = reg_subs.add_parser("show", help="Counts by market and source, candidates not yet tracked, overlaps, apostrophe twins",
+                                  parents=[common_parent])
+    p_rshow.add_argument("--limit", type=_at_least_one, default=10, help="How many candidates and overlaps to list (default: 10)")
+    p_radd = reg_subs.add_parser("add", help="Record keywords a network command found, with their source", parents=[common_parent])
+    p_radd.add_argument("terms", nargs="+", help="The keywords found")
+    p_radd.add_argument("--market", "-c", required=True, help="Storefront code they were found for (e.g. us, pl)")
+    p_radd.add_argument("--source", required=True, choices=NETWORK_SOURCES, help="Which network command found them")
+    p_radd.add_argument("--as-of", metavar="YYYY-MM-DD", help="The day they were seen (default: today)")
 
     # ads
     p_ads = subparsers.add_parser("ads", help="Manage Apple Ads campaigns, ad groups, and keywords", parents=[common_parent])
@@ -223,6 +248,7 @@ def build_parser():
     p_gsug.add_argument("--lang", "-l", default="uk", help="Language code (default: uk)")
     p_gsug.add_argument("--limit", type=int, default=15, help="Max results (default: 15)")
     p_gsug.add_argument("--matrix", action="store_true", help="Deep multi-angle intent matrix expansion")
+    p_gsug.add_argument("--record", action="store_true", help="Record the suggestions in the keyword registry (google-suggest)")
 
     p_gbatch = goog_subs.add_parser("batch", help="Batch relative volume profiling normalized to an anchor keyword", parents=[common_parent])
     p_gbatch.add_argument("--anchor", "-a", required=True, help="Anchor keyword (normalized to 100.0)")

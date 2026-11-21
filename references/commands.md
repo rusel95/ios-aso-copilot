@@ -271,6 +271,12 @@ ios-aso-copilot keywords competitors --country pl --seeds "kompresor wideo,czysz
 
 # Deterministic validation and review export
 ios-aso-copilot keywords filter --input candidates.csv --output reviewed/ --brand myapp
+
+# One pool of every keyword the store knows, with where each came from (offline; files in `references/state-store.md`)
+ios-aso-copilot keywords registry build [--as-of 2026-11-14]     # fold ranks, tracking lists, ads/, popularity, hypotheses
+ios-aso-copilot keywords registry show [--limit 15] [--json]      # counts, candidates not tracked, overlaps, apostrophe twins
+ios-aso-copilot keywords registry add --market pl --source google-suggest "kompresor zdjęć" "kompresor wideo"   # --source: autocomplete-hints, google-suggest or competitor-harvest
+# `--record` on `keywords hints`, `keywords competitors`, `google suggest` and `harvest_keywords.py` does the same for what they found
 ```
 
 #### 4. Apple Ads Management
