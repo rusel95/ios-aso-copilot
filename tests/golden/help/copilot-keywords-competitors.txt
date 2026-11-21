@@ -1,5 +1,6 @@
 usage: copilot.py keywords competitors [-h] [--store STORE] [--debug] [--info] [--quiet] [--json]
                                        --seeds SEEDS [--country COUNTRY] [--limit LIMIT]
+                                       [--record]
 
 options:
   -h, --help            show this help message and exit
@@ -12,3 +13,5 @@ options:
   --country, -c COUNTRY
                         Country code (e.g. us, pl)
   --limit LIMIT         Limit of competitors
+  --record              Record the competitors' app names in the keyword registry (competitor-
+                        harvest)

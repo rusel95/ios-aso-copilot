@@ -127,11 +127,20 @@ def _today() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
+def _record(args: argparse.Namespace, market: str, terms: list[str], source: str) -> None:
+    """`--record`: put what was just printed into the store's keyword registry (offline; dated today)."""
+    from aso import keyword_registry
+    done = keyword_registry.add(Path(args.store).resolve(), market, terms, source, _today())
+    print(f"recorded {len(terms)} {source} keyword(s) in {keyword_registry.REGISTRY}: appended {done['appended']} rows", file=sys.stderr)
+
+
 def cmd_hints(args: argparse.Namespace) -> None:
     terms = fetch_hints(args.term, args.storefront)
     tag = f"live:MZSearchHints@{_today()}"
     for rank, term in enumerate(terms, start=1):
         print(f"{rank}\t{term}\t[{tag}]")
+    if args.record:
+        _record(args, args.storefront, terms, "autocomplete-hints")
 
 
 def cmd_competitors(args: argparse.Namespace) -> None:
@@ -140,6 +149,8 @@ def cmd_competitors(args: argparse.Namespace) -> None:
     tag = f"live:itunes-search-api@{_today()}"
     for name, count in ranked:
         print(f"{count}\t{name}\t[{tag}]")
+    if args.record:
+        _record(args, args.country, [name for name, _ in ranked], "competitor-harvest")
 
 
 def self_check() -> None:
@@ -179,11 +190,15 @@ def build_parser() -> argparse.ArgumentParser:
     hints_p = sub.add_parser("hints", help="autocomplete suggestions for one term/storefront")
     hints_p.add_argument("--term", required=True)
     hints_p.add_argument("--storefront", required=True, choices=sorted(STOREFRONTS))
+    hints_p.add_argument("--record", action="store_true", help="also record the hints in the store's keyword registry")
+    hints_p.add_argument("--store", default="marketing", help="the marketing store --record writes to (default: ./marketing)")
     hints_p.set_defaults(func=cmd_hints)
 
     comp_p = sub.add_parser("competitors", help="rank apps by seed-term overlap")
     comp_p.add_argument("--seeds", required=True, help="comma-separated seed terms")
     comp_p.add_argument("--country", required=True, choices=sorted(STOREFRONTS))
+    comp_p.add_argument("--record", action="store_true", help="also record the app names in the store's keyword registry")
+    comp_p.add_argument("--store", default="marketing", help="the marketing store --record writes to (default: ./marketing)")
     comp_p.set_defaults(func=cmd_competitors)
 
     return parser

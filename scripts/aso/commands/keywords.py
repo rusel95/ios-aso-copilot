@@ -1,12 +1,15 @@
 """Keyword research commands: hints, vacuums, popularity, competitors, the review filter."""
 
+import datetime as dt
 import json
 import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from aso import keyword_registry
 from aso.commands.base import SKILL_DIR, log_debug, log_error, log_info, resolve_app_identity, run_cmd
+from aso.store import print_problems
 
 
 def probe_localization_vacuum(term: str, country: str, limit: int = 25):
@@ -113,9 +116,81 @@ def cmd_keywords(args):
         return cmd_keywords_competitors(args)
     elif subaction == "filter":
         return cmd_keywords_filter(args)
+    elif subaction == "registry":
+        return cmd_keywords_registry(args)
     else:
-        print("Unknown keywords subcommand. Use: hints, vacuum, popularity, competitors, filter")
+        print("Unknown keywords subcommand. Use: hints, vacuum, popularity, competitors, filter, registry")
         return 1
+
+
+def record_found(args, market, terms, source):
+    """`--record` on a network command: put what it just found into the keyword registry, dated today (the clock is read
+    here, in the command, never in the registry). Reports on stderr so `--json` output stays whole; never fails the command."""
+    store = Path(args.store).resolve()
+    try:
+        done = keyword_registry.add(store, market, terms, source, dt.date.today())
+    except (ValueError, OSError) as exc:
+        log_error(f"Not recorded in the keyword registry: {exc}")
+        return
+    log_info(f"Recorded {len(terms)} {source} keyword(s) for {market} in {keyword_registry.REGISTRY}: appended {done['appended']} rows")
+
+
+def cmd_keywords_registry(args):
+    """build / show / add the keyword registry. Offline: it reads and writes files under the store, nothing else."""
+    store = Path(args.store).resolve()
+    if not store.is_dir():
+        print(f"Store not found: {store}")
+        return 2
+    action = getattr(args, "registry_action", None)
+    as_of = dt.date.fromisoformat(args.as_of) if getattr(args, "as_of", None) else dt.date.today()
+    if action in ("build", "add"):
+        print(f"as of {as_of}")
+        try:
+            if action == "add":
+                done = keyword_registry.add(store, args.market, args.terms, args.source, as_of)
+            else:
+                done = keyword_registry.build(store, as_of)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return 2
+        print(f"registry {action}: appended {done['appended']} rows ({done['new']} new keys) to {keyword_registry.REGISTRY}; "
+              f"{done['keys']} keys in all")
+        print("read, keys by source: " + " · ".join(f"{name} {n}" for name, n in done["read"].items()))
+        for where, why in done["skipped"][:12]:
+            print(f"NOTE {where}: {why}")
+        if len(done["skipped"]) > 12:
+            print(f"NOTE ... and {len(done['skipped']) - 12} more files or rows that name no storefront")
+        print_problems()
+        return 0
+    if action == "show":
+        rows = keyword_registry.read_registry(store)
+        if not rows:
+            print(f"No keyword registry yet at {store / keyword_registry.REGISTRY}: run `copilot.py keywords registry build`.")
+            return 1
+        shown = keyword_registry.summary(rows, args.limit)
+        if getattr(args, "json", False):
+            print(json.dumps(shown, indent=2, ensure_ascii=False))
+            return 0
+        print(f"keyword registry: {shown['keys']} keys in {keyword_registry.REGISTRY}")
+        if shown["excluded"]:
+            print("kept apart, left out of candidates and overlaps: " + ", ".join(f"{n} {why}" for why, n in shown["excluded"].items()))
+        print(f"\n{'market':<8}{'keys':>6}{'tracked':>9}{'candidates':>12}{'excluded':>10}")
+        for market, m in shown["by_market"].items():
+            print(f"{market:<8}{m['keys']:>6}{m['tracked']:>9}{m['candidates']:>12}{m['excluded']:>10}")
+        print("\nby source (a key counts once for each source that named it): " + " · ".join(f"{k} {n}" for k, n in shown["by_source"].items()))
+        print("\nlargest overlaps (keys two sources both name):")
+        for o in shown["overlaps"]:
+            print(f"  {o['sources'][0]} + {o['sources'][1]}: {o['keys']}")
+        if shown["twins"]:
+            print("\ntwo queries to Apple, one to a person (U+0027 vs U+2019; both kept, ranked apart):")
+            for t in shown["twins"]:
+                print(f"  {t['market']}  " + "  |  ".join(t["keywords"]))
+        print(f"\ncandidates not tracked, most-named first (first {len(shown['candidates'])}):")
+        for c in shown["candidates"]:
+            print(f"  {c['market']}  {c['keyword']}  [{'; '.join(c['sources'])}]" + (f"  {c['popularity']}" if c["popularity"] else ""))
+        return 0
+    print("Unknown registry action. Use: build, show, add")
+    return 1
 
 
 def cmd_keywords_hints(args):
@@ -129,6 +204,8 @@ def cmd_keywords_hints(args):
         log_error(f"Failed to fetch hints: {e}")
         print(f"Error fetching hints: {e}")
         return 1
+    if getattr(args, "record", False):
+        record_found(args, storefront, hints, "autocomplete-hints")
     if getattr(args, "json", False):
         print(json.dumps({"term": term, "storefront": storefront, "hints": hints}, indent=2))
         return 0
@@ -240,6 +317,8 @@ def cmd_keywords_competitors(args):
         log_error(f"Failed to fetch competitors: {e}")
         print(f"Error fetching competitors: {e}")
         return 1
+    if getattr(args, "record", False):
+        record_found(args, country, [name for name, _ in comps], "competitor-harvest")
     if getattr(args, "json", False):
         print(json.dumps([{"app": name, "hits": hits} for name, hits in comps], indent=2))
         return 0
