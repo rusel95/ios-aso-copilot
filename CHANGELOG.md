@@ -81,6 +81,10 @@ self-contained page. The same store and day give the same bytes.
   answer for a week Apple has settled instead of asking again every pass. `status` reads the chart of the store's
   own storefront, not always Ukraine. The committed `.claude/launch.json` that named one machine's scratch folder
   is gone, and a test fails on a tracked file that names one.
+- **What a second run on the real store found in that.** `status` shows the chart of the storefront that brings
+  the most first downloads in the funnel (config.md's first `Charts storefronts` still decides), not the one with
+  the most tracked keys: a basket is widest where it is searched, which is not where the app lives. A `Charts
+  genres` line with no genre the skill knows says so instead of "list index out of range".
 
 **Changed behaviour to know about.** The pass pulls the funnel with the skill's own `pull_funnel.py` even
 when the app's store carries a script of that name: only the skill's collector writes closed Monday weeks,

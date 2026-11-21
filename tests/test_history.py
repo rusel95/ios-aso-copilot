@@ -207,6 +207,53 @@ class EverythingTheSourcesGive(unittest.TestCase):
         self.assertEqual(ratings_rows(ratings, None, "2026-11-14")[0]["reviews"], "")       # not read: blank, not zero
         self.assertNotIn("not kept", str(rows))
 
+    def home_store(self, tmp, config="**App ID**: 1000000001\n"):
+        """A store whose basket is widest in the US and whose downloads come from UA."""
+        store = Path(tmp)
+        (store / "metrics").mkdir()
+        (store / "config.md").write_text(config, encoding="utf-8")
+        (store / "metrics" / "ranks.csv").write_text(
+            "date,market,keyword,group,position,popularity,difficulty,source,depth,status\n"
+            "2026-11-02,ua,a,target,3,,,itunes-search-api,200,ok\n"
+            "2026-11-02,us,a,target,3,,,itunes-search-api,200,ok\n2026-11-02,us,b,target,9,,,itunes-search-api,200,ok\n", encoding="utf-8")
+        (store / "metrics" / "weekly.csv").write_text(
+            "week_start,segment,impressions,product_page_views,downloads,cvr_pct,trial_starts,source,recorded,note\n"
+            "2026-11-02,all,563,65,33,,,s,2026-11-10,\n2026-11-02,ua,459,60,31,,,s,2026-11-10,\n"
+            "2026-11-02,us,104,5,2,,,s,2026-11-10,\n2026-11-02,us,104,5,50,,,s,2026-11-03,\n"           # an older reading of the same week
+            "2026-11-02,search,300,40,20,,,s,2026-11-10,\n", encoding="utf-8")
+        return store
+
+    def test_the_home_storefront_is_where_the_downloads_come_from_not_where_the_basket_is_widest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.home_store(tmp)
+            self.assertEqual(cycle.home_storefront(store, {}), "ua")                         # not "us", which has more keys
+            self.assertEqual(cycle.home_storefront(store, {"Charts storefronts": "DE, fr"}), "de")      # config.md decides
+            (store / "metrics" / "weekly.csv").unlink()
+            self.assertEqual(cycle.home_storefront(store, {}), "us")                         # no funnel: where the keys are
+            (store / "metrics" / "ranks.csv").unlink()
+            self.assertIsNone(cycle.home_storefront(store, {}))
+
+    def test_the_status_chart_follows_the_home_storefront_and_names_what_it_cannot_do(self):
+        from aso.commands import status
+        app = {"app_id": "1000000001", "brand": "tidepool", "ads_genres": []}
+        chart = [{"app_id": "7", "name": "Other", "developer": "d", "rank": 99}]
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self.home_store(tmp)
+            with contextlib.redirect_stdout(io.StringIO()) as said, mock.patch.object(status, "fetch_category_chart", return_value=(chart, "")) as fetched:
+                status.chart_line(store, app)
+            self.assertEqual(fetched.call_args.args[:2], ("ua", 6002))
+            self.assertIn("Not in Top Free Utilities [UA]", said.getvalue())
+            (store / "config.md").write_text("**App ID**: 1000000001\n**Charts genres**: nonsense\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as said, mock.patch.object(status, "fetch_category_chart") as fetched:
+                status.chart_line(store, app)                                                   # no IndexError, no query
+            fetched.assert_not_called()
+            self.assertIn("name no genre this skill knows", said.getvalue())
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "config.md").write_text("**App ID**: 1000000001\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as said:
+                status.chart_line(Path(tmp), app)
+            self.assertIn("not set up", said.getvalue())
+
     def test_the_charts_are_read_first_where_the_store_tracks_most_keys(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp)
